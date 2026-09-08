@@ -28,7 +28,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # `enablement: true` turns GitHub Pages on for the repository if it is
       # not on already, using the workflow token's `pages: write` permission.
