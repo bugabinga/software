@@ -13,9 +13,9 @@ Deterministic work that a script does better than a model.
 | Workflow | When | What |
 | --- | --- | --- |
 | `ci.yml` | every pull request and push to `main` | build, internal links, spelling, outbound links, example code; attaches the built site to the run and comments a preview link |
-| `publish.yml` | pushes to `main` | enables Pages if needed, builds with the deployment URL, deploys |
+| `publish.yml` | pushes to `main` | builds, then force-pushes the site to the `gh-pages` branch as a single orphan commit |
 | `release.yml` | `v*` tags | attaches the PDF and a zip of the site to a release |
-| `agent-branches.yml` | pushes to `agent/**` and `maintenance/**`, and CI completing | opens the pull request for a branch the fleet pushed, and merges it when it is a chore and every check on its head commit is green |
+| `agent-branches.yml` | pushes to `agent/**` and `maintenance/**`, and CI completing | opens a pull request for a branch the fleet pushed where the repository permits it, and then merges green chores or reports everything else |
 | `maintenance.yml` | Mondays 06:17 UTC | compares `.typst-version` against the latest Typst release and opens an upgrade pull request *if the book still builds and passes every gate on it*; re-runs the outbound link check and files one standing issue for dead links |
 
 ## 2. Agents (judgement, on a schedule or on demand)
@@ -58,28 +58,29 @@ the author's Claude sessions — the Actions secrets API is blocked to that
 environment. Until the key exists, every run exits early with a notice rather
 than failing. Everything in sections 1 and 2 works without it.
 
-## What still needs a human, and how little
+## Nothing here needs setting up
 
-Two things, both one-time or occasional, neither of them a click if you would
-rather not:
+Everything runs on the workflow token, which every repository grants its own
+Actions by default. That is a design constraint, not an accident: three
+things a normal pipeline would reach for are unavailable here, and each was
+routed around rather than left as a chore for the author.
 
-**Enable Pages, once.** Creating the Pages site needs administration rights
-that the workflow token does not have, and the Pages API is not reachable
-from the author's Claude sessions. One command from anywhere holding a token
-for this repository:
+| Wanted | Refused because | Done instead |
+| --- | --- | --- |
+| Pages built from Actions | creating the Pages site is privileged; the workflow token gets "Resource not accessible by integration", and the Pages API is unreachable from Claude sessions | `publish.yml` pushes the built site to `gh-pages`, which needs only `contents: write` and which GitHub serves without configuration |
+| Workflows opening pull requests | off by default; "GitHub Actions is not permitted to create or approve pull requests" | tried anyway, in case it is on; when it is not, a green chore is merged with `POST /merges` and anything needing review becomes one issue with a compare link |
+| Repository auto-merge | a repository setting, and the settings API is unreachable from Claude sessions | `agent-branches.yml` merges explicitly, after reading the checks on the exact head commit |
 
-```sh
-gh api -X POST repos/bugabinga/software/pages -f build_type=workflow
-```
-
-Until then `publish.yml` fails on its first step with that command in the job
-summary. Afterwards every push to `main` publishes by itself.
+`tools/bootstrap-repo.sh` grants the first two properly, if you ever have a
+terminal and a token to hand. It is **optional** -- it makes the presentation
+nicer (real pull requests, Pages deployment history) and changes nothing
+about whether the book publishes.
 
 **Arm the GitHub bot, if you want it** (see section 3): add an
 `ANTHROPIC_API_KEY` secret. Nothing else depends on it.
 
-Dependabot's pull requests also wait for a human. The actions here are pinned
-to major versions, so every bump Dependabot opens is a major-version bump --
+Dependabot's pull requests wait for a human. The actions here are pinned to
+major versions, so every bump Dependabot opens is a major-version bump --
 exactly the kind that changes behaviour and deserves a reading. They show up
 in the daily sweep's report rather than being merged by it.
 

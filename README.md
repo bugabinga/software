@@ -90,10 +90,11 @@ tools/
 ## Publishing
 
 Pushes to `main` publish the site to
-<https://bugabinga.github.io/software/>. No setup needed: `publish.yml` turns
-Pages on itself, via `actions/configure-pages` with `enablement: true`, and
-passes the deployment URL into the build so canonical links, Open Graph tags
-and `sitemap.xml` are absolute.
+<https://bugabinga.github.io/software/>. There is nothing to set up:
+`publish.yml` builds the book and force-pushes it to the `gh-pages` branch as
+a single commit, which needs no permission beyond the workflow token's own
+and no Pages configuration. The deployment URL is passed into the build, so
+canonical links, Open Graph tags and `sitemap.xml` are absolute.
 
 Every pull request gets a full build with the site attached to the run as an
 artifact, and a comment linking to it.

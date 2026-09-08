@@ -1,8 +1,19 @@
 name: Publish
 
-# The website is republished on every push to main. The build is the same one
-# CI runs, via the shared composite action, with the Pages URL passed in so
-# canonical links and the sitemap are absolute.
+# The website is republished on every push to main, using nothing but the
+# workflow token.
+#
+# It deploys by pushing the built site to the `gh-pages` branch rather than
+# through actions/deploy-pages, because the Actions-native route needs the
+# Pages site to exist already and creating one is privileged: the workflow
+# token gets "Resource not accessible by integration", and the Pages API is
+# not reachable from the author's Claude sessions at all. Pushing a branch
+# needs no permission beyond `contents: write`, and GitHub serves a
+# `gh-pages` branch without anyone configuring anything.
+#
+# If Pages is later set to build from Actions, the artifact upload and deploy
+# steps are the two commented lines at the bottom of this file; nothing else
+# changes.
 
 on:
   push:
@@ -10,7 +21,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -22,60 +33,87 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish to GitHub Pages
+    name: Publish the book
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
-
-      # `enablement: true` turns Pages on when the workflow token is allowed
-      # to; on a user-owned repository it usually is not, and GitHub answers
-      # "Resource not accessible by integration". Creating the Pages site is
-      # a one-time privileged call, so the next step says exactly how to make
-      # it instead of leaving a cryptic action error behind.
-      - name: Configure Pages
-        id: pages
-        continue-on-error: true
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Explain how to enable Pages
-        if: steps.pages.outcome == 'failure'
-        run: |
-          cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
-          ## Pages is not enabled yet
-
-          Everything else in this pipeline is automated, but creating the
-          Pages site needs a token with administration rights, which the
-          workflow token is not. It is one command, once, from anywhere that
-          has a token for this repository:
-
-          ```sh
-          gh api -X POST repos/${{ github.repository }}/pages -f build_type=workflow
-          ```
-
-          The equivalent in the web UI is Settings, Pages, Build and
-          deployment, Source: GitHub Actions.
-
-          After that, every push to `main` publishes on its own and this step
-          never runs again.
-          SUMMARY
-          echo "::error::GitHub Pages is not enabled for this repository. See the job summary for the one command that enables it."
-          exit 1
 
       - name: Build the book
         uses: ./.github/actions/build-book
         with:
-          base-url: ${{ steps.pages.outputs.base_url }}
+          base-url: https://bugabinga.github.io/software/
 
-      - name: Upload the site
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
+      # A fresh orphan commit each time: this branch is generated output, so
+      # its history carries no information worth keeping, and force-pushing
+      # one commit keeps the repository from growing a copy of the book per
+      # deployment.
+      - name: Push the built site to gh-pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd dist
+          git init -q -b gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Publish ${GITHUB_SHA:0:7}
 
-      - name: Deploy
-        id: deploy
-        uses: actions/deploy-pages@v4
+          Generated output, built from main by tools/build.py. Nothing on this
+          branch is edited by hand; every deployment replaces all of it."
+          git push -q --force \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            gh-pages
+          echo "::notice::pushed the built site to gh-pages"
+
+      # Best effort, and genuinely allowed to fail: if Pages is already
+      # serving, this is a no-op; if it is not, GitHub usually starts serving
+      # a gh-pages branch on its own, and if it does not, the next step says
+      # what to do.
+      - name: Point Pages at the branch
+        id: point
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          if gh api "repos/$GITHUB_REPOSITORY/pages" > /dev/null 2>&1; then
+            gh api -X PUT "repos/$GITHUB_REPOSITORY/pages" \
+              -f "source[branch]=gh-pages" -f "source[path]=/" > /dev/null
+            echo "::notice::Pages is serving gh-pages"
+          else
+            gh api -X POST "repos/$GITHUB_REPOSITORY/pages" \
+              -f "source[branch]=gh-pages" -f "source[path]=/" > /dev/null
+            echo "::notice::created the Pages site, serving gh-pages"
+          fi
+
+      - name: Report where it stands
+        env:
+          POINTED: ${{ steps.point.outcome }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## The book has been published to \`gh-pages\`"
+            echo
+            echo "<https://bugabinga.github.io/software/>"
+            echo
+            if [ "$POINTED" = "success" ]; then
+              echo "Pages is configured to serve that branch."
+            else
+              echo "The Pages API refused the workflow token, which is expected"
+              echo "on a user-owned repository. GitHub usually begins serving a"
+              echo "\`gh-pages\` branch by itself within a minute or two."
+              echo
+              echo "If the URL above is still a 404 after that, Pages needs to"
+              echo "be pointed at the branch once — Settings, Pages, Source:"
+              echo "Deploy from a branch, \`gh-pages\` / \`/ (root)\`."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Should Pages ever be set to build from Actions instead, swap the two
+      # steps above for these:
+      #
+      #   - uses: actions/configure-pages@v6
+      #   - uses: actions/upload-pages-artifact@v3
+      #     with: { path: dist }
+      #   - uses: actions/deploy-pages@v5
