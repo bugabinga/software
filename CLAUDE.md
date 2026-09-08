@@ -70,14 +70,22 @@ already have a working `.tools/typst/typst`.
 
 ## CI
 
-Three workflows share one build definition in
+The workflows share one build definition in
 `.github/actions/build-book/action.yml`:
 
 - `ci.yml` -- build (strict), internal links, example code, spelling,
   outbound links; uploads the site as an artifact and comments a preview link
   on pull requests. The comment step is `continue-on-error` because pull
   requests from forks get a read-only token.
-- `publish.yml` -- deploys `dist/` to GitHub Pages on pushes to `main`.
+- `publish.yml` -- publishes on pushes to `main` by force-pushing `dist/` to
+  the `gh-pages` branch. Not via `actions/deploy-pages`: creating a Pages
+  site is privileged and the workflow token cannot do it, while pushing a
+  branch needs only `contents: write`. `gh-pages` is generated output -- one
+  orphan commit per deployment, never edited by hand.
+- `agent-branches.yml` -- the fleet pushes branches and nothing else. This
+  opens their pull requests where the repository allows Actions to, merges
+  green chores either way, and turns anything needing review into one issue
+  with a compare link. Everything it does uses the workflow token only.
 - `release.yml` -- on a `v*` tag, attaches the PDF and a zip of the site.
 
 Pinned tool versions: Typst in `.typst-version`, typos in `ci.yml`'s
