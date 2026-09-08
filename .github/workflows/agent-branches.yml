@@ -1,0 +1,141 @@
+name: Agent branches
+
+# The GitHub-side bookkeeping for work the fleet pushes.
+#
+# Agents push a branch and stop there. This workflow opens the pull request
+# for it and, when the branch is a chore and every check on it is green,
+# merges it. That split is deliberate:
+#
+#   * an unattended session may not be able to call the pull-request API at
+#     all -- GraphQL is restricted in that environment and mutating REST calls
+#     can be refused -- while `git push` always works;
+#   * the decision to merge is then made by a workflow whose rules are in the
+#     repository and readable, rather than by whatever an agent concluded at
+#     07:00;
+#   * and it needs no repository-level auto-merge and no personal access
+#     token: the workflow token is enough.
+#
+# The policy this enforces is the one in docs/FLEET.md.
+
+on:
+  push:
+    branches:
+      - "agent/**"
+      - "maintenance/**"
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  open-pull-request:
+    name: Open the pull request
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Find or create it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          existing=$(gh api "repos/$REPO/pulls?head=${REPO%%/*}:$BRANCH&state=open" \
+            --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "::notice::#$existing already tracks $BRANCH"
+            exit 0
+          fi
+
+          # The branch's own commit message is the description: an agent that
+          # explained itself in the commit does not have to explain twice.
+          subject=$(git log -1 --format=%s)
+          body=$(git log -1 --format=%b)
+
+          printf '%s\n\n%s\n\n---\n_Opened by the agent-branches workflow. See docs/FLEET.md._\n' \
+            "$body" "Pushed by \`$BRANCH\`." > /tmp/pr-body.md
+
+          number=$(gh api -X POST "repos/$REPO/pulls" \
+            -f title="$subject" \
+            -f head="$BRANCH" \
+            -f base=main \
+            -F body=@/tmp/pr-body.md \
+            --jq .number)
+          echo "::notice::opened #$number for $BRANCH"
+
+  merge-green-chores:
+    name: Merge green chores
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Decide, and merge if it qualifies
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          number=$(gh api "repos/$REPO/pulls?head=${REPO%%/*}:$BRANCH&state=open" \
+            --jq '.[0].number // empty')
+          if [ -z "$number" ]; then
+            echo "no open pull request for $BRANCH; nothing to merge"
+            exit 0
+          fi
+
+          # A held pull request is never merged automatically, whatever it
+          # touches. This is the escape hatch for "green, but look at it".
+          if gh api "repos/$REPO/issues/$number/labels" --jq '.[].name' | grep -qx 'hold'; then
+            echo "::notice::#$number is labelled hold; leaving it"
+            exit 0
+          fi
+
+          # Chore, per docs/FLEET.md: nothing that is the book, its styling,
+          # or the automation itself. A change to .github/ or .claude/ is the
+          # machinery deciding its own future, which is a human's call.
+          protected='^(book/chapters/|book/book\.toml|book/lib/|site/|\.github/|\.claude/)'
+          files=$(gh api --paginate "repos/$REPO/pulls/$number/files" --jq '.[].filename')
+          echo "files changed:"; echo "$files" | sed 's/^/  /'
+
+          if echo "$files" | grep -qE "$protected"; then
+            echo "::notice::#$number touches the book or the automation; leaving it for the author"
+            exit 0
+          fi
+
+          # Green means every check on this exact commit concluded well, not
+          # that the run which triggered this workflow happened to pass.
+          states=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" \
+            --jq '.check_runs[] | select(.name != "Merge green chores" and .name != "Open the pull request") | "\(.name):\(.status):\(.conclusion // "pending")"')
+          echo "checks on $HEAD_SHA:"; echo "$states" | sed 's/^/  /'
+
+          if echo "$states" | grep -vE ':completed:(success|neutral|skipped)$' | grep -q .; then
+            echo "::notice::#$number has checks that are not green; leaving it"
+            exit 0
+          fi
+
+          mergeable=$(gh api "repos/$REPO/pulls/$number" --jq '.mergeable_state')
+          if [ "$mergeable" = "dirty" ] || [ "$mergeable" = "blocked" ]; then
+            echo "::notice::#$number is $mergeable; leaving it"
+            exit 0
+          fi
+
+          gh api -X PUT "repos/$REPO/pulls/$number/merge" \
+            -f merge_method=squash \
+            -f sha="$HEAD_SHA" > /dev/null
+          echo "::notice::merged #$number"
+
+          gh api -X DELETE "repos/$REPO/git/refs/heads/$BRANCH" || true

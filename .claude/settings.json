@@ -19,7 +19,12 @@
       "Bash(python3 tools/check_links.py:*)",
       "Bash(python3 tools/ingest_notes.py:*)",
       "Bash(python3 tools/summary.py:*)",
-      "Bash(.tools/typst/typst:*)"
+      "Bash(.tools/typst/typst:*)",
+      "Bash(.tools/gh/gh:*)",
+      "Bash(tools/install-gh.sh)",
+      "Bash(git fetch:*)",
+      "Bash(git switch:*)",
+      "Bash(git checkout:*)"
     ]
   },
   "hooks": {
@@ -29,6 +34,10 @@
           {
             "type": "command",
             "command": "tools/install-typst.sh"
+          },
+          {
+            "type": "command",
+            "command": "tools/install-gh.sh"
           }
         ]
       }

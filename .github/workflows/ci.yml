@@ -3,14 +3,23 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches:
+      - main
+      # Branches the fleet pushes. A pull request opened with the workflow
+      # token does not trigger `pull_request` runs, so the push is what gets
+      # checked -- and that run is what agent-branches.yml waits for before
+      # merging a green chore.
+      - "agent/**"
+      - "maintenance/**"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # Keyed on the branch rather than the ref, so a push and a pull request for
+  # the same head do not both run.
+  group: ci-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:

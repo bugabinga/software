@@ -48,20 +48,36 @@ request with red CI is more urgent than anything below it).
    refactor `tools/` because you would have written it differently. The fleet
    earns its autonomy by being boring.
 
+## Tools
+
+Scheduled sessions are fired without MCP tools, so GitHub is reached through
+`gh`, which the SessionStart hook installs (`tools/install-gh.sh`, pinned in
+`.gh-version`). Reads are unrestricted; a *mutating* command may still be
+refused by the local permission layer. If one is, do not improvise a way
+around it -- use the GitHub MCP tools if this session has them, and otherwise
+stop and report what was refused and what it was for. A sweep that reports
+being unable to act is useful. One that finds another route is not.
+
 ## Merge policy
 
 The author's standing decision: everything arrives as a pull request; green
 *chores* may merge themselves.
 
 A chore is a change that touches none of `book/chapters/`, `book/book.toml`,
-`book/lib/`, `site/` -- so: dependency and Typst bumps, workflow repairs,
-tooling fixes, dead-link repairs outside prose, and `notes/` ingestion.
+`book/lib/`, `site/`, `.github/`, `.claude/` -- so: dependency and Typst
+bumps, tooling fixes, dead-link repairs outside prose, and `notes/`
+ingestion. Changes to the workflows or to the fleet's own definitions are
+never merged automatically, because that is the automation deciding its own
+future.
 
-Merge a chore only when every check on the head commit has concluded
-successfully. Squash, keep the pull request title as the commit subject, and
-delete the branch afterwards. Repository-level auto-merge is off, so merging
-is an explicit step, which means checking the status first rather than
-trusting a queue.
+You do not open or merge pull requests yourself. **Push a branch named
+`agent/<something>` and stop.** `agent-branches.yml` opens the pull request
+from your commit message and merges it if it is a chore and every check on
+its head commit is green; if it is not a chore, it stays open for the author.
+
+So the commit message is the pull request: write it as one. And if a change
+should not merge itself even though it is a chore, say so in the commit
+message and apply the `hold` label if you can.
 
 Everything else -- prose, structure, styling, anything with a judgement in it
 -- stays open for the author, with a body that can be read in two minutes.

@@ -15,6 +15,7 @@ Deterministic work that a script does better than a model.
 | `ci.yml` | every pull request and push to `main` | build, internal links, spelling, outbound links, example code; attaches the built site to the run and comments a preview link |
 | `publish.yml` | pushes to `main` | enables Pages if needed, builds with the deployment URL, deploys |
 | `release.yml` | `v*` tags | attaches the PDF and a zip of the site to a release |
+| `agent-branches.yml` | pushes to `agent/**` and `maintenance/**`, and CI completing | opens the pull request for a branch the fleet pushed, and merges it when it is a chore and every check on its head commit is green |
 | `maintenance.yml` | Mondays 06:17 UTC | compares `.typst-version` against the latest Typst release and opens an upgrade pull request *if the book still builds and passes every gate on it*; re-runs the outbound link check and files one standing issue for dead links |
 
 ## 2. Agents (judgement, on a schedule or on demand)
@@ -63,16 +64,33 @@ The author's standing decision: **everything arrives as a pull request, and
 green chores may merge themselves.**
 
 A *chore* touches none of `book/chapters/`, `book/book.toml`, `book/lib/`,
-`site/`. So: Typst and dependency bumps, workflow repairs, tooling fixes, dead
-links outside prose, `notes/` ingestion.
+`site/`, `.github/`, `.claude/`. So: Typst and dependency bumps, tooling
+fixes, dead links outside prose, `notes/` ingestion.
+
+`.github/` and `.claude/` are on that list on purpose. A change to the
+workflows or to the fleet's own definitions is the automation deciding its
+own future, and that is never merged without a human reading it — however
+green it is.
 
 Anything else — prose, structure, styling, anything with a judgement in it —
 stays open for the author. Green is not permission.
 
-Repository-level auto-merge is off, so a chore is merged by an explicit
-action after checking that every check on the head commit concluded
-successfully. That is deliberate: an agent that has to look at the result
-before merging is safer than a queue that merges on a promise.
+### How it is actually enforced
+
+Not by trust, and not by repository auto-merge. Agents **push a branch and
+stop**; `agent-branches.yml` opens the pull request and decides about
+merging, using the rules above, the files the pull request actually touches,
+and the state of every check on its head commit.
+
+That inversion exists because an unattended session may not be able to call
+the pull-request API at all: GraphQL is restricted in that environment, so
+`gh pr` does not work, and mutating REST calls can be refused — while
+`git push` always works. It also means the merge rules live in the repository
+where they can be read and changed, rather than in whatever an agent decided
+at 07:00.
+
+Label a pull request `hold` to stop it merging automatically, whatever it
+touches.
 
 ## Boundaries that hold for every worker
 

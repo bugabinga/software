@@ -16,8 +16,9 @@ help: ## Show this list
 		| sort \
 		| awk 'BEGIN {FS = ":.*?## "} {printf "  \033[1m%-22s\033[0m %s\n", $$1, $$2}'
 
-setup: ## Install the pinned Typst into .tools/
+setup: ## Install the pinned toolchain into .tools/ (Typst, gh)
 	tools/install-typst.sh
+	tools/install-gh.sh
 
 build: ## Build the website and the PDF into $(OUT)
 	$(PYTHON) tools/build.py --out $(OUT)
