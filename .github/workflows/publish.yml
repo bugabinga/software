@@ -30,9 +30,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # `enablement: true` turns GitHub Pages on for the repository if it is
+      # not on already, using the workflow token's `pages: write` permission.
+      # That is what keeps first-time setup out of the web UI.
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Build the book
         uses: ./.github/actions/build-book

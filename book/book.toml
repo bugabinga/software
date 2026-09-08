@@ -14,7 +14,7 @@ language = "en"
 # Absolute URL the site is published under. Used for <link rel=canonical>,
 # sitemap.xml and Open Graph tags. Leave empty to omit those.
 # For GitHub Pages project sites this is https://<user>.github.io/<repo>/
-base-url = ""
+base-url = "https://bugabinga.github.io/software/"
 
 # Shown in the footer and on the title page. Bump per release, or set to
 # "draft" while writing.

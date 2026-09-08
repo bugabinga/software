@@ -17,7 +17,12 @@ method = "get"
 user_agent = "Mozilla/5.0 (compatible; lychee link checker; book CI)"
 
 # Checked by tools/check_links.py, which knows about the site's own structure.
-exclude_path = ["dist/book.pdf"]
+#
+# 404.html is excluded because its one link home is deployment-absolute --
+# `/software/` on a project Pages site -- which only resolves on the deployed
+# site, not against a local `dist/`. tools/check_links.py verifies it there,
+# using the base path recorded in build-info.json.
+exclude_path = ["dist/book.pdf", "dist/404.html"]
 
 exclude = [
   # Local development server.

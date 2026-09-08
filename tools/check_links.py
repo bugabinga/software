@@ -16,6 +16,7 @@ Usage:
 
 from __future__ import annotations
 
+import json
 import posixpath
 import sys
 from dataclasses import dataclass, field
@@ -69,11 +70,30 @@ def read_pages(root: Path) -> dict[Path, Page]:
     return pages
 
 
-def resolve(root: Path, page: Path, target: str) -> Path:
+def site_base_path(root: Path) -> str:
+    """The path prefix the site is deployed under, per the build.
+
+    Root-relative links in the output (the 404 page's link home) include this
+    prefix, because that is what makes them correct once deployed. Stripping
+    it here is what lets the same link be checked against a local `dist/`.
+    """
+    info = root / "build-info.json"
+    if not info.is_file():
+        return "/"
+    try:
+        return json.loads(info.read_text(encoding="utf-8")).get("base_path", "/") or "/"
+    except (ValueError, OSError):
+        return "/"
+
+
+def resolve(root: Path, page: Path, target: str, base_path: str = "/") -> Path:
     """The file a link points at, as an absolute path inside the site."""
     if target.startswith("/"):
         base = root
-        relative = target.lstrip("/")
+        relative = target
+        if base_path != "/" and relative.startswith(base_path):
+            relative = relative[len(base_path) :]
+        relative = relative.lstrip("/")
     else:
         base = page.parent
         relative = target
@@ -88,6 +108,7 @@ def check(root: Path) -> list[str]:
     if not pages:
         return [f"{root}: no HTML files to check -- did the build run?"]
 
+    base_path = site_base_path(root)
     problems: list[str] = []
     for path, page in pages.items():
         where = path.relative_to(root)
@@ -99,7 +120,7 @@ def check(root: Path) -> list[str]:
                 continue  # an empty href, harmless
 
             if split.path:
-                destination = resolve(root, path, split.path)
+                destination = resolve(root, path, split.path, base_path)
                 if not destination.exists():
                     problems.append(
                         f"{where}: <{tag}> points at {target!r}, which does not exist"

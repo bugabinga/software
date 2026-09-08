@@ -35,6 +35,7 @@ import time
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlsplit
 
 if sys.version_info < (3, 11):
     sys.exit("tools/build.py requires Python 3.11 or newer (for tomllib)")
@@ -156,6 +157,19 @@ class Book:
     def base_url(self) -> str:
         base = self.meta.get("base-url", "").strip()
         return base.rstrip("/") + "/" if base else ""
+
+    @property
+    def base_path(self) -> str:
+        """The path the site is served under, e.g. `/software/` on Pages.
+
+        The 404 page needs it: GitHub Pages serves that page for any missing
+        path under the project, at any depth, so its one link home has to be
+        absolute -- and absolute means including this prefix, not `/`.
+        """
+        if not self.base_url:
+            return "/"
+        path = urlsplit(self.base_url).path or "/"
+        return path if path.endswith("/") else path + "/"
 
 
 def slug_of(relative: str) -> str:
@@ -704,6 +718,7 @@ def write_pages(book: Book, out_dir: Path, dev: bool) -> None:
                 "lang": book.language,
                 "book_title": esc(book.title),
                 "title": esc(f"Not found — {book.title}"),
+                "home": esc(book.base_path),
             },
         ),
         encoding="utf-8",
@@ -755,6 +770,7 @@ def write_site_files(book: Book, out_dir: Path, pdf: bool) -> None:
     info = {
         "title": book.title,
         "edition": book.meta.get("edition", ""),
+        "base_path": book.base_path,
         "built": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "chapters": [
             {
