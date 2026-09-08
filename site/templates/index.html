@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+{{meta_head}}
+<link rel="icon" href="{{prefix}}assets/favicon.svg">
+<link rel="stylesheet" href="{{prefix}}assets/book.css">
+<script>
+  try {
+    var saved = localStorage.getItem("book-theme");
+    if (saved) document.documentElement.dataset.theme = saved;
+  } catch (e) {}
+</script>
+</head>
+<body class="landing" data-prefix="{{prefix}}">
+<a class="skip-link" href="#content">Skip to content</a>
+
+<header class="topbar">
+  <a class="topbar-title" href="{{prefix}}">{{book_title}}</a>
+  <div class="topbar-actions">
+    <button class="search-open" aria-label="Search (press /)">Search <kbd>/</kbd></button>
+    <a class="pdf-link" href="{{prefix}}book.pdf">PDF</a>
+    <button class="icon-button theme-toggle" aria-label="Switch theme">◐</button>
+  </div>
+</header>
+
+<main class="content" id="content">
+  <div class="cover">
+    <h1>{{book_title}}</h1>
+    <p class="subtitle">{{subtitle}}</p>
+    <p class="authors">{{authors}}</p>
+    <p class="blurb">{{description}}</p>
+    <p class="cover-actions">
+      <a class="button" href="{{start_url}}">Start reading</a>
+      <a class="button secondary" href="book.pdf">Download the PDF</a>
+    </p>
+  </div>
+
+  <section class="contents-wrap" aria-label="Contents">
+    <h2 class="contents-heading">Contents</h2>
+    {{contents}}
+  </section>
+
+  <footer class="chapter-footer">
+    <span class="edition">{{edition}}</span>
+  </footer>
+</main>
+
+<dialog class="search-dialog">
+  <form class="search-form" method="dialog">
+    <input class="search-input" type="search" placeholder="Search the book" aria-label="Search the book" autocomplete="off">
+    <button class="search-close" aria-label="Close">esc</button>
+  </form>
+  <div class="search-results" role="listbox" aria-label="Search results"></div>
+</dialog>
+
+<script src="{{prefix}}assets/book.js"></script>
+{{dev_script}}
+</body>
+</html>

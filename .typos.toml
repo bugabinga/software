@@ -1,0 +1,27 @@
+# Spelling gate. Runs over the whole repository in CI, and via `make
+# check-spelling` locally when typos-cli is installed.
+#
+# To let a word through, add it under [default.extend-words] with its correct
+# spelling as both key and value, or [default.extend-identifiers] for names in
+# code. Prefer that over switching the check off for a file.
+
+[files]
+extend-exclude = [
+  "dist/",
+  "build/",
+  ".tools/",
+  "*.pdf",
+  "*.svg",
+]
+
+[default]
+# Words the book uses that are not in the dictionary.
+extend-ignore-re = [
+  # Typst's `dif` (differential), and similar short math identifiers.
+  "\\bdif\\b",
+]
+
+[default.extend-words]
+typ = "typ"
+Typst = "Typst"
+typst = "typst"

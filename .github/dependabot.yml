@@ -1,0 +1,11 @@
+version: 2
+updates:
+  # Keeps the pinned action versions current; Typst itself is pinned in
+  # .typst-version and updated deliberately, since its HTML export is still
+  # experimental.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci:"
