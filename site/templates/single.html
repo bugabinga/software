@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<!-- The whole book in one file: no stylesheet to fetch, no script, no
+     separate assets. Typst inlines images as data URIs, so this reads
+     offline and prints. -->
+<style>
+{{style}}
+
+/* Single-file build only: the chapters run together on one page, so each
+   needs a visible boundary the multi-page build gets from navigation. */
+body { padding: 0; }
+.single { max-width: 34rem; margin: 0 auto; padding: 3rem 1.25rem 6rem; }
+.cover { text-align: center; margin-bottom: 3rem; }
+.single .chapter { padding-top: 3rem; margin-top: 3rem; border-top: 1px solid var(--line); }
+.single .chapter:first-of-type { border-top: none; margin-top: 0; }
+.single-contents { list-style: none; margin: 0 0 1rem; padding: 0; font-family: var(--sans); }
+.single-contents li { margin: .3rem 0; }
+.single-contents li.part {
+  margin: 1.25rem 0 .4rem; font-size: .75rem; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft);
+}
+.single-contents a { text-decoration: none; }
+.single-contents a:hover { text-decoration: underline; }
+.single-contents .num {
+  color: var(--ink-soft); font-variant-numeric: tabular-nums; margin-right: .4rem;
+}
+</style>
+{{typst_head}}
+</head>
+<body>
+<main class="single">
+  <header class="cover">
+    <h1>{{book_title}}</h1>
+    <p class="subtitle">{{subtitle}}</p>
+    <p class="authors">{{authors}}</p>
+    <p class="blurb">{{description}}</p>
+  </header>
+
+  <nav aria-label="Contents">
+    <h2 class="contents-heading">Contents</h2>
+    <ul class="single-contents">
+      {{contents}}
+    </ul>
+  </nav>
+
+  {{content}}
+
+  <footer class="chapter-footer">
+    <span class="edition">{{edition}}</span>
+  </footer>
+</main>
+</body>
+</html>

@@ -648,6 +648,86 @@ def compile_chapters(
     return warnings
 
 
+
+ID_ATTR_RE = re.compile(r'\bid="([^"]+)"')
+FRAGMENT_RE = re.compile(r'href="#([^"]+)"')
+
+
+def namespace_ids(body: str, prefix: str) -> str:
+    """Make one chapter's ids unique so several can share a page.
+
+    Typst numbers footnote anchors per document -- every chapter has its own
+    `loc-1` -- so concatenating chapters without this makes every footnote in
+    the single-file build point at the first chapter's notes.
+    """
+    body = ID_ATTR_RE.sub(lambda m: f'id="{prefix}--{m.group(1)}"', body)
+    return FRAGMENT_RE.sub(lambda m: f'href="#{prefix}--{m.group(1)}"', body)
+
+
+def localise_xrefs(body: str, slugs: set[str]) -> str:
+    """Turn cross-chapter links into in-page ones."""
+    for slug in slugs:
+        body = body.replace(f'href="../{slug}/#', f'href="#{slug}--')
+        body = body.replace(f'href="../{slug}/"', f'href="#{slug}"')
+    return body
+
+
+def build_single_page(book: Book, out_dir: Path) -> Path:
+    """The whole book as one self-contained HTML file.
+
+    No external stylesheet, no script, no separate assets: images are already
+    data URIs in Typst's export, so the result is a single file that reads
+    offline, prints, and can be handed to anything that renders HTML. It is
+    also what makes the book readable somewhere other than a Pages site.
+    """
+    template = (TEMPLATES / "single.html").read_text(encoding="utf-8")
+    stylesheet = (SITE_DIR / "assets" / "book.css").read_text(encoding="utf-8")
+    slugs = {chapter.slug for chapter in book.chapters}
+
+    sections: list[str] = []
+    contents: list[str] = []
+    part = None
+    for chapter in book.chapters:
+        body = localise_xrefs(namespace_ids(chapter.content, chapter.slug), slugs)
+        eyebrow = (
+            f"Chapter {chapter.number}" if chapter.number is not None else chapter.part
+        )
+        sections.append(
+            f'<section class="chapter" id="{chapter.slug}">'
+            + (f'<p class="eyebrow">{esc(eyebrow)}</p>' if eyebrow else "")
+            + f"<h1>{chapter.title_html}</h1>{body}</section>"
+        )
+        if chapter.part != part:
+            part = chapter.part
+            if part:
+                contents.append(f'<li class="part">{esc(part)}</li>')
+        contents.append(f'<li><a href="#{chapter.slug}">{chapter.label}</a></li>')
+
+    # Typst's <head> additions (the MathML stylesheet) are identical for every
+    # chapter, so one copy suffices.
+    typst_head = book.chapters[0].typst_head if book.chapters else ""
+
+    page = render(
+        template,
+        {
+            "lang": book.language,
+            "title": esc(book.title),
+            "book_title": esc(book.title),
+            "subtitle": esc(book.meta.get("subtitle", "")),
+            "authors": esc(", ".join(book.meta.get("authors", []))),
+            "description": esc(book.meta.get("description", "")),
+            "edition": esc(book.meta.get("edition", "")),
+            "style": stylesheet,
+            "typst_head": typst_head,
+            "contents": "\n".join(contents),
+            "content": "\n".join(sections),
+        },
+    )
+    destination = out_dir / "book.html"
+    destination.write_text(page, encoding="utf-8")
+    return destination
+
+
 def write_pages(book: Book, out_dir: Path, dev: bool) -> None:
     page_template = (TEMPLATES / "page.html").read_text(encoding="utf-8")
     index_template = (TEMPLATES / "index.html").read_text(encoding="utf-8")
@@ -838,6 +918,7 @@ def build(args: argparse.Namespace, binary: str) -> Book:
         warnings += build_pdf(binary, out_dir)
 
     write_pages(book, out_dir, dev=args.dev)
+    single = build_single_page(book, out_dir)
     write_search_index(book, out_dir)
     copy_assets(out_dir)
     write_site_files(book, out_dir, pdf=not args.no_pdf)
@@ -848,6 +929,10 @@ def build(args: argparse.Namespace, binary: str) -> Book:
         print(f"typst warning: {warning}", file=sys.stderr)
 
     words = sum(chapter.words for chapter in book.chapters)
+    print(
+        f"  single file: {single.relative_to(ROOT)} "
+        f"({single.stat().st_size / 1024:.0f} KB)"
+    )
     print(
         f"built {len(book.chapters)} chapters, {words:,} words "
         f"-> {out_dir.relative_to(ROOT)} in {elapsed:.1f}s"
