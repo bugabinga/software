@@ -65,12 +65,32 @@ jobs:
           printf '%s\n\n%s\n\n---\n_Opened by the agent-branches workflow. See docs/FLEET.md._\n' \
             "$body" "Pushed by \`$BRANCH\`." > /tmp/pr-body.md
 
-          number=$(gh api -X POST "repos/$REPO/pulls" \
-            -f title="$subject" \
-            -f head="$BRANCH" \
-            -f base=main \
-            -F body=@/tmp/pr-body.md \
-            --jq .number)
+          if ! number=$(gh api -X POST "repos/$REPO/pulls" \
+              -f title="$subject" \
+              -f head="$BRANCH" \
+              -f base=main \
+              -F body=@/tmp/pr-body.md \
+              --jq .number 2>/tmp/pr-error); then
+            if grep -q "not permitted to create or approve pull requests" /tmp/pr-error; then
+              cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
+          ## Workflows may not open pull requests yet
+
+          This repository has not granted Actions permission to create pull
+          requests, so the branch was pushed but no pull request was opened.
+          `tools/bootstrap-repo.sh` grants it, along with enabling Pages:
+
+          ```sh
+          tools/bootstrap-repo.sh
+          ```
+
+          Until then, agent branches have to have their pull requests opened
+          by hand. The branch itself is pushed and checked either way.
+          SUMMARY
+              echo "::error::Actions is not permitted to create pull requests. Run tools/bootstrap-repo.sh once. The branch is pushed and CI ran on it."
+            fi
+            cat /tmp/pr-error >&2
+            exit 1
+          fi
           echo "::notice::opened #$number for $BRANCH"
 
   merge-green-chores:

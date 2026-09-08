@@ -21,14 +21,23 @@ Try these in order and stop at the first that works.
 
    Works for articles, documentation, papers.
 
-2. **A Claude conversation share link** (`claude.ai/share/...`). The page is a
-   JavaScript shell: fetching it returns about a dozen words of chrome and
-   none of the conversation, and the ingester refuses it rather than saving an
-   empty file. Headless rendering does not help either -- Chromium cannot
-   tunnel through this environment's proxy. So do not burn turns on it: tell
-   the author it cannot be fetched and offer step 3 or 4.
+2. **A Claude conversation share link** (`claude.ai/share/...`). This does not
+   work, and it has been tried properly, so do not spend turns rediscovering
+   it. Three separate walls, any one of which is enough:
 
-   A `claude.ai/chat/...` link is private and answers 403. Same outcome.
+   - the page is a JavaScript shell. A real share link and a made-up one
+     return byte-for-byte the same 108 KB of markup and about a dozen visible
+     words; the conversation is not in the HTML;
+   - the endpoint the page loads it from, `/api/chat_snapshots/<id>`, answers
+     403 with a Cloudflare bot challenge. Do not try to get around that --
+     it is an access control;
+   - headless rendering would execute the JavaScript, but Chromium cannot
+     tunnel through this environment's proxy (the relay drops it; the same
+     happens for any site, not just claude.ai).
+
+   A `claude.ai/chat/...` link is private and answers 403 outright.
+
+   So: say plainly that the link cannot be fetched, and offer step 3 or 4.
 
 3. **A published artifact.** If the author publishes the discussion as an
    artifact, read it directly:

@@ -58,6 +58,31 @@ the author's Claude sessions — the Actions secrets API is blocked to that
 environment. Until the key exists, every run exits early with a notice rather
 than failing. Everything in sections 1 and 2 works without it.
 
+## What still needs a human, and how little
+
+Two things, both one-time or occasional, neither of them a click if you would
+rather not:
+
+**Enable Pages, once.** Creating the Pages site needs administration rights
+that the workflow token does not have, and the Pages API is not reachable
+from the author's Claude sessions. One command from anywhere holding a token
+for this repository:
+
+```sh
+gh api -X POST repos/bugabinga/software/pages -f build_type=workflow
+```
+
+Until then `publish.yml` fails on its first step with that command in the job
+summary. Afterwards every push to `main` publishes by itself.
+
+**Arm the GitHub bot, if you want it** (see section 3): add an
+`ANTHROPIC_API_KEY` secret. Nothing else depends on it.
+
+Dependabot's pull requests also wait for a human. The actions here are pinned
+to major versions, so every bump Dependabot opens is a major-version bump --
+exactly the kind that changes behaviour and deserves a reading. They show up
+in the daily sweep's report rather than being merged by it.
+
 ## The merge policy
 
 The author's standing decision: **everything arrives as a pull request, and
