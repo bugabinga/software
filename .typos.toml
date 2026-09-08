@@ -12,6 +12,8 @@ extend-exclude = [
   ".tools/",
   "*.pdf",
   "*.svg",
+  # Ingested source material is kept verbatim, misspellings and all.
+  "notes/",
 ]
 
 [default]

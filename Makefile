@@ -8,7 +8,7 @@ PYTHON ?= python3
 
 .DEFAULT_GOAL := help
 .PHONY: help setup build build-strict html pdf serve watch check check-links \
-        check-external-links check-spelling check-code clean
+        check-external-links check-spelling check-code notes reindex-notes clean
 
 help: ## Show this list
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -58,6 +58,12 @@ check-spelling: ## Check spelling with typos, if installed
 
 check-code: ## Type-check the example code under code/
 	tools/check_code.sh
+
+notes: ## Download a source into notes/ (make notes URL=https://..)
+	$(PYTHON) tools/ingest_notes.py $(URL)
+
+reindex-notes: ## Rebuild notes/index.md
+	$(PYTHON) tools/ingest_notes.py --reindex
 
 clean: ## Remove build output
 	rm -rf $(OUT) build
