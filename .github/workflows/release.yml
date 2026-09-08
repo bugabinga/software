@@ -1,0 +1,46 @@
+name: Release
+
+# Tagging `v*` publishes a release with the PDF and a zip of the website, so
+# every edition of the book is downloadable and archived.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to release (must already exist)
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Attach the book to the release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Build the book
+        uses: ./.github/actions/build-book
+
+      - name: Name the assets after the tag
+        id: assets
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag || github.ref_name }}"
+          slug=$(python3 -c "import json;print(json.load(open('dist/build-info.json'))['title'].lower().replace(' ','-'))")
+          mkdir -p release
+          cp dist/book.pdf "release/${slug}-${tag}.pdf"
+          (cd dist && zip -qr "../release/${slug}-${tag}-site.zip" .)
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.assets.outputs.tag }}
+          generate_release_notes: true
+          files: release/*

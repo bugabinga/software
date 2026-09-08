@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="{{lang}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<meta name="robots" content="noindex">
+<!-- Deliberately self-contained: a 404 can be served from any depth, where
+     relative asset paths would not resolve. -->
+<style>
+  :root { color-scheme: light dark; }
+  body {
+    font: 16px/1.6 ui-serif, Georgia, serif;
+    margin: 0; min-height: 100vh;
+    display: grid; place-items: center; text-align: center;
+    background: Canvas; color: CanvasText;
+  }
+  h1 { font-size: 1.6rem; margin: 0 0 .5rem; }
+  p { margin: .25rem 0; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+  <div>
+    <h1>That page is not part of this book</h1>
+    <p>{{book_title}}</p>
+    <p><a href="{{home}}">Go to the beginning</a></p>
+  </div>
+</body>
+</html>

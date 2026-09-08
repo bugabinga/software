@@ -1,0 +1,53 @@
+name: Build the book
+description: >
+  Install the pinned Typst, build the website and the PDF, check internal
+  links, and write a job summary. Shared by every workflow so that CI,
+  publishing and releases build the book exactly the same way.
+
+inputs:
+  base-url:
+    description: Absolute URL the site will be served from (for canonical links and the sitemap).
+    required: false
+    default: ""
+  out:
+    description: Output directory.
+    required: false
+    default: dist
+
+runs:
+  using: composite
+  steps:
+    - name: Cache the pinned Typst
+      uses: actions/cache@v4
+      with:
+        path: .tools/typst
+        key: typst-${{ runner.os }}-${{ hashFiles('.typst-version') }}
+
+    - name: Install Typst
+      shell: bash
+      run: tools/install-typst.sh
+
+    - name: Build the website and the PDF
+      shell: bash
+      env:
+        BASE_URL: ${{ inputs.base-url }}
+        OUT: ${{ inputs.out }}
+      run: |
+        set -euo pipefail
+        arguments=(--strict --out "$OUT")
+        if [ -n "$BASE_URL" ]; then
+          arguments+=(--base-url "$BASE_URL")
+        fi
+        python3 tools/build.py "${arguments[@]}"
+
+    - name: Check internal links and anchors
+      shell: bash
+      env:
+        OUT: ${{ inputs.out }}
+      run: python3 tools/check_links.py "$OUT"
+
+    - name: Summarise the build
+      shell: bash
+      env:
+        OUT: ${{ inputs.out }}
+      run: python3 tools/summary.py "$OUT" >> "$GITHUB_STEP_SUMMARY"

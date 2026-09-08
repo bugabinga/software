@@ -1,0 +1,54 @@
+name: Publish
+
+# The website is republished on every push to main. The build is the same one
+# CI runs, via the shared composite action, with the Pages URL passed in so
+# canonical links and the sitemap are absolute.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deployments race; queue instead of cancelling, so the last
+# push always wins.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # `enablement: true` turns GitHub Pages on for the repository if it is
+      # not on already, using the workflow token's `pages: write` permission.
+      # That is what keeps first-time setup out of the web UI.
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Build the book
+        uses: ./.github/actions/build-book
+        with:
+          base-url: ${{ steps.pages.outputs.base_url }}
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4

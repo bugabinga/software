@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      # Branches the fleet pushes. A pull request opened with the workflow
+      # token does not trigger `pull_request` runs, so the push is what gets
+      # checked -- and that run is what agent-branches.yml waits for before
+      # merging a green chore.
+      - "agent/**"
+      - "maintenance/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Keyed on the branch rather than the ref, so a push and a pull request for
+  # the same head do not both run.
+  group: ci-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the book
+        uses: ./.github/actions/build-book
+
+      - name: Type-check the example code
+        run: tools/check_code.sh
+
+      - name: Check the workflow definitions
+        run: python3 tools/check_workflows.py
+
+      - name: Upload the built book
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: book-site
+          path: dist
+          retention-days: 14
+
+      # A preview of every pull request, without needing a second host: the
+      # artifact is the built site, downloadable from the run. Forks get a
+      # read-only token, so a failure to comment must not fail the build --
+      # the job summary carries the same information.
+      - name: Comment the preview on the pull request
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require("child_process");
+            const summary = execSync("python3 tools/summary.py dist").toString();
+            const marker = "<!-- book-preview -->";
+            const body = [
+              marker,
+              "## 📖 Book preview",
+              "",
+              `Built from ${context.sha.slice(0, 7)}.`,
+              "",
+              `**[Download the built site](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}#artifacts)**`,
+              " — unzip and open `index.html`, or run `make serve` locally.",
+              "",
+              summary,
+            ].join("\n");
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((comment) => comment.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  spelling:
+    name: Spelling
+    runs-on: ubuntu-latest
+    env:
+      TYPOS_VERSION: 1.36.0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install typos
+        run: |
+          set -euo pipefail
+          archive="typos-v${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          url="https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/${archive}"
+          curl --fail --location --silent --show-error "$url" | tar -xz ./typos
+          sudo install -m 755 typos /usr/local/bin/typos
+
+      - name: Check spelling
+        run: typos
+
+  external-links:
+    name: Outbound links
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the built book
+        uses: actions/download-artifact@v4
+        with:
+          name: book-site
+          path: dist
+
+      - name: Restore the lychee cache
+        uses: actions/cache@v4
+        with:
+          path: .lycheecache
+          key: lychee-${{ github.sha }}
+          restore-keys: lychee-
+
+      # Self-canonical links, og:url and every sitemap entry point at the
+      # site being built, and cannot resolve before its first deployment.
+      # Reading the URL out of the build keeps it out of lychee.toml.
+      - name: Work out the site's own URL
+        id: site
+        run: |
+          set -euo pipefail
+          pattern=$(python3 -c 'import json, re; base = json.load(open("dist/build-info.json")).get("base_url", ""); print("^" + re.escape(base) if base else "^https://never.invalid/")')
+          echo "exclude=$pattern" >> "$GITHUB_OUTPUT"
+          echo "::notice::excluding $pattern from the outbound link check"
+
+      - name: Check outbound links
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --config lychee.toml --cache --max-cache-age 1d
+            --exclude "${{ steps.site.outputs.exclude }}" dist
+          fail: true

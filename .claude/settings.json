@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(gh api:*)",
+      "Bash(gh repo:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh issue:*)",
+      "Bash(gh label:*)",
+      "Bash(gh run:*)",
+      "Bash(gh workflow:*)",
+      "Bash(gh release:*)",
+      "Bash(gh ruleset:*)",
+      "Bash(gh cache:*)",
+      "Bash(make:*)",
+      "Bash(tools/install-typst.sh)",
+      "Bash(tools/check_code.sh)",
+      "Bash(python3 tools/build.py:*)",
+      "Bash(python3 tools/check_links.py:*)",
+      "Bash(python3 tools/ingest_notes.py:*)",
+      "Bash(python3 tools/summary.py:*)",
+      "Bash(.tools/typst/typst:*)",
+      "Bash(.tools/gh/gh:*)",
+      "Bash(tools/install-gh.sh)",
+      "Bash(git fetch:*)",
+      "Bash(git switch:*)",
+      "Bash(git checkout:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "tools/install-typst.sh"
+          },
+          {
+            "type": "command",
+            "command": "tools/install-gh.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

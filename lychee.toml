@@ -1,0 +1,39 @@
+# Outbound link checking, run by CI over the built site.
+#
+# Local runs are optional (`make check-external-links` when lychee is
+# installed); CI is the gate.
+
+# Retry before failing: a flaky host should not fail a pull request outright.
+max_retries = 3
+retry_wait_time = 4
+timeout = 20
+max_concurrency = 8
+
+# Many sites answer bots with 403 or 429 while serving readers fine.
+accept = ["200..=299", "403", "429"]
+
+# Some hosts refuse HEAD requests.
+method = "get"
+user_agent = "Mozilla/5.0 (compatible; lychee link checker; book CI)"
+
+# Checked by tools/check_links.py, which knows about the site's own structure.
+#
+# 404.html is excluded because its one link home is deployment-absolute --
+# `/software/` on a project Pages site -- which only resolves on the deployed
+# site, not against a local `dist/`. tools/check_links.py verifies it there,
+# using the base path recorded in build-info.json.
+exclude_path = ["dist/book.pdf", "dist/404.html"]
+
+# The site's own base URL is excluded too, but not from here: the workflows
+# read it out of dist/build-info.json and pass it as an extra --exclude, so
+# this file does not have to be edited when the book moves. Self-canonical
+# links, og:url and sitemap entries all point at the site being built; they
+# are verified structurally by tools/check_links.py, and before the first
+# deployment they cannot resolve at all.
+exclude = [
+  # Local development server.
+  "^http://127\\.0\\.0\\.1",
+  "^http://localhost",
+  # Edit links point at branches that may not exist yet on a fork.
+  "^https://github\\.com/.*/edit/",
+]

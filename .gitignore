@@ -1,0 +1,12 @@
+# Build output
+dist/
+build/
+
+# Pinned toolchain, installed by tools/install-typst.sh
+.tools/
+
+# Caches
+.lycheecache
+__pycache__/
+
+.DS_Store
