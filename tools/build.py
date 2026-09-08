@@ -771,6 +771,7 @@ def write_site_files(book: Book, out_dir: Path, pdf: bool) -> None:
         "title": book.title,
         "edition": book.meta.get("edition", ""),
         "base_path": book.base_path,
+        "base_url": book.base_url,
         "built": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "chapters": [
             {

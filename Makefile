@@ -8,7 +8,8 @@ PYTHON ?= python3
 
 .DEFAULT_GOAL := help
 .PHONY: help setup build build-strict html pdf serve watch check check-links \
-        check-external-links check-spelling check-code notes reindex-notes clean
+        check-external-links check-spelling check-code check-workflows notes \
+        reindex-notes clean
 
 help: ## Show this list
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -33,7 +34,7 @@ serve: ## Build, serve on :8000, rebuild and reload on every save
 watch: ## Rebuild on every save, without serving
 	$(PYTHON) tools/build.py --out $(OUT) --watch
 
-check: build-strict check-links check-code check-spelling ## Run every gate CI runs
+check: build-strict check-links check-code check-workflows check-spelling ## Run every gate CI runs
 	@echo "all checks passed"
 
 build-strict: ## Build with warnings treated as failures
@@ -58,6 +59,9 @@ check-spelling: ## Check spelling with typos, if installed
 
 check-code: ## Type-check the example code under code/
 	tools/check_code.sh
+
+check-workflows: ## Check the GitHub Actions definitions
+	$(PYTHON) tools/check_workflows.py
 
 notes: ## Download a source into notes/ (make notes URL=https://..)
 	$(PYTHON) tools/ingest_notes.py $(URL)

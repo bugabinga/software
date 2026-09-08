@@ -24,6 +24,12 @@ user_agent = "Mozilla/5.0 (compatible; lychee link checker; book CI)"
 # using the base path recorded in build-info.json.
 exclude_path = ["dist/book.pdf", "dist/404.html"]
 
+# The site's own base URL is excluded too, but not from here: the workflows
+# read it out of dist/build-info.json and pass it as an extra --exclude, so
+# this file does not have to be edited when the book moves. Self-canonical
+# links, og:url and sitemap entries all point at the site being built; they
+# are verified structurally by tools/check_links.py, and before the first
+# deployment they cannot resolve at all.
 exclude = [
   # Local development server.
   "^http://127\\.0\\.0\\.1",

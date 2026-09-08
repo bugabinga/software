@@ -29,6 +29,9 @@ jobs:
       - name: Type-check the example code
         run: tools/check_code.sh
 
+      - name: Check the workflow definitions
+        run: python3 tools/check_workflows.py
+
       - name: Upload the built book
         id: upload
         uses: actions/upload-artifact@v4
@@ -125,8 +128,21 @@ jobs:
           key: lychee-${{ github.sha }}
           restore-keys: lychee-
 
+      # Self-canonical links, og:url and every sitemap entry point at the
+      # site being built, and cannot resolve before its first deployment.
+      # Reading the URL out of the build keeps it out of lychee.toml.
+      - name: Work out the site's own URL
+        id: site
+        run: |
+          set -euo pipefail
+          pattern=$(python3 -c 'import json, re; base = json.load(open("dist/build-info.json")).get("base_url", ""); print("^" + re.escape(base) if base else "^https://never.invalid/")')
+          echo "exclude=$pattern" >> "$GITHUB_OUTPUT"
+          echo "::notice::excluding $pattern from the outbound link check"
+
       - name: Check outbound links
         uses: lycheeverse/lychee-action@v2
         with:
-          args: --config lychee.toml --cache --max-cache-age 1d dist
+          args: >-
+            --config lychee.toml --cache --max-cache-age 1d
+            --exclude "${{ steps.site.outputs.exclude }}" dist
           fail: true

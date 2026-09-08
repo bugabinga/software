@@ -84,6 +84,17 @@ Pinned tool versions: Typst in `.typst-version`, typos in `ci.yml`'s
 `TYPOS_VERSION`. Actions are pinned to major versions and updated by
 Dependabot.
 
+## The fleet
+
+`docs/FLEET.md` is the roster: which workflows run when, which agents exist
+(`.claude/agents/`), which procedures they follow (`.claude/skills/`), the
+merge policy, and how to stop any of it. Read it before doing maintenance
+work, and keep it accurate when the fleet changes -- a scheduled session that
+fires next week has nothing else to go on.
+
+Two rules that no worker overrides: `main` is never committed to directly,
+and `notes/` is never edited.
+
 ## Content
 
 `book/chapters/` currently holds placeholder chapters that exercise every
