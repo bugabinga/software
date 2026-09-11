@@ -133,8 +133,8 @@ Across chapters, use `#xref`, because each chapter is a separate document on
 the website:
 
 ```typst
-See #xref("the-pipeline")[the pipeline chapter].
-See #xref("the-pipeline", anchor: "mathematics")[how maths is set].
+See #xref("knowledge")[the chapter on knowledge].
+See #xref("prelude-reference", anchor: "callouts")[the callouts].
 ```
 
 On the web that is a relative link; in the PDF it becomes a link plus the page

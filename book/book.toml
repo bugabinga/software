@@ -34,12 +34,39 @@ title = ""
 numbered = false
 chapters = ["chapters/00-preface.typ"]
 
+# The two parts and the appendix are the structure fixed in
+# notes/2026-09-11-session-01-foundations-and-craft.md, line 268, under
+# "Book decisions". The chapter order is that line's order.
+
 [[part]]
-title = "Part I: The Pipeline"
+title = "Part I: Foundations"
 numbered = true
-chapters = ["chapters/01-the-pipeline.typ"]
+chapters = [
+  "chapters/01-machine-and-program.typ",
+  "chapters/02-information-and-entropy.typ",
+  "chapters/03-knowledge.typ",
+  "chapters/04-software-and-its-forms.typ",
+  "chapters/05-operating-systems.typ",
+]
+
+[[part]]
+title = "Part II: Craft"
+numbered = true
+chapters = [
+  "chapters/06-learning-the-craft.typ",
+  "chapters/07-beauty-and-mechanical-sympathy.typ",
+  "chapters/08-the-cycle-and-its-costs.typ",
+  "chapters/09-the-practices.typ",
+  "chapters/10-intent-and-product-engineering.typ",
+]
 
 [[part]]
 title = "Appendices"
 numbered = false
-chapters = ["chapters/99-prelude-reference.typ"]
+chapters = [
+  "chapters/90-open-questions.typ",
+  "chapters/91-agents.typ",
+  "chapters/92-citations.typ",
+  "chapters/93-glossary.typ",
+  "chapters/99-prelude-reference.typ",
+]
