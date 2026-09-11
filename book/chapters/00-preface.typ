@@ -1,28 +1,16 @@
+// Source: notes/2026-09-11-session-01-foundations-and-craft.md, lines 266-268
+// ("No overarching thesis", "Foundation is living, not finished", the
+// two-part structure).
+
 #import "/book/lib/prelude.typ": *
 
 = Preface
 
-This is placeholder content. It exists so the pipeline has something real to
-build, and so every feature the book relies on is exercised on every commit.
-Replace it with the actual preface; delete the chapters you do not want and
-drop them from `book/book.toml`.
-
-The book is written in #term[Typst] and built twice from the same source: once
-as a website, once as a PDF. Nothing about a chapter is web-specific or
-print-specific unless it says so, and the pipeline refuses to publish a build
-that has broken links, unresolved references or misspellings.
-
-#note[
-  Chapters are plain Typst files under `book/chapters/`. The only required
-  boilerplate is the `#import` on the first line and a level-one heading for
-  the chapter title.
-]
-
-#web-only[
-  The PDF of this book is linked in the header of every page.
-]
-
-#print-only[
-  This book is also published as a website, where the code listings are
-  selectable and the cross-references are clickable.
-]
+This book has no overarching thesis, and that is a decision rather than an
+omission: it is a collection of one programmer's thoughts about software,
+organized and sharing a vocabulary, and a proposed spine running from encoded
+knowledge to loss at every hop was considered and declined. Part I lays a
+foundation -- machine and program, information, knowledge, software, the
+operating system -- and Part II is about the craft that sits on it. The
+foundation is living rather than finished, and is meant to be revised when
+later material strains it.
