@@ -46,3 +46,7 @@ paragraph does not.
 `make check` passes, every change is defensible as a correction rather than a
 preference, and the pull request lists the judgement calls separately from the
 plain fixes.
+
+Your pull request merges itself once it is green, which is exactly why the
+line between a correction and a preference matters. When you cannot tell which
+side of it a change falls on, leave the text alone and say so.

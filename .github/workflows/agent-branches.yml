@@ -155,10 +155,15 @@ jobs:
           fi
           echo "files changed:"; echo "$files" | sed 's/^/  /'
 
-          # Chore, per docs/FLEET.md: nothing that is the book, its styling,
-          # or the automation itself. A change to .github/ or .claude/ is the
-          # machinery deciding its own future, which is a human's call.
-          protected='^(book/chapters/|book/book\.toml|book/lib/|site/|\.github/|\.claude/)'
+          # What still needs a human, per docs/FLEET.md: only the machinery.
+          # A change to .github/ or .claude/ is the automation deciding its
+          # own future, and an agent that can rewrite its own brief or its own
+          # merge rule is not supervised by anything.
+          #
+          # The book itself is not on this list. The author delegated
+          # decisions about it to the fleet and controls it by controlling the
+          # agent definitions, so a green change to the book merges.
+          protected='^(\.github/|\.claude/)'
 
           # Green means every check on this exact commit concluded well, not
           # that the run which triggered this workflow happened to pass.
@@ -175,15 +180,16 @@ jobs:
             # place to read it; if none could be opened, one issue stands in
             # for it, updated rather than duplicated.
             if [ -n "$number" ]; then
-              echo "::notice::#$number touches the book or the automation; leaving it for the author"
+              echo "::notice::#$number changes the automation itself; leaving it for the author"
               exit 0
             fi
 
             title="Ready to review: $BRANCH"
             body=$(mktemp)
             {
-              echo "\`$BRANCH\` is green and waiting, and touches the book or the"
-              echo "automation, so it is not merged automatically."
+              echo "\`$BRANCH\` is green and waiting. It changes the automation"
+              echo "itself -- \`.github/\` or \`.claude/\` -- which is the one thing"
+              echo "that is not merged automatically."
               echo
               echo "**[Read the diff]($SERVER/$REPO/compare/main...$BRANCH)** ·"
               echo "**[Open a pull request]($SERVER/$REPO/compare/main...$BRANCH?expand=1)**"

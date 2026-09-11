@@ -44,6 +44,11 @@ draft is then a guess about voice, and the author should know that.
 ## Definition of done
 
 `make check` passes, the pull request states which notes the draft came from,
-what you were unsure of, and where you deliberately stopped short. Your
-output is a first draft offered for rewriting, and the pull request should say
-so plainly.
+what you were unsure of, and where you deliberately stopped short.
+
+Your pull request merges itself once it is green, and this is the agent where
+that should worry you most: a draft that lands is what the book says until
+someone rewrites it. Prefer the short version. Mark every passage you are
+unsure of with a `#note[..]` addressed to the author and list those in the
+pull request, so that what needs their eye is findable rather than buried in
+prose that reads as finished.

@@ -24,28 +24,59 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  typst-upgrade:
-    name: Typst upgrade
+  # Dependabot watches the actions. Nothing watches the binaries this
+  # repository pins by writing a version into a file, so this does.
+  pinned-tools:
+    name: Pinned tools
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
 
-      - name: Compare the pin against the latest release
+      - name: Compare every pin against its latest release
         id: versions
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          pinned=$(tr -d ' \n' < .typst-version)
-          latest=$(gh api repos/typst/typst/releases/latest --jq .tag_name | sed 's/^v//')
-          echo "pinned=$pinned" >> "$GITHUB_OUTPUT"
-          echo "latest=$latest" >> "$GITHUB_OUTPUT"
-          if [ "$pinned" = "$latest" ]; then
+
+          latest_of() { gh api "repos/$1/releases/latest" --jq .tag_name | sed 's/^v//'; }
+
+          typst_pinned=$(tr -d ' \n' < .typst-version)
+          typst_latest=$(latest_of typst/typst)
+          gh_pinned=$(tr -d ' \n' < .gh-version)
+          gh_latest=$(latest_of cli/cli)
+          typos_pinned=$(grep -oP 'TYPOS_VERSION:\s*\K[0-9.]+' .github/workflows/ci.yml | head -1)
+          typos_latest=$(latest_of crate-ci/typos)
+
+          {
+            echo "### Pinned tools"
+            echo
+            echo "| Tool | Pinned | Latest |"
+            echo "| --- | --- | --- |"
+            echo "| Typst | $typst_pinned | $typst_latest |"
+            echo "| gh | $gh_pinned | $gh_latest |"
+            echo "| typos | $typos_pinned | $typos_latest |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # gh and typos are checked but not bumped here: nothing the book
+          # renders depends on them, so they are reported and left. Typst is
+          # different -- it decides what the book looks like -- so a bump gets
+          # built and gated before anyone sees it.
+          for tool in gh typos; do
+            eval "pinned=\$${tool}_pinned latest=\$${tool}_latest"
+            if [ "$pinned" != "$latest" ]; then
+              echo "::notice::$tool $pinned is behind $latest"
+            fi
+          done
+
+          echo "pinned=$typst_pinned" >> "$GITHUB_OUTPUT"
+          echo "latest=$typst_latest" >> "$GITHUB_OUTPUT"
+          if [ "$typst_pinned" = "$typst_latest" ]; then
             echo "behind=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Typst $pinned is current"
+            echo "::notice::Typst $typst_pinned is current"
           else
             echo "behind=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Typst $pinned is behind $latest"
+            echo "::notice::Typst $typst_pinned is behind $typst_latest"
           fi
 
       - name: Bump the pin

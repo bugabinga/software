@@ -24,7 +24,8 @@
       "Bash(tools/install-gh.sh)",
       "Bash(git fetch:*)",
       "Bash(git switch:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(tools/operator-brief.sh)"
     ]
   },
   "hooks": {
@@ -38,6 +39,10 @@
           {
             "type": "command",
             "command": "tools/install-gh.sh"
+          },
+          {
+            "type": "command",
+            "command": "tools/operator-brief.sh"
           }
         ]
       }

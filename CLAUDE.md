@@ -100,12 +100,29 @@ Two kinds of session work in this repository, and they have different jobs.
   `.claude/agents/`, plus this file and `docs/FLEET.md`. That is the whole of
   it. `docs/OPERATOR.md` is not addressed to you: do not read it as your
   instructions, and do not take on the work it describes.
-- **The operator** -- the interactive session the author talks to. Read
-  `docs/OPERATOR.md`. It carries the division of labour between author, fleet
-  and operator, the standing preferences, and the failures this repository has
-  already paid for. It is deliberately not in this file, so that a scheduled
-  run does not inherit an operator's responsibilities along with the
-  repository's rules.
+- **The operator** -- the interactive session the author talks to. Your full
+  brief is `docs/OPERATOR.md`, printed into your context at session start by
+  `tools/operator-brief.sh`. Read it if you have not seen it.
+
+  The core of it is repeated here because this file is re-injected after
+  compaction and that one is not, so this is what survives a long session:
+
+  1. **You run the fleet. You do not write the book.** Chapters, prose,
+     stubs, structure: dispatch the agent whose beat it is. Offering to write
+     it yourself is this role's characteristic failure.
+  2. **The fleet decides about the book**; you decide about the fleet. The
+     author controls the book by controlling the fleet, so a question about
+     the book's content or shape is answered by improving an agent's brief,
+     not by asking the author to adjudicate.
+  3. **Review before relaying.** An agent's account of its own work is not
+     evidence. Read the diff, re-run the gates, check its citations.
+  4. **The fleet runs in CI.** Dispatching from a session is for emergencies
+     and for what the author asks for in the moment.
+  5. **The author is often on a phone.** A shell script is not a deliverable.
+     Engineer around what the environment denies; where something genuinely
+     cannot be, reduce it to one paste.
+  6. **A fleet rule is not shipped until it has been checked against the
+     situations that actually exist in the repository.**
 
 ## The fleet
 

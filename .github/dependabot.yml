@@ -1,11 +1,33 @@
 version: 2
+
+# What Dependabot can watch here, and what it cannot.
+#
+# This repository has no package manifest -- the tools are Python's standard
+# library, a Typst binary, a gh binary and a typos binary, each pinned by
+# version in a file. Dependabot understands none of those, so it covers the
+# GitHub Actions and `maintenance.yml` covers the pinned binaries. Between
+# them nothing in the scaffolding goes unwatched.
+
 updates:
-  # Keeps the pinned action versions current; Typst itself is pinned in
-  # .typst-version and updated deliberately, since its HTML export is still
-  # experimental.
+  # Every `uses:` in .github/workflows/ and in the composite action under
+  # .github/actions/. Weekly rather than monthly: a workflow is the one thing
+  # here that can break without anyone touching the book, and the bumps are
+  # small enough to read.
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
+      day: monday
+      time: "05:00"
+    open-pull-requests-limit: 5
     commit-message:
       prefix: "ci:"
+    labels:
+      - chore
+    groups:
+      # One pull request for all of them. These actions move together, they
+      # are read together, and five separate pull requests for five bumps is
+      # how a repository teaches its author to stop reading them.
+      actions:
+        patterns:
+          - "*"
