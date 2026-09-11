@@ -119,14 +119,27 @@ jobs:
 
           comparison=$(gh api "repos/$REPO/compare/main...$BRANCH")
 
-          # Only a branch that is purely ahead of main has work to offer. A
-          # squash-merged branch keeps its original commits and so reads as
-          # "diverged" forever; comparing it against main then reports main's
-          # later work as a difference, backwards, which is how this workflow
-          # once raised review issues for branches already merged.
-          status=$(echo "$comparison" | jq -r '.status')
-          if [ "$status" != "ahead" ]; then
-            echo "::notice::$BRANCH is $status relative to main; nothing to do"
+          # Two ways a branch has nothing left to offer, and neither is
+          # "diverged": that is the normal state of any branch created before
+          # main moved on, and testing for it blocked real work.
+          #
+          #   1. It is not ahead at all -- already merged whole, or empty.
+          #   2. A pull request for it was merged. Squash merging leaves the
+          #      branch holding its original commits, so it stays ahead and
+          #      diverged forever even though its work is in main. Comparing
+          #      such a branch reports main's later work as a difference,
+          #      backwards, which is how this workflow once raised review
+          #      issues for branches already merged.
+          ahead=$(echo "$comparison" | jq -r '.ahead_by')
+          if [ "$ahead" = "0" ]; then
+            echo "::notice::$BRANCH is not ahead of main; nothing to do"
+            exit 0
+          fi
+
+          merged=$(gh api "repos/$REPO/pulls?head=${REPO%%/*}:$BRANCH&state=all" \
+            --jq '[.[] | select(.merged_at != null)] | length')
+          if [ "$merged" != "0" ]; then
+            echo "::notice::$BRANCH has already been merged through a pull request; nothing to do"
             exit 0
           fi
 
