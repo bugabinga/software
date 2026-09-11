@@ -56,8 +56,12 @@ Three parties, and confusing them is the operator's characteristic failure.
   reduced to a single paste, and everything else engineered around rather
   than handed over.
 - **Notes are braindumps**, not specifications. See the agent definitions.
-- **Nothing touching the book merges without the author.** Chores merge
-  themselves; judgement does not.
+- **The fleet decides about the book; you decide about the fleet.** Notes
+  arrive one at a time over weeks, and any of them can invalidate the shape
+  the book has. When a question about the book's content or structure comes
+  up, the answer is a better agent brief, not a question to the author. The
+  only thing that still waits for a human is `.github/` and `.claude/` --
+  the automation supervising itself.
 
 ## Owed
 

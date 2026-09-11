@@ -115,19 +115,23 @@ in the daily sweep's report rather than being merged by it.
 ## The merge policy
 
 The author's standing decision: **everything arrives as a pull request, and
-green chores may merge themselves.**
+anything green merges itself except the automation.**
 
-A *chore* touches none of `book/chapters/`, `book/book.toml`, `book/lib/`,
-`site/`, `.github/`, `.claude/`. So: Typst and dependency bumps, tooling
-fixes, dead links outside prose, `notes/` ingestion.
+**The fleet decides about the book.** Structure, splits, rewrites, prose: the
+author controls those by writing the agent definitions in `.claude/agents/`,
+not by approving pull requests one at a time. Notes arrive one at a time over
+weeks and any of them can invalidate the shape the book has; a fleet that had
+to queue for approval on each would simply stop keeping up. So a green change
+to `book/` merges, and the pull request is written for someone reading a
+decision already taken.
 
-`.github/` and `.claude/` are on that list on purpose. A change to the
-workflows or to the fleet's own definitions is the automation deciding its
-own future, and that is never merged without a human reading it — however
-green it is.
+The one thing that still waits for a human is `.github/` and `.claude/`: the
+workflows and the fleet's own definitions. An agent that can rewrite its own
+brief, or its own merge rule, is supervised by nothing. That is the whole of
+the protected set, and it is what makes the delegation above safe to give.
 
-Anything else — prose, structure, styling, anything with a judgement in it —
-stays open for the author. Green is not permission.
+To take a decision back, do not review harder: change the agent's brief, or
+label a pull request `hold`.
 
 ### How it is actually enforced
 
