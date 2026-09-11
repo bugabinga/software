@@ -118,6 +118,18 @@ jobs:
           fi
 
           comparison=$(gh api "repos/$REPO/compare/main...$BRANCH")
+
+          # Only a branch that is purely ahead of main has work to offer. A
+          # squash-merged branch keeps its original commits and so reads as
+          # "diverged" forever; comparing it against main then reports main's
+          # later work as a difference, backwards, which is how this workflow
+          # once raised review issues for branches already merged.
+          status=$(echo "$comparison" | jq -r '.status')
+          if [ "$status" != "ahead" ]; then
+            echo "::notice::$BRANCH is $status relative to main; nothing to do"
+            exit 0
+          fi
+
           subject=$(echo "$comparison" | jq -r '.commits[-1].commit.message' | head -1)
           case "$subject" in
             *"[hold]"*) echo "::notice::$BRANCH is marked [hold]; leaving it"; exit 0 ;;
