@@ -34,17 +34,45 @@ Two skills carry the procedures: `.claude/skills/garden` (the maintenance
 sweep, including the merge policy) and `.claude/skills/ingest` (getting
 material into `notes/`).
 
-### Schedules
+### Triggers
 
-| Routine | When | What it does |
-| --- | --- | --- |
-| Daily sweep | 07:00 UTC | runs the `garden` skill: open pull requests first, then the gates, Typst, link rot, and whether `notes/` holds anything the book does not account for |
-| Monthly prose pass | 1st, 08:00 UTC | `prose-editor` over the chapters touched in the last five weeks |
+The fleet runs in CI, through `fleet.yml`. An agent runs on the **occasion**
+that calls for it, and gets a brief written for that occasion rather than one
+generic instruction:
 
-Each fires a fresh session, which reads `CLAUDE.md` and this file before doing
-anything. **Silence is the normal outcome of a sweep**: no pull request, no
-issue, no message. A gardener that reports every walk around the garden is
-worse than no gardener.
+| Trigger | Fires on | Agent | What the brief adds |
+| --- | --- | --- | --- |
+| `notes-arrived` | a push to `main` touching `notes/**` | `notes-cartographer` | names what just landed; asks for tensions to be surfaced now, while the author is still close to the material |
+| `chapters-changed` | a push to `main` touching `book/chapters/**` | `prose-editor` | scopes the review to those chapters and to the cross-references a reworded heading silently breaks |
+| `weekly-garden` | Mondays 07:00 UTC | `pipeline-gardener` | the two things only it covers: the Typst pin against the latest release, and links that died this week |
+| `monthly-prose` | 1st, 08:00 UTC | `prose-editor` | the whole book at once -- terminology drift, terms used before defined, chapters that have drifted together |
+| `on-demand` | `workflow_dispatch`, with an agent and a target | any | the dispatch narrows the agent's brief and may not widen it |
+
+The briefs live in `.claude/fleet/*.md`, not in the workflow, so changing what
+an agent is told on a given occasion is a readable diff. `tools/fleet_brief.py`
+routes the occasion to a brief and fills it in; `make check` runs its
+self-test, because a broken brief is a fleet outage that would otherwise only
+show itself at 07:00 on a Monday.
+
+**Event beats cadence.** Waiting a week to notice that notes arrived is a
+worse fleet than one that notices on the push. The two schedules that remain
+are the ones with no event to hang on: link rot happens to the world, not to
+the repository, and whole-book consistency is only checkable periodically.
+
+**Silence is the normal outcome.** No pull request, no issue, no message. An
+agent that reports every walk around the garden is worse than no agent.
+
+`fleet.yml` needs an `ANTHROPIC_API_KEY` secret to actually run an agent.
+Without it, every trigger still fires, routes, and prints the brief it would
+have used into the job summary -- so the triggers can be watched working
+before any money is spent on them.
+
+#### Interim: the scheduled sessions
+
+Until that key exists, two Routines fire fresh Claude sessions instead: a
+daily sweep at 07:00 UTC and a monthly prose pass on the 1st. They do the same
+work less legibly, and **they are to be deleted the moment the key lands**, or
+the weekly and monthly work will run twice.
 
 ## 3. The bot inside GitHub (on request)
 

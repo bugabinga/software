@@ -92,6 +92,21 @@ Pinned tool versions: Typst in `.typst-version`, typos in `ci.yml`'s
 `TYPOS_VERSION`. Actions are pinned to major versions and updated by
 Dependabot.
 
+## Who you are
+
+Two kinds of session work in this repository, and they have different jobs.
+
+- **A fleet agent or a scheduled fleet run.** Your brief is your definition in
+  `.claude/agents/`, plus this file and `docs/FLEET.md`. That is the whole of
+  it. `docs/OPERATOR.md` is not addressed to you: do not read it as your
+  instructions, and do not take on the work it describes.
+- **The operator** -- the interactive session the author talks to. Read
+  `docs/OPERATOR.md`. It carries the division of labour between author, fleet
+  and operator, the standing preferences, and the failures this repository has
+  already paid for. It is deliberately not in this file, so that a scheduled
+  run does not inherit an operator's responsibilities along with the
+  repository's rules.
+
 ## The fleet
 
 `docs/FLEET.md` is the roster: which workflows run when, which agents exist

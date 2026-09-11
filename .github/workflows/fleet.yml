@@ -1,0 +1,195 @@
+name: Fleet
+
+# Runs a fleet agent in CI, on the occasion that calls for it.
+#
+# The author's preference is that the fleet runs here rather than in a Claude
+# session: a run in CI is triggered by the repository's own events, leaves its
+# reasoning in a log anyone can read, and does not depend on someone having a
+# session open. Dispatching an agent from a session is for emergencies and for
+# work asked for in the moment.
+#
+# Which agent runs, and what it is told, comes from `.claude/fleet/*.md` via
+# `tools/fleet_brief.py` -- not from this file. Changing an agent's
+# instructions for a given occasion is then a readable diff in a Markdown
+# file, and the routing can be tested without an API key
+# (`tools/fleet_brief.py --self-test`, which CI runs on every pull request).
+#
+# Requires an ANTHROPIC_API_KEY repository secret. Without it every run stops
+# after routing and says what it would have done, so the triggers can be
+# watched working before any money is spent on them.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "notes/**"
+      - "book/chapters/**"
+  schedule:
+    # Mondays: the machinery. First of the month: the whole book read at once.
+    - cron: "0 7 * * 1"
+    - cron: "0 8 1 * *"
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: Which agent to dispatch
+        required: true
+        type: choice
+        options:
+          - pipeline-gardener
+          - notes-cartographer
+          - prose-editor
+          - chapter-drafter
+      target:
+        description: What to work on (a chapter, a note, a failure)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+# One agent at a time. Two agents pushing branches from the same base and
+# reading each other's half-finished work is not a race worth having.
+concurrency:
+  group: fleet
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    name: Dispatch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Which occasion is this? A push carries its changed paths; a schedule
+      # carries the cron that fired it; a manual run carries its own inputs.
+      - name: Work out the occasion
+        id: occasion
+        env:
+          EVENT: ${{ github.event_name }}
+          CRON: ${{ github.event.schedule }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          trigger=""
+          changed=""
+
+          case "$EVENT" in
+            workflow_dispatch)
+              trigger=on-demand
+              ;;
+            schedule)
+              case "$CRON" in
+                "0 7 * * 1") trigger=weekly-garden ;;
+                "0 8 1 * *") trigger=monthly-prose ;;
+                *) echo "::error::no trigger mapped to cron '$CRON'"; exit 1 ;;
+              esac
+              ;;
+            push)
+              # A push can touch both; notes win, because new material may
+              # change what the chapters should say in the first place.
+              changed=$(git diff --name-only "$BEFORE" "$SHA" -- notes/ book/chapters/ \
+                | grep -v '^notes/index.md$' || true)
+              if echo "$changed" | grep -q '^notes/'; then
+                trigger=notes-arrived
+                changed=$(echo "$changed" | grep '^notes/' | grep -v '/raw/' || true)
+              elif [ -n "$changed" ]; then
+                trigger=chapters-changed
+              else
+                echo "::notice::nothing the fleet cares about changed"
+                exit 0
+              fi
+              ;;
+          esac
+
+          {
+            echo "trigger=$trigger"
+            echo "changed<<CHANGED_EOF"
+            echo "$changed"
+            echo "CHANGED_EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::occasion: $trigger"
+
+      - name: Build the brief
+        id: brief
+        if: steps.occasion.outputs.trigger != ''
+        env:
+          TRIGGER: ${{ steps.occasion.outputs.trigger }}
+          CHANGED: ${{ steps.occasion.outputs.changed }}
+          AGENT: ${{ inputs.agent }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          set -euo pipefail
+          arguments=(--trigger "$TRIGGER" --changed "$CHANGED")
+          [ -n "${AGENT:-}" ] && arguments+=(--agent "$AGENT")
+          [ -n "${TARGET:-}" ] && arguments+=(--target "$TARGET")
+
+          # Writes agent= and branch= to $GITHUB_OUTPUT, prints the brief.
+          python3 tools/fleet_brief.py "${arguments[@]}" > /tmp/brief.md
+
+          # The brief is multi-line, so it reaches the action through the
+          # environment rather than through an output.
+          {
+            echo "BRIEF<<BRIEF_EOF"
+            cat /tmp/brief.md
+            echo "BRIEF_EOF"
+          } >> "$GITHUB_ENV"
+
+          {
+            echo "### Fleet: \`${TRIGGER}\`"
+            echo
+            echo "The brief this run was given:"
+            echo
+            echo '```'
+            cat /tmp/brief.md
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Is there a key to run it with
+        id: key
+        if: steps.occasion.outputs.trigger != ''
+        env:
+          CLAUDE_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "${CLAUDE_KEY:-}" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Routed correctly, but there is no API key, so no agent ran. The brief is in the job summary. Add ANTHROPIC_API_KEY under Settings, Secrets and variables, Actions to arm the fleet."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install the toolchain the agent will need
+        if: steps.key.outputs.present == 'true'
+        run: |
+          tools/install-typst.sh
+          tools/install-gh.sh
+
+      - name: Run the agent
+        if: steps.key.outputs.present == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: ${{ env.BRIEF }}
+          claude_args: >-
+            --max-turns 60
+            --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
+
+      # The agent pushes a branch and stops, exactly as it would from a
+      # session. agent-branches.yml then opens the pull request and decides
+      # about merging, so both routes land in the same place.
+      - name: Say where it went
+        if: steps.key.outputs.present == 'true'
+        env:
+          BRANCH: ${{ steps.brief.outputs.branch }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
+            echo "::notice::the agent pushed $BRANCH; agent-branches.yml takes it from here"
+          else
+            echo "::notice::the agent pushed nothing, which is a valid outcome"
+          fi
