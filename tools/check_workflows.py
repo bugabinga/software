@@ -26,6 +26,32 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 HEREDOC = re.compile(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?")
+
+
+def heredoc_opener(line: str) -> tuple[str, bool] | None:
+    """The heredoc a line opens, if it opens one: `(marker, is_tab_stripping)`.
+
+    `<<` only starts a heredoc outside quotes. Actions' own multiline syntax
+    -- `echo "name<<DELIMITER" >> "$GITHUB_OUTPUT"` -- puts the same
+    characters inside a string, where they are data, and a lint that cannot
+    tell the difference reports every such workflow as broken.
+    """
+    single = double = False
+    index = 0
+    while index < len(line):
+        character = line[index]
+        if character == "'" and not double:
+            single = not single
+        elif character == '"' and not single:
+            double = not double
+        elif character == "#" and not single and not double:
+            return None  # a comment; nothing after it runs
+        elif character == "<" and not single and not double and line[index + 1 : index + 2] == "<":
+            if match := HEREDOC.match(line[index:]):
+                return match.group(1), line[index : index + 3].startswith("<<-")
+            return None
+        index += 1
+    return None
 BLOCK_SCALAR = re.compile(r":\s*[|>][-+]?\d*\s*$")
 
 
@@ -76,9 +102,10 @@ def check_heredocs(path: Path) -> list[str]:
                             )
                         open_heredocs.pop()
                         continue
-                if match := HEREDOC.search(stripped):
-                    if "<<-" not in stripped:
-                        open_heredocs.append((number, match.group(1)))
+                if opener := heredoc_opener(stripped):
+                    marker, tab_stripping = opener
+                    if not tab_stripping:
+                        open_heredocs.append((number, marker))
             for number, marker in open_heredocs:
                 problems.append(
                     f"{path.relative_to(ROOT)}:{number + 1}: heredoc `{marker}` "

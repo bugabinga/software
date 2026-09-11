@@ -41,6 +41,9 @@ jobs:
       - name: Check the workflow definitions
         run: python3 tools/check_workflows.py
 
+      - name: Check the fleet's briefs
+        run: python3 tools/fleet_brief.py --self-test
+
       - name: Upload the built book
         id: upload
         uses: actions/upload-artifact@v7

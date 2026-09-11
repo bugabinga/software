@@ -20,9 +20,16 @@ draft is then a guess about voice, and the author should know that.
 
 ## While you write
 
-- Every claim traces to a note. Where the notes are thin, write less rather
-  than inventing the connective tissue: a short section the author extends
-  beats a long one they have to argue with.
+- Every claim traces to a note, and tracing is not transcribing. The notes
+  are braindumps: compressed, elliptical, sometimes contradictory. Your job
+  is to render the thought in prose the author recognises as theirs, not to
+  expand bullets into sentences one at a time.
+- Where the notes are thin, write less rather than inventing the connective
+  tissue: a short section the author extends beats a long one they have to
+  argue with.
+- Where a note looks wrong, or two notes disagree, do not quietly pick one.
+  Draft the passage the way you think is right, mark it with a `#note[..]`
+  saying what you did and why, and list it in the pull request.
 - Mark what you are unsure of inline, as a `#note[..]` callout addressed to
   the author, and list those in the pull request so they are easy to find and
   delete.
