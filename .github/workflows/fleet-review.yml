@@ -1,0 +1,124 @@
+name: Fleet review
+
+# The fleet reviewing its own work before it merges.
+#
+# The author's intention for branch protection was never "a human must
+# approve" -- it was "this must be reviewed", and the reviewer is the fleet.
+# That is built as a **status check** rather than as an approving review, on
+# purpose: a check from Actions gates a merge in a way nothing argues with,
+# whereas whether a bot's approval satisfies a required-reviews rule is a
+# question about GitHub's internals that would have to be true forever.
+#
+# So: this job is named `Fleet review`, and once it is added to the branch
+# ruleset's required checks, nothing merges without the fleet having read it.
+#
+# Sequencing matters. Do not make this check required until an
+# ANTHROPIC_API_KEY exists and a few real pull requests have been through it:
+# a required check that can never pass would brick the repository. Without a
+# key it passes with a notice, so adding the workflow now is safe and making
+# it required later is the deliberate step.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  # Per pull request, and cancel superseded runs: a review of an old head is
+  # worse than no review, because it looks like a review of the new one.
+  group: fleet-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Fleet review
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Is there a key to review with
+        id: key
+        env:
+          CLAUDE_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "${CLAUDE_KEY:-}" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No API key, so no review happened. This check passes so that adding it to the ruleset before the fleet is armed cannot lock the repository -- but it is not a review, and it should not be a required check until a key exists."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the reviewer's brief
+        if: steps.key.outputs.present == 'true'
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          python3 tools/fleet_brief.py --trigger pull-request --pr "$PR" > /tmp/brief.md
+          {
+            echo "BRIEF<<BRIEF_EOF"
+            cat /tmp/brief.md
+            echo "BRIEF_EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Install the toolchain the reviewer will need
+        if: steps.key.outputs.present == 'true'
+        run: tools/install-typst.sh
+
+      - name: Review
+        if: steps.key.outputs.present == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: ${{ env.BRIEF }}
+          claude_args: >-
+            --max-turns 40
+            --allowedTools "Bash,Read,Grep,Glob"
+
+      # The verdict is a file, not a mood. A reviewer that fell over, ran out
+      # of turns, or decided to say nothing leaves no file, and that counts as
+      # a failure: silence must never read as approval.
+      - name: Read the verdict
+        if: steps.key.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+
+          if [ ! -f /tmp/fleet-review.json ]; then
+            echo "::error::The reviewer left no verdict at /tmp/fleet-review.json. Treating that as a failed review: silence is not a pass."
+            exit 1
+          fi
+
+          python3 - <<'VERDICT'
+          import json, os, sys, pathlib
+
+          data = json.loads(pathlib.Path("/tmp/fleet-review.json").read_text())
+          verdict = data.get("verdict")
+          summary = data.get("summary", "").strip() or "(no summary given)"
+          findings = data.get("findings") or []
+
+          lines = [f"### Fleet review: **{verdict}**", "", summary, ""]
+          if findings:
+              lines += ["| Where | What | Why |", "| --- | --- | --- |"]
+              for f in findings:
+                  where = str(f.get("where", "")).replace("|", "\\|")
+                  what = str(f.get("what", "")).replace("|", "\\|")
+                  why = str(f.get("why", "")).replace("|", "\\|")
+                  lines.append(f"| `{where}` | {what} | {why} |")
+          else:
+              lines.append("_No findings._")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
+              handle.write("\n".join(lines) + "\n")
+
+          if verdict != "pass":
+              print(f"::error::Fleet review failed: {summary}")
+              sys.exit(1)
+          print(f"::notice::Fleet review passed: {summary}")
+          VERDICT
