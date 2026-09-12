@@ -70,7 +70,7 @@ code is the way it is. Being wrong in the direction of "the reviewer must be
 right" produces changes nobody wanted and a diff the author now has to argue
 with.
 
-`make check` before pushing. Push to the pull request's existing branch; do
+`mise run check` before pushing. Push to the pull request's existing branch; do
 not open another.
 
 Your push runs the reviewer again, which is the loop working rather than a

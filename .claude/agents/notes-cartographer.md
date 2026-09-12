@@ -108,7 +108,7 @@ without saying, in the pull request, exactly which reading order breaks.
 
 ## Definition of done
 
-`make check` passes (a stub still has to build), and the pull request reads as
+`mise run check` passes (a stub still has to build), and the pull request reads as
 an argument: here is what the notes say, here is what the book was missing,
 here is the change, here is what I chose against, and here is what I did not
 do and why.

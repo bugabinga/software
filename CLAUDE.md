@@ -8,15 +8,38 @@ reading the tree.
 ## Commands
 
 ```sh
-make setup    # install the pinned Typst into .tools/ (needed once per machine)
-make build    # website + PDF into dist/
-make serve    # build, serve on :8000, rebuild and live-reload on save
-make check    # every gate CI runs; run before pushing
+mise install       # the pinned toolchain, once per machine
+mise run build     # website + PDF into dist/
+mise run serve     # build, serve on :8000, rebuild and live-reload on save
+mise run check     # every gate CI runs; run before pushing
+mise tasks         # everything there is
 ```
 
-`make setup` needs network access to `github.com/typst/typst/releases`. The
-`.claude/settings.json` SessionStart hook runs it, so a fresh session should
-already have a working `.tools/typst/typst`.
+There is one way to run each of those, deliberately. The tasks live in
+`mise.toml` and CI calls the same ones -- a green `mise run check` locally is
+a green pull request, because it is not a second definition that agrees by
+habit.
+
+`mise install` needs network access to the tools' release pages. The
+`.claude/settings.json` SessionStart hook runs `tools/bootstrap-mise.sh`,
+which installs mise first if the machine has none, so a fresh session already
+has the toolchain.
+
+**The Python is linted and type-checked, strictly.** `ruff check` with a wide
+selection (`ruff.toml` records why each switched-off rule is off) and `ty`
+(`ty.toml`). Both are gates. Do not silence a finding with a bare `noqa`: give
+it a code and a reason on the same line, the way the existing ones do, so the
+next reader can tell a deliberate exception from a shrug.
+
+**Formatting is mandatory, and it is never yours to decide.** `mise run
+format` before you push; `mise run check` fails if you did not. One formatter
+per language and no language without one -- typstyle for `.typ`, ruff for
+`.py`, biome for `.js`/`.json`. The reason is the reader: a diff that mixes a
+change with a reflow costs them the ability to see the change, and the author
+reads these on a phone. Do not argue with a formatter's output and do not
+configure around it; the value is that there is one answer, not that it is
+the best one. Shell is the gap -- 195 lines across four scripts, no formatter
+pinned yet.
 
 ## Architecture, and what must stay true
 
@@ -44,7 +67,8 @@ already have a working `.tools/typst/typst`.
   helper is fine, generating the page shell from Typst is not.
 - The pipeline asserts the shape of Typst's HTML export (`<head>`/`<body>`,
   headings shifted down one level, `<math display="block">`). Typst's HTML
-  export is experimental, so `.typst-version` is pinned; after upgrading it,
+  export is experimental, so the Typst version is pinned in `mise.toml`;
+  after upgrading it,
   build and look at a chapter before trusting the output.
 
 ## Typst notes worth not rediscovering
@@ -58,7 +82,7 @@ already have a working `.tools/typst/typst`.
 - Two adjacent `page(..)` calls leave a blank leaf between them. Use a scoped
   `set page(..)` in a block instead (see `book/book.typ`).
 - Typst warns about every font family it cannot resolve, including fallbacks
-  in a list, and `make check` treats unexpected warnings as failures. Name
+  in a list, and `mise run check` treats unexpected warnings as failures. Name
   only families that exist. Embedded: Libertinus Serif, New Computer Modern,
   New Computer Modern Math, DejaVu Sans Mono. Bundled in `book/fonts/` and
   reached via `--font-path book/fonts`, which every invocation passes: Noto
@@ -95,9 +119,16 @@ The workflows share one build definition in
   with a compare link. Everything it does uses the workflow token only.
 - `release.yml` -- on a `v*` tag, attaches the PDF and a zip of the site.
 
-Pinned tool versions: Typst in `.typst-version`, typos in `ci.yml`'s
-`TYPOS_VERSION`. Actions are pinned to major versions and updated by
-Dependabot.
+Every pinned tool version lives in `mise.toml` -- Typst, typos, gh,
+typstyle, wrangler -- read by `tools/pinned.py`, so the install scripts, the
+build's version badge and the maintenance sweep all agree. `mise install`
+works from it; nothing requires mise, because the scripts parse the file
+themselves.
+
+Dependabot has no mise ecosystem, so it covers only the Actions, which are
+pinned to commits. `maintenance.yml` reads every pin in `mise.toml` on
+Mondays and reports what is behind -- adding a tool to the manifest is
+enough to get it watched.
 
 ## Who you are
 

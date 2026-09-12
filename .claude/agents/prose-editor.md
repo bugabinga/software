@@ -93,7 +93,7 @@ paragraph does not.
 
 ## Definition of done
 
-`make check` passes, every change is defensible as a correction rather than a
+`mise run check` passes, every change is defensible as a correction rather than a
 preference, and the pull request lists the judgement calls separately from the
 plain fixes.
 

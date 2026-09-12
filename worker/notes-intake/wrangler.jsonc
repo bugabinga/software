@@ -1,25 +1,25 @@
 {
-  // The notes inbox. See src/index.js for what it does and why it exists.
-  //
-  // No bindings, no storage, no npm dependencies: one file of plain
-  // JavaScript that validates a bearer token and calls GitHub. The Vectorize
-  // binding will be added here when the index is built, which is deliberately
-  // a later step -- a broken inbox blocks the workflow the author wants, a
-  // missing index blocks nothing.
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "notes-intake",
-  "main": "src/index.js",
-  "compatibility_date": "2026-09-12",
+	// The notes inbox. See src/index.js for what it does and why it exists.
+	//
+	// No bindings, no storage, no npm dependencies: one file of plain
+	// JavaScript that validates a bearer token and calls GitHub. The Vectorize
+	// binding will be added here when the index is built, which is deliberately
+	// a later step -- a broken inbox blocks the workflow the author wants, a
+	// missing index blocks nothing.
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "notes-intake",
+	"main": "src/index.js",
+	"compatibility_date": "2026-09-12",
 
-  // Not secret, and better here than in a secret: reading the log should tell
-  // you which repository a run was talking to.
-  "vars": {
-    "GITHUB_REPOSITORY": "bugabinga/software",
-    "GITHUB_BASE_BRANCH": "main"
-  },
+	// Not secret, and better here than in a secret: reading the log should tell
+	// you which repository a run was talking to.
+	"vars": {
+		"GITHUB_REPOSITORY": "bugabinga/software",
+		"GITHUB_BASE_BRANCH": "main"
+	},
 
-  // Set with `wrangler secret put`, never in this file:
-  //   INTAKE_TOKEN  -- what the note-taker sends as its bearer token
-  //   GITHUB_TOKEN  -- a fine-grained PAT, this repository only, contents:write
-  "observability": { "enabled": true }
+	// Set with `wrangler secret put`, never in this file:
+	//   INTAKE_TOKEN  -- what the note-taker sends as its bearer token
+	//   GITHUB_TOKEN  -- a fine-grained PAT, this repository only, contents:write
+	"observability": { "enabled": true }
 }

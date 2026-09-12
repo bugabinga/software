@@ -197,15 +197,20 @@ def self_test() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--trigger", help="which brief to use")
-    parser.add_argument("--changed", default="", help="comma or newline separated paths")
-    parser.add_argument("--agent", help="agent to run, for triggers that do not fix one")
+    parser.add_argument(
+        "--changed", default="", help="comma or newline separated paths"
+    )
+    parser.add_argument(
+        "--agent", help="agent to run, for triggers that do not fix one"
+    )
     parser.add_argument("--target", help="what to work on, for on-demand dispatch")
     parser.add_argument("--pr", help="pull request number, for the review trigger")
     parser.add_argument("--issue", help="issue number, for the issue triggers")
     parser.add_argument(
         "--issue-body-file",
         type=Path,
-        help="file holding an issue body; the agent and target are read from its form fields",
+        help="file holding an issue body; the agent and target are read "
+        "from its form fields",
     )
     parser.add_argument("--list", action="store_true", help="list the triggers")
     parser.add_argument("--self-test", action="store_true", help="check every brief")
@@ -251,7 +256,7 @@ def main() -> None:
         sys.exit(str(error))
 
     if output := os.environ.get("GITHUB_OUTPUT"):
-        with open(output, "a", encoding="utf-8") as handle:
+        with Path(output).open("a", encoding="utf-8") as handle:
             handle.write(f"agent={agent}\nbranch={branch}\n")
     print(body)
 

@@ -87,7 +87,7 @@ the next reader nothing.
 - Push to the **existing branch** of the pull request. Never open a new one,
   never rebase or force-push, never touch another branch.
 - One commit per concern, and the message says which comment it answers.
-- `make check` before pushing. A fix that reddens CI is worse than the
+- `mise run check` before pushing. A fix that reddens CI is worse than the
   comment you were answering.
 - Reply on the thread itself, so the conversation stays where the reviewer
   left it. Resolve a thread only when you actually addressed it.

@@ -1,7 +1,7 @@
 Example code the book quotes.
 
 Listings live here rather than inside the prose so a compiler can read them:
-`make check-code` type-checks every file in this directory, and CI fails if a
+`mise run check-code` type-checks every file in this directory, and CI fails if a
 listing stops compiling.
 
 A chapter quotes a region of a file rather than the whole thing:

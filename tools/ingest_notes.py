@@ -27,11 +27,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import html
 import io
-import json
 import re
-import sys
 import urllib.error
 import urllib.request
 from datetime import date, datetime, timezone
@@ -119,7 +116,9 @@ class Markdownifier(HTMLParser):
         elif tag == "pre":
             self.newline(2)
             language = values.get("data-lang", values.get("class", ""))
-            language = re.sub(r"[^A-Za-z0-9+#-]", "", language.split()[0] if language.split() else "")
+            language = re.sub(
+                r"[^A-Za-z0-9+#-]", "", language.split()[0] if language.split() else ""
+            )
             self.out.write(f"```{language}\n")
             self.in_pre += 1
         elif tag == "code" and not self.in_pre:
@@ -245,7 +244,7 @@ def slugify(text: str, fallback: str = "note") -> str:
     text = re.sub(r"https?://", "", text.strip().lower())
     text = re.sub(r"[^a-z0-9]+", "-", text)
     text = re.sub(r"-{2,}", "-", text).strip("-")
-    return (text[:60].rstrip("-") or fallback)
+    return text[:60].rstrip("-") or fallback
 
 
 def fetch(url: str) -> tuple[bytes, str]:
@@ -254,9 +253,9 @@ def fetch(url: str) -> tuple[bytes, str]:
         with urllib.request.urlopen(request, timeout=30) as response:
             return response.read(), response.headers.get_content_type()
     except urllib.error.HTTPError as error:
-        raise SystemExit(f"{url}: HTTP {error.code} {error.reason}")
-    except Exception as error:  # network, TLS, DNS
-        raise SystemExit(f"{url}: {type(error).__name__}: {error}")
+        raise SystemExit(f"{url}: HTTP {error.code} {error.reason}") from error
+    except Exception as error:  # network, TLS and DNS all land here
+        raise SystemExit(f"{url}: {type(error).__name__}: {error}") from error
 
 
 def existing_note_for(source: str) -> Path | None:
@@ -305,7 +304,9 @@ def write_note(
     digest = hashlib.sha256(raw).hexdigest()
     first_seen = fetched
     if previous:
-        match = re.search(r"^first-seen: (\S+)$", previous.read_text(encoding="utf-8")[:600], re.M)
+        match = re.search(
+            r"^first-seen: (\S+)$", previous.read_text(encoding="utf-8")[:600], re.M
+        )
         if match:
             first_seen = match.group(1)
 
@@ -340,8 +341,9 @@ def ingest_url(url: str, title: str | None, allow_thin: bool) -> Path:
     else:
         # A binary source (a PDF, say): keep it, and leave a stub pointing at it.
         extension = content_type.split("/")[-1][:8] or "bin"
-        page_title, markdown = "", (
-            f"Binary source of type `{content_type}`, kept verbatim in `raw/`.\n"
+        page_title, markdown = (
+            "",
+            (f"Binary source of type `{content_type}`, kept verbatim in `raw/`.\n"),
         )
         allow_thin = True
     return write_note(
@@ -354,7 +356,9 @@ def ingest_url(url: str, title: str | None, allow_thin: bool) -> Path:
     )
 
 
-def ingest_file(path: Path, title: str | None, source: str | None, allow_thin: bool) -> Path:
+def ingest_file(
+    path: Path, title: str | None, source: str | None, allow_thin: bool
+) -> Path:
     raw = path.read_bytes()
     text = raw.decode("utf-8", errors="replace")
     if path.suffix.lower() in {".html", ".htm"}:
@@ -382,8 +386,10 @@ def reindex() -> None:
         # README.md and index.md do not, and are not listed.
         if not re.search(r"^source: ", head, re.M):
             continue
-        field = lambda name: (  # noqa: E731 - terse on purpose
-            match.group(1) if (match := re.search(rf"^{name}: (.*)$", head, re.M)) else ""
+        field = lambda name, head=head: (  # noqa: E731 - terse on purpose
+            match.group(1)
+            if (match := re.search(rf"^{name}: (.*)$", head, re.M))
+            else ""
         )
         rows.append(
             {
@@ -407,7 +413,8 @@ def reindex() -> None:
         source = row["source"]
         link = f"[link]({source})" if source.startswith("http") else "`" + source + "`"
         lines.append(
-            f"| {row['first_seen']} | [{row['title']}]({row['file']}) | {row['words']} | {link} |"
+            f"| {row['first_seen']} | [{row['title']}]({row['file']}) "
+            f"| {row['words']} | {link} |"
         )
     if not rows:
         lines.append("| | *nothing ingested yet* | | |")
@@ -419,7 +426,9 @@ def reindex() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("urls", nargs="*", help="sources to download")
-    parser.add_argument("--from-file", type=Path, help="ingest a local file instead of a URL")
+    parser.add_argument(
+        "--from-file", type=Path, help="ingest a local file instead of a URL"
+    )
     parser.add_argument("--source", help="source URL to record for --from-file")
     parser.add_argument("--title", help="title for the note (default: the page's own)")
     parser.add_argument(
@@ -427,7 +436,9 @@ def main() -> None:
         action="store_true",
         help="save even when almost no text came back",
     )
-    parser.add_argument("--reindex", action="store_true", help="only rebuild notes/index.md")
+    parser.add_argument(
+        "--reindex", action="store_true", help="only rebuild notes/index.md"
+    )
     arguments = parser.parse_args()
 
     if arguments.reindex and not arguments.urls and not arguments.from_file:
@@ -437,9 +448,15 @@ def main() -> None:
         parser.error("give a URL, --from-file, or --reindex")
 
     if arguments.from_file:
-        ingest_file(arguments.from_file, arguments.title, arguments.source, arguments.allow_thin)
+        ingest_file(
+            arguments.from_file, arguments.title, arguments.source, arguments.allow_thin
+        )
     for url in arguments.urls:
-        ingest_url(url, arguments.title if len(arguments.urls) == 1 else None, arguments.allow_thin)
+        ingest_url(
+            url,
+            arguments.title if len(arguments.urls) == 1 else None,
+            arguments.allow_thin,
+        )
     reindex()
 
 

@@ -1,0 +1,235 @@
+# Every tool this repository pins, in one file.
+#
+# They used to be scattered: Typst in `.typst-version`, typos in a `env:` block
+# in `ci.yml`, wrangler in another one in `worker-deploy.yml`, each with its
+# own download script. Adding typstyle would have made a fourth. This is the
+# manifest instead, and `mise install` gets a working machine from it.
+#
+# ## What Dependabot does about this: nothing
+#
+# There is no `mise` ecosystem, and none for asdf or `.tool-versions` either --
+# the supported list is bazel, bun, bundler, cargo, composer, conda, deno,
+# devcontainers, docker, docker-compose, dotnet-sdk, helm, mix, julia, elm,
+# gitsubmodule, github-actions, gomod, gradle, maven, nix, npm, nuget,
+# opentofu, pip, pre-commit and pub.
+#
+# So the fleet does it. `maintenance.yml` reads every pin here on Mondays and
+# compares it against the tool's latest release, which is what it already did
+# for Typst alone. That is not a workaround: Dependabot was never going to
+# cover a downloaded binary, which is why `dependabot.yml` says it covers the
+# Actions and `maintenance.yml` covers the rest.
+#
+# ## Why the versions matter
+#
+# Typst's HTML export is experimental and an unpinned upgrade would change the
+# site's markup underneath the pipeline. The others are pinned for the duller
+# reason: a build that installs "latest" is a build whose output depends on
+# the day it ran.
+
+[tools]
+# The compiler. Bump with `maintenance.yml`, never by hand, and look at a
+# built chapter afterwards -- see CLAUDE.md.
+typst = "0.15.1"
+
+# Spelling, over the whole repository. Configured in `.typos.toml`.
+# 1.50.1 is out; this is what the repository actually runs, and a bump is
+# a decision (a newer typos finds new words) rather than a tidy-up.
+typos = "1.36.0"
+
+# The GitHub CLI, used by the fleet's workflows and by `tools/*.py`.
+gh = "2.63.2"
+
+# One formatter per language the repository writes by hand, and no language
+# without one. Formatting is a gate here, not a preference: a diff that mixes
+# a change with a reflow costs the reader the ability to see the change, and
+# on a phone it costs them the diff entirely.
+#
+# `.typ`.
+typstyle = "0.15.1"
+
+# `.py`, formatter and linter both. Rules in `ruff.toml`, which says why each
+# switched-off rule is switched off.
+ruff = "0.15.8"
+
+# Type checker for `.py`. Configured in `ty.toml`. Pre-1.0 and pinned exactly
+# like everything else here, so it moves when `maintenance.yml` proposes a
+# bump and somebody reads the diff, not on its own.
+ty = "0.0.80"
+
+# `.js`, `.mjs`, `.json`, `.jsonc`. A single binary, which is the whole
+# reason it is this and not prettier: `README.md` promises no package
+# manager, lockfile or `node_modules`, and prettier is all three.
+biome = "2.5.13"
+
+# Only ever run in `worker-deploy.yml`. Recorded here so the version lives
+# with the others rather than in a workflow's `env:` block.
+wrangler = "4.131.1"
+
+# Lints the workflow definitions properly: expression syntax, event and
+# context validity, shellcheck over every `run:` block. `check_workflows.py`
+# only ever checked YAML validity, heredocs and tabs.
+actionlint = "1.7.12"
+
+# Outbound link checking. The task used to begin "if lychee is installed";
+# now it is, so the branch is gone.
+lychee = "0.24.2"
+
+# For the notes inbox's tests and the skill generator's zip check, both of
+# which are plain web-standard JavaScript with no dependencies.
+node = "26.8.2"
+
+# Python is deliberately absent. Every tool in `tools/` is standard library
+# only, so mise-managing an interpreter would mean installing one on every
+# runner to run scripts that need nothing from it. `python3` is a
+# prerequisite here in the way `sh` and `git` are.
+
+[env]
+# Overridable: `OUT=out mise run build`.
+OUT = "dist"
+DAYS = "7"
+
+# --------------------------------------------------------------------------
+# Tasks. `mise tasks` lists them; `mise run check` is what CI runs.
+#
+# One definition per task, and CI calls it rather than restating the command
+# in a `run:` block. That was the real duplication: `make check-workflows` and
+# ci.yml's "Check the workflow definitions" were the same line written twice,
+# free to drift apart, and nothing would have noticed.
+# --------------------------------------------------------------------------
+
+[tasks.setup]
+description = "Install the pinned toolchain"
+run = "mise install"
+
+[tasks.build]
+description = "Build the website and the PDF"
+run = "python3 tools/build.py --out $OUT"
+
+[tasks.html]
+description = "Build the website only, skipping the PDF"
+run = "python3 tools/build.py --out $OUT --no-pdf"
+
+[tasks.pdf]
+description = "Build the PDF only"
+run = "python3 tools/build.py --out $OUT --pdf-only"
+
+[tasks.serve]
+description = "Build, serve on :8000, rebuild and reload on every save"
+run = "python3 tools/build.py --out $OUT --serve"
+
+[tasks.watch]
+description = "Rebuild on every save, without serving"
+run = "python3 tools/build.py --out $OUT --watch"
+
+[tasks.build-strict]
+description = "Build with warnings treated as failures"
+run = "python3 tools/build.py --out $OUT --strict"
+
+[tasks.check-links]
+description = "Internal links and anchors in the built site"
+run = "python3 tools/check_links.py $OUT"
+
+[tasks.check-external-links]
+description = "Outbound links, with lychee"
+run = "lychee --config lychee.toml $OUT"
+
+[tasks.check-spelling]
+description = "Spelling, over the whole repository"
+run = "typos"
+
+[tasks.check-code]
+description = "Type-check the example code under code/"
+run = "tools/check_code.sh"
+
+[tasks.check-epub]
+description = "The EPUB is a well-formed EPUB 3 container"
+run = "python3 tools/check_epub.py $OUT/book.epub"
+
+[tasks.check-worker]
+description = "The notes inbox worker"
+run = "node worker/notes-intake/test.mjs"
+
+[tasks.check-workflows]
+description = "The Actions definitions, and that every tool compiles"
+# `-S warning` because bare actionlint surfaces shellcheck `info` and
+# `style` too, and four of the six it found here are `gh api --jq '..'`
+# expressions where the `$` is jq's and single quotes are the only
+# correct spelling. A gate whose findings you must not act on teaches
+# people to skip it.
+run = ["SHELLCHECK_OPTS='-S warning' actionlint", "python3 tools/check_workflows.py"]
+
+[tasks.check-lint]
+description = "Lint the Python, strictly"
+run = "ruff check tools/"
+
+[tasks.check-types]
+description = "Type-check the Python"
+run = "ty check tools/"
+
+[tasks.check-report]
+description = "The fleet report's narrowing layer"
+run = "python3 tools/fleet_report.py --self-test"
+
+[tasks.check-fleet]
+description = "Every brief routes to an agent, and the review builder's arithmetic"
+run = ["python3 tools/fleet_brief.py --self-test"]
+
+[tasks.check-format]
+description = "Every hand-written file is formatted the one way"
+# `git ls-files` rather than a directory list: a `.typ` added outside `book/`
+# was already unformatted and nothing said so. The gate should find files by
+# what they are, not by where somebody remembered to look.
+run = [
+  "git ls-files -z '*.typ' | xargs -0 typstyle --check",
+  "ruff format --check tools/",
+  "biome format worker/ site/",
+]
+
+[tasks.format]
+description = "Format everything in place"
+run = [
+  "git ls-files -z '*.typ' | xargs -0 typstyle --inplace",
+  "ruff format tools/",
+  "biome format --write worker/ site/",
+]
+
+[tasks.check-skill]
+description = "The skill generator's page builds a zip both node and Python read"
+run = "python3 tools/check_skill_page.py"
+
+[tasks.check-review]
+description = "The review builder's line arithmetic"
+run = "python3 tools/post_review.py --self-test"
+
+[tasks.check-prose]
+description = "The mechanical faults in the chapters a program can decide"
+run = ["python3 tools/prose_scan.py --self-test", "python3 tools/prose_scan.py"]
+
+[tasks.check]
+description = "Every gate CI runs"
+# check-skill (#60), check-review (#61) and check-prose (#66) landed on main
+# while this branch carried the migration, each as a Makefile target and a
+# `run:` step in ci.yml. Here they are tasks, called once, by both.
+depends = [
+  "build-strict", "check-links", "check-epub", "check-worker", "check-code",
+  "check-workflows", "check-fleet", "check-format", "check-spelling",
+  "check-skill", "check-review", "check-prose",
+  "check-lint", "check-types", "check-report",
+]
+run = "echo 'all checks passed'"
+
+[tasks.notes]
+description = "Download a source into notes/ (mise run notes -- URL)"
+run = "python3 tools/ingest_notes.py"
+
+[tasks.reindex-notes]
+description = "Rebuild notes/index.md"
+run = "python3 tools/ingest_notes.py --reindex"
+
+[tasks.fleet-report]
+description = "Judge the fleet: runs, cost, branches, what is stuck"
+run = "python3 tools/fleet_report.py --days $DAYS --html build/fleet-report.html"
+
+[tasks.clean]
+description = "Remove build output"
+run = "rm -rf $OUT build"

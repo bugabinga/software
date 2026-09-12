@@ -55,6 +55,7 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
       - name: Is there a credential to run with
         id: key
         env:
@@ -113,15 +114,6 @@ jobs:
             cat /tmp/brief.md
             echo "BRIEF_EOF"
           } >> "$GITHUB_ENV"
-
-      - name: Install the toolchain the reviewer will need
-        if: steps.key.outputs.present == 'true'
-        run: |
-          tools/install-typst.sh
-          # Every command in the reviewer's brief is a gh command. Without
-          # this it ran, found no gh, and produced neither a verdict nor a
-          # comment -- which the verdict step then correctly called a failure.
-          tools/install-gh.sh
 
       - name: Review
         if: steps.key.outputs.present == 'true'

@@ -52,6 +52,7 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
       - name: Check that the key is present
         id: key
         env:
@@ -63,12 +64,6 @@ jobs:
           else
             echo "present=true" >> "$GITHUB_OUTPUT"
           fi
-
-      # The book's own toolchain, so the agent can run `make check` rather
-      # than guessing whether its change builds.
-      - name: Install Typst
-        if: steps.key.outputs.present == 'true'
-        run: tools/install-typst.sh
 
       - name: Run Claude
         if: steps.key.outputs.present == 'true'

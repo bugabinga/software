@@ -60,12 +60,12 @@ draft is then a guess about voice, and the author should know that.
   within one.
 - Never fabricate a citation, a quotation, a figure, or a code listing that
   has not been compiled. `#snippet` reads real files under `code/`; if a
-  listing does not exist yet, write it into `code/` so `make check-code`
+  listing does not exist yet, write it into `code/` so `mise run check-code`
   type-checks it.
 
 ## Definition of done
 
-`make check` passes, the pull request states which notes the draft came from,
+`mise run check` passes, the pull request states which notes the draft came from,
 what you were unsure of, and where you deliberately stopped short.
 
 Your pull request merges itself once it is green, and this is the agent where

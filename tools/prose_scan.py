@@ -31,9 +31,10 @@ import argparse
 import json
 import re
 import sys
-import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 CHAPTERS = ROOT / "book" / "chapters"
@@ -135,6 +136,7 @@ class Book:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from build import slug_of  # noqa: E402 - after the path is set up
 
+
 def load_book() -> Book:
     if not MANIFEST.is_file():
         sys.exit(f"missing manifest: {MANIFEST}")
@@ -188,50 +190,84 @@ def scan_chapter(path: Path, book: Book, terms, root: Path) -> list[Finding]:
             note = root / match.group("path")
             column = match.start() + 1
             if not note.is_file():
-                findings.append(Finding(
-                    "dead-note", relative, number,
-                    f"`{match.group('path')}` is cited here and is not in the tree.",
-                    column, match.end() + 1))
+                findings.append(
+                    Finding(
+                        "dead-note",
+                        relative,
+                        number,
+                        f"`{match.group('path')}` is cited here "
+                        "and is not in the tree.",
+                        column,
+                        match.end() + 1,
+                    )
+                )
                 continue
             total = line_count(note)
             # A range belongs to the path it follows. Searching the whole
             # line makes `notes/a.md lines 1-3, notes/b.md lines 900-950`
             # report `a.md` as too short for a range never about it.
-            stop = (notes_here[index + 1].start()
-                    if index + 1 < len(notes_here) else len(line))
+            stop = (
+                notes_here[index + 1].start()
+                if index + 1 < len(notes_here)
+                else len(line)
+            )
             for span in LINES_RE.finditer(line, match.end(), stop):
                 start = int(span.group("start"))
                 end = int(span.group("end") or start)
                 if max(start, end) > total:
-                    findings.append(Finding(
-                        "note-line-out-of-range", relative, number,
-                        f"`{match.group('path')}` has {total} lines; this cites "
-                        f"{start}–{end}.",
-                        span.start() + 1, span.end() + 1))
+                    findings.append(
+                        Finding(
+                            "note-line-out-of-range",
+                            relative,
+                            number,
+                            f"`{match.group('path')}` has {total} lines; this cites "
+                            f"{start}–{end}.",
+                            span.start() + 1,
+                            span.end() + 1,
+                        )
+                    )
 
         for match in XREF_RE.finditer(line):
             slug = match.group("slug")
             if slug not in book.slugs:
-                findings.append(Finding(
-                    "dead-xref", relative, number,
-                    f"`{slug}` is not a chapter in book.toml.",
-                    match.start() + 1, match.end() + 1))
+                findings.append(
+                    Finding(
+                        "dead-xref",
+                        relative,
+                        number,
+                        f"`{slug}` is not a chapter in book.toml.",
+                        match.start() + 1,
+                        match.end() + 1,
+                    )
+                )
 
         for match in SNIPPET_RE.finditer(line):
             target = match.group("path")
             resolved = root / target.lstrip("/")
             if not resolved.is_file():
-                findings.append(Finding(
-                    "dead-snippet", relative, number,
-                    f"`{target}` does not exist.",
-                    match.start() + 1, match.end() + 1))
+                findings.append(
+                    Finding(
+                        "dead-snippet",
+                        relative,
+                        number,
+                        f"`{target}` does not exist.",
+                        match.start() + 1,
+                        match.end() + 1,
+                    )
+                )
 
         if not line.lstrip().startswith("//"):
             for match in TODO_RE.finditer(line):
-                findings.append(Finding(
-                    "todo-left", relative, number,
-                    f"`{match.group(1)}` left in the prose.",
-                    match.start() + 1, match.end() + 1))
+                findings.append(
+                    Finding(
+                        "todo-left",
+                        relative,
+                        number,
+                        f"`{match.group(1)}` left in the prose.",
+                        match.start() + 1,
+                        match.end() + 1,
+                    )
+                )
 
         if line.lstrip().startswith("//"):
             continue
@@ -239,16 +275,27 @@ def scan_chapter(path: Path, book: Book, terms, root: Path) -> list[Finding]:
         for preferred, avoid in terms:
             for spelling in avoid:
                 for match in re.finditer(rf"\b{re.escape(spelling)}\b", line, re.I):
-                    findings.append(Finding(
-                        "term-drift", relative, number,
-                        f"`{match.group(0)}` — this book says `{preferred}`.",
-                        match.start() + 1, match.end() + 1))
+                    findings.append(
+                        Finding(
+                            "term-drift",
+                            relative,
+                            number,
+                            f"`{match.group(0)}` — this book says `{preferred}`.",
+                            match.start() + 1,
+                            match.end() + 1,
+                        )
+                    )
 
     if not cited:
-        findings.append(Finding(
-            "uncited-chapter", relative, 1,
-            "No `// Source:` comment naming the notes this chapter came from, "
-            "and no `// Not from notes: <reason>` saying why there is none."))
+        findings.append(
+            Finding(
+                "uncited-chapter",
+                relative,
+                1,
+                "No `// Source:` comment naming the notes this chapter came from, "
+                "and no `// Not from notes: <reason>` saying why there is none.",
+            )
+        )
 
     return findings
 
@@ -270,40 +317,60 @@ def sarif(findings: list[Finding]) -> dict:
     return {
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "version": "2.1.0",
-        "runs": [{
-            "tool": {"driver": {
-                "name": "prose-scan",
-                "informationUri": "https://github.com/bugabinga/software",
-                "rules": [{
-                    "id": rule,
-                    "name": rule.replace("-", " ").title().replace(" ", ""),
-                    "shortDescription": {"text": short},
-                    "fullDescription": {"text": full},
-                    "defaultConfiguration": {"level": level},
-                    "help": {"text": full},
-                } for rule, (level, short, full) in RULES.items()],
-            }},
-            "results": [{
-                "ruleId": f.rule,
-                "level": f.level,
-                "message": {"text": f.message},
-                "locations": [{"physicalLocation": {
-                    "artifactLocation": {"uri": f.path},
-                    "region": {
-                        "startLine": f.line,
-                        "startColumn": f.column,
-                        **({"endColumn": f.end_column} if f.end_column else {}),
-                    },
-                }}],
-            } for f in findings],
-        }],
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "prose-scan",
+                        "informationUri": "https://github.com/bugabinga/software",
+                        "rules": [
+                            {
+                                "id": rule,
+                                "name": rule.replace("-", " ").title().replace(" ", ""),
+                                "shortDescription": {"text": short},
+                                "fullDescription": {"text": full},
+                                "defaultConfiguration": {"level": level},
+                                "help": {"text": full},
+                            }
+                            for rule, (level, short, full) in RULES.items()
+                        ],
+                    }
+                },
+                "results": [
+                    {
+                        "ruleId": f.rule,
+                        "level": f.level,
+                        "message": {"text": f.message},
+                        "locations": [
+                            {
+                                "physicalLocation": {
+                                    "artifactLocation": {"uri": f.path},
+                                    "region": {
+                                        "startLine": f.line,
+                                        "startColumn": f.column,
+                                        **(
+                                            {"endColumn": f.end_column}
+                                            if f.end_column
+                                            else {}
+                                        ),
+                                    },
+                                }
+                            }
+                        ],
+                    }
+                    for f in findings
+                ],
+            }
+        ],
     }
 
 
 def as_text(findings: list[Finding]) -> str:
     if not findings:
         return "prose: no mechanical faults\n"
-    rows = [f"{f.level:>7}  {f.path}:{f.line}  [{f.rule}] {f.message}" for f in findings]
+    rows = [
+        f"{f.level:>7}  {f.path}:{f.line}  [{f.rule}] {f.message}" for f in findings
+    ]
     counts: dict[str, int] = {}
     for f in findings:
         counts[f.level] = counts.get(f.level, 0) + 1
@@ -316,8 +383,8 @@ def as_text(findings: list[Finding]) -> str:
 
 def self_test() -> int:
     """Every rule fires on a tree built to trip it, and on nothing else."""
-    import shutil
-    import tempfile
+    import shutil  # noqa: PLC0415 - the self-test's own dependencies
+    import tempfile  # noqa: PLC0415
 
     problems = []
     with tempfile.TemporaryDirectory() as directory:
@@ -325,64 +392,87 @@ def self_test() -> int:
         (root / "book" / "chapters").mkdir(parents=True)
         (root / "notes").mkdir()
         (root / "notes" / "n.md").write_text("one\ntwo\nthree\n", encoding="utf-8")
-        (root / "notes" / "m.md").write_text("\n".join(str(n) for n in range(50)), encoding="utf-8")
+        (root / "notes" / "m.md").write_text(
+            "\n".join(str(n) for n in range(50)), encoding="utf-8"
+        )
         (root / "book" / "book.toml").write_text(
             '[book]\ntitle = "T"\n'
             '[[part]]\ntitle = "P"\nchapters = ["chapters/01-good.typ", '
             '"chapters/02-bad.typ", "chapters/03-bare.typ", '
             '"chapters/04-plural.typ", "chapters/05-exempt.typ", '
             '"chapters/06-two-notes.typ"]\n',
-            encoding="utf-8")
+            encoding="utf-8",
+        )
         (root / "book" / "terms.toml").write_text(
-            '[[term]]\nname = "substrate"\navoid = ["medium"]\n', encoding="utf-8")
+            '[[term]]\nname = "substrate"\navoid = ["medium"]\n', encoding="utf-8"
+        )
 
         (root / "book" / "chapters" / "01-good.typ").write_text(
             "// Source: notes/n.md, lines 1-3\n= Good\n\nThe substrate holds.\n"
-            '#xref("bad", "see")\n', encoding="utf-8")
+            '#xref("bad", "see")\n',
+            encoding="utf-8",
+        )
         (root / "book" / "chapters" / "02-bad.typ").write_text(
             "// Source: notes/gone.md, lines 1-2\n"
             "// Source: notes/n.md, lines 40-44\n"
             "= Bad\n\nThe medium holds. TODO tighten.\n"
             '#xref("nowhere", "see")\n'
-            '#snippet("code/missing.rs")\n', encoding="utf-8")
+            '#snippet("code/missing.rs")\n',
+            encoding="utf-8",
+        )
         (root / "book" / "chapters" / "03-bare.typ").write_text(
-            "= Bare\n\nNothing cited.\n", encoding="utf-8")
+            "= Bare\n\nNothing cited.\n", encoding="utf-8"
+        )
         (root / "book" / "chapters" / "04-plural.typ").write_text(
-            "// Sources:\n//   notes/n.md, lines 1-2\n= Plural\n", encoding="utf-8")
+            "// Sources:\n//   notes/n.md, lines 1-2\n= Plural\n", encoding="utf-8"
+        )
         (root / "book" / "chapters" / "05-exempt.typ").write_text(
             "// Not from notes: living documentation of the prelude.\n= Exempt\n",
-            encoding="utf-8")
+            encoding="utf-8",
+        )
         # Two notes on one line, both cited correctly. Every range on the line
         # used to be checked against every note on it, so the short one was
         # reported as too short for the long one's range -- an `error`, which
         # is the level that blocks a merge, on prose that is right.
         (root / "book" / "chapters" / "06-two-notes.typ").write_text(
-            "// Sources: notes/n.md, lines 1-2, notes/m.md, lines 40-50\n"
-            "= Two\n", encoding="utf-8")
+            "// Sources: notes/n.md, lines 1-2, notes/m.md, lines 40-50\n= Two\n",
+            encoding="utf-8",
+        )
 
-        global ROOT, CHAPTERS, MANIFEST, TERMS
+        global ROOT, MANIFEST, TERMS
         saved = (ROOT, MANIFEST, TERMS)
-        ROOT, MANIFEST, TERMS = root, root / "book" / "book.toml", root / "book" / "terms.toml"
+        ROOT, MANIFEST, TERMS = (
+            root,
+            root / "book" / "book.toml",
+            root / "book" / "terms.toml",
+        )
         try:
             findings = scan(root)
         finally:
             ROOT, MANIFEST, TERMS = saved
 
         got = sorted({(f.rule, f.path) for f in findings})
-        want = sorted([
-            ("dead-note", "book/chapters/02-bad.typ"),
-            ("note-line-out-of-range", "book/chapters/02-bad.typ"),
-            ("dead-xref", "book/chapters/02-bad.typ"),
-            ("dead-snippet", "book/chapters/02-bad.typ"),
-            ("todo-left", "book/chapters/02-bad.typ"),
-            ("term-drift", "book/chapters/02-bad.typ"),
-            ("uncited-chapter", "book/chapters/03-bare.typ"),
-        ])
+        want = sorted(
+            [
+                ("dead-note", "book/chapters/02-bad.typ"),
+                ("note-line-out-of-range", "book/chapters/02-bad.typ"),
+                ("dead-xref", "book/chapters/02-bad.typ"),
+                ("dead-snippet", "book/chapters/02-bad.typ"),
+                ("todo-left", "book/chapters/02-bad.typ"),
+                ("term-drift", "book/chapters/02-bad.typ"),
+                ("uncited-chapter", "book/chapters/03-bare.typ"),
+            ]
+        )
         if got != want:
             problems.append(f"rules fired: {got}\n            wanted: {want}")
 
-        clean = [f for f in findings if f.path.endswith(
-            ("01-good.typ", "04-plural.typ", "05-exempt.typ", "06-two-notes.typ"))]
+        clean = [
+            f
+            for f in findings
+            if f.path.endswith(
+                ("01-good.typ", "04-plural.typ", "05-exempt.typ", "06-two-notes.typ")
+            )
+        ]
         if clean:
             problems.append(f"the clean chapter produced {clean}")
 
@@ -392,7 +482,11 @@ def self_test() -> int:
             problems.append("slug_of does not strip the numeric prefix")
 
         document = sarif(findings)
-        if document["runs"][0]["results"][0]["level"] not in {"error", "warning", "note"}:
+        if document["runs"][0]["results"][0]["level"] not in {
+            "error",
+            "warning",
+            "note",
+        }:
             problems.append("a result has a level SARIF does not define")
         rule_ids = {r["id"] for r in document["runs"][0]["tool"]["driver"]["rules"]}
         unknown = {r["ruleId"] for r in document["runs"][0]["results"]} - rule_ids
@@ -416,8 +510,11 @@ def main() -> int:
     parser.add_argument("--sarif", type=Path, help="write SARIF here")
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument(
-        "--fail-on", default="error", choices=["error", "warning", "note", "never"],
-        help="lowest level that exits non-zero (default: error)")
+        "--fail-on",
+        default="error",
+        choices=["error", "warning", "note", "never"],
+        help="lowest level that exits non-zero (default: error)",
+    )
     arguments = parser.parse_args()
 
     if arguments.self_test:
@@ -428,7 +525,9 @@ def main() -> int:
 
     if arguments.sarif:
         arguments.sarif.parent.mkdir(parents=True, exist_ok=True)
-        arguments.sarif.write_text(json.dumps(sarif(findings), indent=2), encoding="utf-8")
+        arguments.sarif.write_text(
+            json.dumps(sarif(findings), indent=2), encoding="utf-8"
+        )
         print(f"wrote {arguments.sarif}", file=sys.stderr)
 
     if arguments.fail_on == "never":

@@ -5,7 +5,7 @@
 // only affects the PDF.
 
 // Only families that actually resolve belong here: Typst warns about every
-// unknown family in the list, and `make check` treats warnings as failures.
+// unknown family in the list, and `mise run check` treats warnings as failures.
 // Typst embeds Libertinus Serif, New Computer Modern (+ Math) and DejaVu Sans
 // Mono; `book/fonts/` adds the rest, and every build passes `--font-path
 // book/fonts` so they resolve.

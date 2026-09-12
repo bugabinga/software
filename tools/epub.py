@@ -37,9 +37,7 @@ from xml.etree import ElementTree
 
 # Void elements, which XHTML requires be self-closed. Typst's own export is
 # already close to XHTML; these come from helpers that emit raw HTML.
-VOID = (
-    "area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr"
-)
+VOID = "area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr"
 VOID_RE = re.compile(rf"<({VOID})\b([^>]*?)\s*/?>", re.I)
 # An ampersand that is not already a character reference.
 BARE_AMP_RE = re.compile(r"&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#\d+|#[xX][0-9a-fA-F]+);)")
@@ -188,7 +186,7 @@ def build_epub(book, out_dir: Path, cover: Path | None = None) -> Path:
         try:
             ElementTree.fromstring(text)
         except ElementTree.ParseError as error:
-            raise SystemExit(f"epub: {name} is not well-formed XML: {error}")
+            raise SystemExit(f"epub: {name} is not well-formed XML: {error}") from error
 
     identifier = stable_identifier(book)
     modified = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -243,7 +241,9 @@ def build_epub(book, out_dir: Path, cover: Path | None = None) -> Path:
     try:
         ElementTree.fromstring(opf)
     except ElementTree.ParseError as error:
-        raise SystemExit(f"epub: content.opf is not well-formed XML: {error}")
+        raise SystemExit(
+            f"epub: content.opf is not well-formed XML: {error}"
+        ) from error
 
     destination = out_dir / "book.epub"
     with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:

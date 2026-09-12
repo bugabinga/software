@@ -46,12 +46,19 @@ def heredoc_opener(line: str) -> tuple[str, bool] | None:
             double = not double
         elif character == "#" and not single and not double:
             return None  # a comment; nothing after it runs
-        elif character == "<" and not single and not double and line[index + 1 : index + 2] == "<":
+        elif (
+            character == "<"
+            and not single
+            and not double
+            and line[index + 1 : index + 2] == "<"
+        ):
             if match := HEREDOC.match(line[index:]):
                 return match.group(1), line[index : index + 3].startswith("<<-")
             return None
         index += 1
     return None
+
+
 BLOCK_SCALAR = re.compile(r":\s*[|>][-+]?\d*\s*$")
 
 
@@ -119,8 +126,12 @@ def check_heredocs(path: Path) -> list[str]:
 def check_yaml(paths: list[Path]) -> list[str]:
     try:
         import yaml  # noqa: PLC0415 - optional
+        import yaml.constructor  # noqa: PLC0415
+        import yaml.resolver  # noqa: PLC0415
     except ImportError:
-        print("PyYAML not installed; skipping the syntax check (CI parses these anyway)")
+        print(
+            "PyYAML not installed; skipping the syntax check (CI parses these anyway)"
+        )
         return []
 
     # YAML says a duplicate key is an error; every common parser instead
@@ -143,13 +154,14 @@ def check_yaml(paths: list[Path]) -> list[str]:
             if key in seen:
                 mark = key_node.start_mark
                 raise yaml.constructor.ConstructorError(
-                    None, None,
-                    f"duplicate key {key!r}", mark)
+                    None, None, f"duplicate key {key!r}", mark
+                )
             seen.add(key)
         return yaml.SafeLoader.construct_mapping(loader, node, deep)
 
     StrictLoader.add_constructor(
-        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_duplicates)
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_duplicates
+    )
 
     problems = []
     for path in paths:
@@ -157,6 +169,39 @@ def check_yaml(paths: list[Path]) -> list[str]:
             yaml.load(path.read_text(encoding="utf-8"), Loader=StrictLoader)
         except Exception as error:  # noqa: BLE001 - report whatever it says
             problems.append(f"{path.relative_to(ROOT)}: invalid YAML -- {error}")
+    return problems
+
+
+USES_RE = re.compile(r"^\s*(?:- )?uses:\s*(?P<ref>[^\s#]+)\s*(?P<comment>#.*)?$", re.M)
+PINNED_RE = re.compile(r"^[^@]+@[0-9a-f]{40}$")
+
+
+def check_pins(paths: list[Path]) -> list[str]:
+    """Every third-party action is a commit, with its version in a comment.
+
+    A tag is mutable: whoever owns an action can move `v4` onto a different
+    commit, and this repository runs those actions with a token that can write
+    to it. `actionlint` does not check this and Dependabot is happy either way,
+    so nothing else would notice a tag creeping back in -- which is exactly
+    how it would happen, one convenient copy-paste at a time.
+
+    The trailing `# v4` is required too, because a bare forty-character hash
+    tells a reader nothing about what they are running.
+    """
+    problems = []
+    for path in paths:
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            match = USES_RE.match(line)
+            if not match:
+                continue
+            ref = match.group("ref")
+            if ref.startswith("./"):
+                continue
+            where = f"{path.relative_to(ROOT)}:{number}"
+            if not PINNED_RE.match(ref):
+                problems.append(f"{where}: {ref} is not pinned to a commit")
+            elif not (match.group("comment") or "").strip().startswith("# "):
+                problems.append(f"{where}: {ref} has no `# version` comment")
     return problems
 
 
@@ -174,30 +219,42 @@ def check_tools() -> list[str]:
         try:
             compile(source, str(path), "exec")
         except SyntaxError as error:
-            problems.append(
-                f"{path.relative_to(ROOT)}:{error.lineno}: {error.msg}"
-            )
+            problems.append(f"{path.relative_to(ROOT)}:{error.lineno}: {error.msg}")
     return problems
 
 
 def main() -> None:
-    paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted((ROOT / ".github").rglob("*.yaml"))
+    paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted(
+        (ROOT / ".github").rglob("*.yaml")
+    )
     if not paths:
         sys.exit("no workflow files found under .github/")
 
-    problems = check_yaml(paths) + check_tools()
+    problems = check_yaml(paths) + check_tools() + check_pins(paths)
 
     for path in paths:
         problems += check_heredocs(path)
         if "\t" in path.read_text(encoding="utf-8"):
-            problems.append(f"{path.relative_to(ROOT)}: contains a tab; YAML forbids them for indentation")
+            problems.append(
+                f"{path.relative_to(ROOT)}: contains a tab; "
+                "YAML forbids them for indentation"
+            )
 
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems:
         sys.exit(f"{len(problems)} problem(s) in the workflow definitions")
     tools = len(list((ROOT / "tools").glob("*.py")))
-    print(f"workflows: {len(paths)} files, {tools} tools, no problems")
+    pins = sum(
+        1
+        for p in paths
+        for line in p.read_text(encoding="utf-8").splitlines()
+        if (m := USES_RE.match(line)) and not m.group("ref").startswith("./")
+    )
+    print(
+        f"workflows: {len(paths)} files, {tools} tools, "
+        f"{pins} pinned actions, no problems"
+    )
 
 
 if __name__ == "__main__":

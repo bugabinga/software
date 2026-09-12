@@ -35,6 +35,7 @@ import time
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import ClassVar
 from urllib.parse import urlsplit
 
 if sys.version_info < (3, 11):
@@ -46,7 +47,13 @@ import tomllib
 # when the script is run by path from anywhere.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from epub import build_epub  # noqa: E402 - after the path is set up
+from epub import build_epub
+from pinned import pins as _pins
+
+
+def pinned(tool: str) -> str:
+    return _pins()[tool]
+
 
 ROOT = Path(__file__).resolve().parent.parent
 BOOK_DIR = ROOT / "book"
@@ -65,8 +72,8 @@ ALLOWED_WARNINGS = ("html export is under active development and incomplete",)
 
 
 def typst_pin() -> str:
-    """The Typst version this tree is pinned to, per `.typst-version`."""
-    return (ROOT / ".typst-version").read_text(encoding="utf-8").strip()
+    """The Typst version this tree is pinned to, per `mise.toml`."""
+    return pinned("typst")
 
 
 def typst_binary() -> str:
@@ -80,7 +87,7 @@ def typst_binary() -> str:
     if not found:
         sys.exit(
             "no typst binary found.\n"
-            "  run `make setup` to install the pinned version into .tools/,\n"
+            "  run `mise install` to install the pinned version into .tools/,\n"
             "  or set TYPST=/path/to/typst"
         )
     return found
@@ -92,7 +99,7 @@ class TypstError(RuntimeError):
 
 def run_typst(binary: str, args: list[str]) -> list[str]:
     """Run Typst, returning the warnings it emitted. Raises on failure."""
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: PLW1510 - the warnings are the return value
         [binary, *args],
         cwd=ROOT,
         capture_output=True,
@@ -254,8 +261,8 @@ TAG_RE = re.compile(r"<[^>]+>")
 class TextExtractor(HTMLParser):
     """Visible text, for the search index and word counts."""
 
-    SKIPPED = {"math", "script", "style", "figcaption"}
-    SKIPPED_CLASSES = {"permalink", "copy-button"}
+    SKIPPED: ClassVar[set[str]] = {"math", "script", "style", "figcaption"}
+    SKIPPED_CLASSES: ClassVar[set[str]] = {"permalink", "copy-button"}
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -358,7 +365,8 @@ def index_headings(body: str) -> tuple[str, str, list[tuple[int, str, str]]]:
             outline.append((level, anchor, text))
 
         permalink = (
-            f'<a class="permalink" href="#{anchor}" aria-label="Permalink to this section">#</a>'
+            f'<a class="permalink" href="#{anchor}" '
+            f'aria-label="Permalink to this section">#</a>'
         )
         return f"<h{level}{attrs}>{inner}{permalink}</h{level}>"
 
@@ -476,7 +484,8 @@ def nav_html(book: Book, current: Chapter | None, prefix: str) -> str:
             out.append('<ul class="toc-sections">')
             for level, anchor, text in chapter.sections:
                 out.append(
-                    f'<li class="level-{level}"><a href="#{anchor}">{esc(text)}</a></li>'
+                    f'<li class="level-{level}">'
+                    f'<a href="#{anchor}">{esc(text)}</a></li>'
                 )
             out.append("</ul>")
         out.append("</li>")
@@ -512,12 +521,12 @@ def prev_next_html(book: Book, chapter: Chapter) -> str:
     if previous:
         links.append(
             f'<a class="prev" href="../{previous.url}" rel="prev">'
-            f'<span>Previous</span>{previous.title_html}</a>'
+            f"<span>Previous</span>{previous.title_html}</a>"
         )
     if following:
         links.append(
             f'<a class="next" href="../{following.url}" rel="next">'
-            f'<span>Next</span>{following.title_html}</a>'
+            f"<span>Next</span>{following.title_html}</a>"
         )
     if not links:
         return ""
@@ -640,7 +649,9 @@ def compile_chapters(
             ],
         )
 
-        head, body = split_document(output.read_text(encoding="utf-8"), chapter.relative)
+        head, body = split_document(
+            output.read_text(encoding="utf-8"), chapter.relative
+        )
         body = promote_headings(body)
         body = wrap_balanced(body, '<math display="block">', "math", "math-scroll")
         body = wrap_balanced(body, "<table", "table", "table-scroll")
@@ -659,7 +670,6 @@ def compile_chapters(
         chapter.summary = truncate(first_paragraph(body), 170)
         chapter.words = len(chapter.text.split())
     return warnings
-
 
 
 ID_ATTR_RE = re.compile(r'\bid="([^"]+)"')
@@ -762,7 +772,9 @@ def write_pages(book: Book, out_dir: Path, dev: bool) -> None:
             {
                 "lang": book.language,
                 "title": esc(f"{chapter.title_text} — {book.title}"),
-                "meta_head": head_meta_html(book, chapter.title_text, summary, chapter.url),
+                "meta_head": head_meta_html(
+                    book, chapter.title_text, summary, chapter.url
+                ),
                 "typst_head": chapter.typst_head,
                 "prefix": "../",
                 "book_title": esc(book.title),
@@ -879,7 +891,9 @@ def write_site_files(book: Book, out_dir: Path, pdf: bool) -> None:
         "words": sum(chapter.words for chapter in book.chapters),
         "pdf": pdf,
     }
-    (out_dir / "build-info.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
+    (out_dir / "build-info.json").write_text(
+        json.dumps(info, indent=2), encoding="utf-8"
+    )
 
 
 def prune_stale_pages(book: Book, out_dir: Path) -> list[str]:
@@ -1016,8 +1030,8 @@ def build_pdf(binary: str, out_dir: Path) -> list[str]:
             "--features",
             "html",
             "--ignore-system-fonts",
-                "--font-path",
-                "book/fonts",
+            "--font-path",
+            "book/fonts",
             "book/book.typ",
             str((out_dir / "book.pdf").relative_to(ROOT)),
         ],
@@ -1072,8 +1086,7 @@ def build(args: argparse.Namespace, binary: str) -> Book:
         f"({single.stat().st_size / 1024:.0f} KB)"
     )
     print(
-        f"  epub:        {epub.relative_to(ROOT)} "
-        f"({epub.stat().st_size / 1024:.0f} KB)"
+        f"  epub:        {epub.relative_to(ROOT)} ({epub.stat().st_size / 1024:.0f} KB)"
     )
     print(
         f"built {len(book.chapters)} chapters, {words:,} words "
@@ -1102,13 +1115,18 @@ def snapshot() -> dict[Path, float]:
 
 
 def serve_forever(out_dir: Path, port: int, counter: list[int]) -> None:
-    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+    # Only `--serve` needs an HTTP server; every other run would pay for
+    # the import.
+    from http.server import (  # noqa: PLC0415
+        SimpleHTTPRequestHandler,
+        ThreadingHTTPServer,
+    )
 
     class Handler(SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=str(out_dir), **kwargs)
 
-        def do_GET(self):  # noqa: N802 - stdlib naming
+        def do_GET(self):
             if self.path.startswith("/__build"):
                 body = str(counter[0]).encode()
                 self.send_response(200)
@@ -1124,14 +1142,14 @@ def serve_forever(out_dir: Path, port: int, counter: list[int]) -> None:
             self.send_header("Cache-Control", "no-store")
             super().end_headers()
 
-        def log_message(self, *args):
+        def log_message(self, format: str, *args: object) -> None:
             pass
 
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 
 
 def watch(args: argparse.Namespace, binary: str) -> None:
-    import threading
+    import threading  # noqa: PLC0415 - only `--watch` needs it
 
     out_dir = (ROOT / args.out).resolve()
     counter = [0]
@@ -1158,7 +1176,9 @@ def watch(args: argparse.Namespace, binary: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--out", default="dist", help="output directory (default: dist)")
+    parser.add_argument(
+        "--out", default="dist", help="output directory (default: dist)"
+    )
     parser.add_argument("--no-pdf", action="store_true", help="skip the PDF build")
     parser.add_argument(
         "--pdf-only", action="store_true", help="build only the PDF, not the site"
@@ -1171,7 +1191,9 @@ def main() -> None:
     parser.add_argument(
         "--base-url", help="override book.toml's base-url (for staged deployments)"
     )
-    parser.add_argument("--watch", action="store_true", help="rebuild when files change")
+    parser.add_argument(
+        "--watch", action="store_true", help="rebuild when files change"
+    )
     parser.add_argument(
         "--serve", action="store_true", help="serve the output and rebuild on change"
     )

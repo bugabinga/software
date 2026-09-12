@@ -74,6 +74,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+
       # Two agents that answer each other will do it forever if nothing
       # counts. Three rounds is enough to fix what is fixable; a fourth means
       # they disagree, and a disagreement between two agents is the author's
@@ -177,12 +179,6 @@ jobs:
             cat /tmp/brief.md
             echo "BRIEF_EOF"
           } >> "$GITHUB_ENV"
-
-      - name: Install the toolchain
-        if: steps.rounds.outputs.over == 'false' && steps.key.outputs.present == 'true'
-        run: |
-          tools/install-typst.sh
-          tools/install-gh.sh
 
       - name: Respond
         if: steps.rounds.outputs.over == 'false' && steps.key.outputs.present == 'true'

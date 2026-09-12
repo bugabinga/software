@@ -22,5 +22,5 @@ To add a font: drop the file here, check what Typst calls it with
     .tools/typst/typst fonts --ignore-system-fonts --font-path book/fonts
 
 and name that family in `book/lib/theme.typ`. Only name families that
-resolve -- Typst warns about every one that does not, and `make check` treats
+resolve -- Typst warns about every one that does not, and `mise run check` treats
 an unexpected warning as a failure.

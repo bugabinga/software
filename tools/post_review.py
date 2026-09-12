@@ -42,7 +42,9 @@ HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 def gh(*args: str, check: bool = True) -> str:
     binary = shutil.which("gh") or str(ROOT / ".tools" / "gh" / "gh")
-    done = subprocess.run([binary, *args], capture_output=True, text=True, timeout=120)
+    done = subprocess.run(  # noqa: PLW1510 - returncode is read below
+        [binary, *args], capture_output=True, text=True, timeout=120
+    )
     if done.returncode != 0:
         if check:
             sys.exit(f"gh {' '.join(args)}: {done.stderr.strip()}")
@@ -110,10 +112,18 @@ def build(verdict: dict, allowed: dict[str, set[int]]) -> tuple[list[dict], list
             isinstance(path, str)
             and isinstance(line, int)
             and line in allowed.get(path, set())
-            and (start is None or (isinstance(start, int) and start in allowed.get(path, set())))
+            and (
+                start is None
+                or (isinstance(start, int) and start in allowed.get(path, set()))
+            )
         )
         if placeable:
-            comment = {"path": path, "line": line, "side": "RIGHT", "body": finding_body(finding)}
+            comment = {
+                "path": path,
+                "line": line,
+                "side": "RIGHT",
+                "body": finding_body(finding),
+            }
             if isinstance(start, int) and start < line:
                 comment["start_line"] = start
                 comment["start_side"] = "RIGHT"
@@ -253,10 +263,34 @@ def self_test() -> int:
     inline, orphaned = build(
         {
             "findings": [
-                {"path": "a.py", "line": 11, "what": "w", "why": "y", "suggestion": "fixed"},
-                {"path": "a.py", "start_line": 10, "line": 12, "what": "range", "why": ""},
-                {"path": "a.py", "line": 99, "where": "a.py:99", "what": "off the diff", "why": ""},
-                {"path": "c.txt", "line": 1, "where": "c.txt:1", "what": "untouched file", "why": ""},
+                {
+                    "path": "a.py",
+                    "line": 11,
+                    "what": "w",
+                    "why": "y",
+                    "suggestion": "fixed",
+                },
+                {
+                    "path": "a.py",
+                    "start_line": 10,
+                    "line": 12,
+                    "what": "range",
+                    "why": "",
+                },
+                {
+                    "path": "a.py",
+                    "line": 99,
+                    "where": "a.py:99",
+                    "what": "off the diff",
+                    "why": "",
+                },
+                {
+                    "path": "c.txt",
+                    "line": 1,
+                    "where": "c.txt:1",
+                    "what": "untouched file",
+                    "why": "",
+                },
                 {"where": "the argument", "what": "no file at all", "why": ""},
             ]
         },
@@ -264,7 +298,9 @@ def self_test() -> int:
     )
     expect("inline count", len(inline), 2)
     expect("orphaned count", len(orphaned), 3)
-    expect("suggestion is fenced", "```suggestion\nfixed\n```" in inline[0]["body"], True)
+    expect(
+        "suggestion is fenced", "```suggestion\nfixed\n```" in inline[0]["body"], True
+    )
     expect("range start", inline[1].get("start_line"), 10)
     expect("range side", inline[1].get("start_side"), "RIGHT")
     expect("single line has no range", "start_line" in inline[0], False)
@@ -272,12 +308,18 @@ def self_test() -> int:
 
     expect(
         "a pass is a comment",
-        "COMMENT" if {"verdict": "pass"}.get("verdict") == "pass" else "REQUEST_CHANGES",
+        "COMMENT"
+        if {"verdict": "pass"}.get("verdict") == "pass"
+        else "REQUEST_CHANGES",
         "COMMENT",
     )
     body = review_body({"verdict": "fail", "summary": "s"}, [], 3)
     expect("later rounds are numbered", "(round 3)" in body, True)
-    expect("the first round is not", "(round 1)" in review_body({"verdict": "fail"}, [], 1), False)
+    expect(
+        "the first round is not",
+        "(round 1)" in review_body({"verdict": "fail"}, [], 1),
+        False,
+    )
 
     for problem in problems:
         print(f"  {problem}", file=sys.stderr)
@@ -294,7 +336,9 @@ def main() -> int:
     parser.add_argument("--pr", type=int)
     parser.add_argument("--verdict", type=Path)
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
-    parser.add_argument("--diff", type=Path, help="a diff to use instead of fetching one")
+    parser.add_argument(
+        "--diff", type=Path, help="a diff to use instead of fetching one"
+    )
     parser.add_argument("--dry-run", action="store_true")
     arguments = parser.parse_args()
 
@@ -319,7 +363,9 @@ def main() -> int:
 
     allowed = commentable_lines(diff)
     inline, orphaned = build(verdict, allowed)
-    round_number = 1 if arguments.dry_run else rounds_so_far(arguments.repo, arguments.pr) + 1
+    round_number = (
+        1 if arguments.dry_run else rounds_so_far(arguments.repo, arguments.pr) + 1
+    )
 
     payload = {
         "body": review_body(verdict, orphaned, round_number),
@@ -362,8 +408,12 @@ def main() -> int:
         )
         body_file.write_text(json.dumps(payload), encoding="utf-8")
         result = gh(
-            "api", "-X", "POST", f"repos/{arguments.repo}/pulls/{arguments.pr}/reviews",
-            "--input", str(body_file),
+            "api",
+            "-X",
+            "POST",
+            f"repos/{arguments.repo}/pulls/{arguments.pr}/reviews",
+            "--input",
+            str(body_file),
         )
 
     posted = json.loads(result)

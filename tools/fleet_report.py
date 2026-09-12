@@ -70,7 +70,7 @@ def gh(*args: str) -> str:
     """
     binary = shutil.which("gh") or str(ROOT / ".tools" / "gh" / "gh")
     try:
-        done = subprocess.run(
+        done = subprocess.run(  # noqa: PLW1510 - the caller reads returncode
             [binary, *args], capture_output=True, text=True, timeout=120
         )
     except (OSError, subprocess.TimeoutExpired) as error:
@@ -81,6 +81,18 @@ def gh(*args: str) -> str:
         print(f"warning: gh {' '.join(args)}: {message[0]}", file=sys.stderr)
         return ""
     return done.stdout
+
+
+def api_dict(path: str, *jq: str) -> dict:
+    """`api`, narrowed. A missing or malformed answer is an empty mapping."""
+    value = api(path, *jq)
+    return value if isinstance(value, dict) else {}
+
+
+def api_list(path: str, *jq: str) -> list:
+    """`api`, narrowed. A missing or malformed answer is an empty list."""
+    value = api(path, *jq)
+    return value if isinstance(value, list) else []
 
 
 def api(path: str, *jq: str) -> object:
@@ -99,7 +111,7 @@ def api(path: str, *jq: str) -> object:
 def repository() -> str:
     if slug := os.environ.get("GITHUB_REPOSITORY"):
         return slug
-    remote = subprocess.run(
+    remote = subprocess.run(  # noqa: PLW1510 - the caller reads returncode
         ["git", "remote", "get-url", "origin"],
         capture_output=True,
         text=True,
@@ -127,9 +139,9 @@ def collect_runs(repo: str, days: int) -> list[dict]:
     """Every workflow run in the window, flattened to what the report needs."""
     cutoff = since(days)
     stamp = cutoff.strftime("%Y-%m-%d")
-    raw = api(f"repos/{repo}/actions/runs?per_page=100&created=%3E%3D{stamp}") or {}
+    raw = api_dict(f"repos/{repo}/actions/runs?per_page=100&created=%3E%3D{stamp}")
     runs = []
-    for run in (raw or {}).get("workflow_runs", []):
+    for run in raw.get("workflow_runs", []):
         started = parse_time(run.get("run_started_at") or run.get("created_at"))
         if not started or started < cutoff:
             continue
@@ -162,7 +174,7 @@ def usage_for(repo: str, run_id: int, cache: Path | None) -> dict | None:
     `fleet-run-<id>`. Returns None when there is none, which is the answer for
     every run made before that step existed.
     """
-    listing = api(
+    listing = api_dict(
         f"repos/{repo}/actions/runs/{run_id}/artifacts",
         '[.artifacts[] | select(.name | startswith("fleet-run")) | '
         "{id, expired}] | first",
@@ -183,9 +195,7 @@ def usage_for(repo: str, run_id: int, cache: Path | None) -> dict | None:
     target.write_bytes(blob.encode("latin-1", errors="ignore"))
     try:
         with zipfile.ZipFile(target) as bundle:
-            name = next(
-                (n for n in bundle.namelist() if n.endswith(".json")), None
-            )
+            name = next((n for n in bundle.namelist() if n.endswith(".json")), None)
             if not name:
                 return None
             payload = json.loads(bundle.read(name))
@@ -231,17 +241,15 @@ def summarise_execution(payload: object) -> dict | None:
 
 def collect_branches(repo: str) -> list[dict]:
     """Every `agent/**` branch and what became of it."""
-    names = api(f"repos/{repo}/branches?per_page=100", "[.[].name]") or []
+    names = api_list(f"repos/{repo}/branches?per_page=100", "[.[].name]")
     out = []
     for name in names:
         if not name.startswith("agent/"):
             continue
-        pulls = (
-            api(
-                f"repos/{repo}/pulls?head={repo.split('/')[0]}:{name}&state=all",
-                "[.[] | {number, state, merged_at}]",
-            )
-            or []
+        pulls = api_list(
+            f"repos/{repo}/pulls"
+            f"?head={repo.split('/', maxsplit=1)[0]}:{name}&state=all",
+            "[.[] | {number, state, merged_at}]",
         )
         merged = [p for p in pulls if p.get("merged_at")]
         openish = [p for p in pulls if p.get("state") == "open"]
@@ -249,27 +257,20 @@ def collect_branches(repo: str) -> list[dict]:
             {
                 "branch": name,
                 "pull": (openish or merged or [{}])[0].get("number"),
-                "fate": (
-                    "merged" if merged else "open" if openish else "stranded"
-                ),
+                "fate": ("merged" if merged else "open" if openish else "stranded"),
             }
         )
     return out
 
 
 def collect_issues(repo: str) -> dict:
-    issues = (
-        api(
-            f"repos/{repo}/issues?state=open&per_page=100",
-            "[.[] | select(.pull_request == null) | "
-            "{number, title, labels: [.labels[].name], created_at}]",
-        )
-        or []
+    issues = api_list(
+        f"repos/{repo}/issues?state=open&per_page=100",
+        "[.[] | select(.pull_request == null) | "
+        "{number, title, labels: [.labels[].name], created_at}]",
     )
     tracking = [
-        issue
-        for issue in issues
-        if issue["title"].startswith(TRACKING_PREFIXES)
+        issue for issue in issues if issue["title"].startswith(TRACKING_PREFIXES)
     ]
     return {
         "open": len(issues),
@@ -385,9 +386,7 @@ def findings(report: dict) -> list[str]:
     if overall["runs"] == 0:
         out.append("The fleet did not run at all this week.")
     elif overall["failed"]:
-        out.append(
-            f"{overall['failed']} of {overall['finished']} agent runs failed."
-        )
+        out.append(f"{overall['failed']} of {overall['finished']} agent runs failed.")
 
     if overall["runs"] and not overall["measured"]:
         out.append(
@@ -438,8 +437,7 @@ def seconds(value: int | None) -> str:
 
 def as_text(report: dict) -> str:
     lines = [
-        f"Fleet report — {report['window_days']} days to "
-        f"{report['generated'][:10]}",
+        f"Fleet report — {report['window_days']} days to {report['generated'][:10]}",
         "",
     ]
     for finding in report["findings"]:
@@ -497,17 +495,20 @@ def as_html(report: dict) -> str:
     branch_rows = "".join(
         f"<tr><td><code>{esc(b['branch'])}</code></td>"
         f"<td>{esc(b['fate'])}</td>"
-        f"<td class=n>{esc(b['pull'] and '#' + str(b['pull']) or '—')}</td></tr>"
+        f"<td class=n>{esc((b['pull'] and '#' + str(b['pull'])) or '—')}</td></tr>"
         for b in report["branches"]
     )
 
-    failure_rows = "".join(
-        f"<tr><td><a href=\"{esc(f['url'])}\">{esc(f['workflow'])}</a></td>"
-        f"<td>{esc(f['branch'] or '—')}</td>"
-        f"<td>{esc(f['conclusion'])}</td>"
-        f"<td class=n>{esc(f['started'][:16].replace('T', ' '))}</td></tr>"
-        for f in report["judgement"]["failures"][:20]
-    ) or "<tr><td colspan=4>None.</td></tr>"
+    failure_rows = (
+        "".join(
+            f'<tr><td><a href="{esc(f["url"])}">{esc(f["workflow"])}</a></td>'
+            f"<td>{esc(f['branch'] or '—')}</td>"
+            f"<td>{esc(f['conclusion'])}</td>"
+            f"<td class=n>{esc(f['started'][:16].replace('T', ' '))}</td></tr>"
+            for f in report["judgement"]["failures"][:20]
+        )
+        or "<tr><td colspan=4>None.</td></tr>"
+    )
 
     context = report["context"]
     fleet_rows = "".join(
@@ -523,9 +524,10 @@ def as_html(report: dict) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Fleet report — {esc(report['generated'][:10])}</title>
+<title>Fleet report — {esc(report["generated"][:10])}</title>
 <style>
-  :root {{ color-scheme: light dark; --line: color-mix(in srgb, currentColor 18%, transparent); }}
+  :root {{ color-scheme: light dark;
+           --line: color-mix(in srgb, currentColor 18%, transparent); }}
   body {{ font: 15px/1.55 ui-monospace, "DejaVu Sans Mono", monospace;
          max-width: 62rem; margin: 0 auto; padding: 2rem 1rem 6rem; }}
   h1 {{ font-size: 1.3rem; margin: 0 0 .2rem; }}
@@ -546,7 +548,8 @@ def as_html(report: dict) -> str:
 </style>
 
 <h1>Fleet report</h1>
-<p class="sub">{esc(report['window_days'])} days to {esc(report['generated'][:16].replace('T', ' '))} UTC ·
+<p class="sub">{esc(report["window_days"])} days to
+{esc(report["generated"][:16].replace("T", " "))} UTC ·
   <a href="../">the book</a></p>
 
 <ul class="findings">{findings_html}</ul>
@@ -556,7 +559,7 @@ def as_html(report: dict) -> str:
   <tr><th>agent</th><th class=n>runs</th><th class=n>failed</th>
       <th class=n>median</th><th class=n>turns</th><th class=n>tokens</th>
       <th class=n>cost</th></tr>
-  {''.join(rows) or '<tr><td colspan=7>No agent runs in this window.</td></tr>'}
+  {"".join(rows) or "<tr><td colspan=7>No agent runs in this window.</td></tr>"}
 </table></div>
 
 <h2>Failures</h2>
@@ -568,7 +571,7 @@ def as_html(report: dict) -> str:
 <h2>Branches</h2>
 <div class="wrap"><table>
   <tr><th>branch</th><th>fate</th><th class=n>pr</th></tr>
-  {branch_rows or '<tr><td colspan=3>None.</td></tr>'}
+  {branch_rows or "<tr><td colspan=3>None.</td></tr>"}
 </table></div>
 
 <h2>Roster</h2>
@@ -576,7 +579,7 @@ def as_html(report: dict) -> str:
   <tr><th>agent</th><th>brief</th></tr>
   {fleet_rows}
 </table></div>
-<p class="sub">{esc(len(context['briefs']))} occasions routed by
+<p class="sub">{esc(len(context["briefs"]))} occasions routed by
   <code>tools/fleet_brief.py</code>.
   Generated by <code>tools/fleet_report.py</code>; not part of the book.</p>
 </html>
@@ -633,8 +636,54 @@ def append_history(report: dict, path: Path) -> None:
         handle.write(json.dumps(line, sort_keys=True) + "\n")
 
 
+def self_test() -> int:
+    """The narrowing layer, which is the only place a bad answer can spread.
+
+    Everything else here reads GitHub and cannot run without it. `api_dict`
+    and `api_list` are where an absent, malformed or wrong-shaped answer stops
+    being a problem for every caller downstream, so they are what is worth a
+    test: before them each call site wrote its own `or {}` and the report
+    crashed on the one that forgot.
+    """
+    problems = []
+    saved = globals()["api"]
+
+    def stub(value):
+        globals()["api"] = lambda *_args, **_kwargs: value
+
+    try:
+        for value, want_dict, want_list in [
+            (None, {}, []),
+            ({"a": 1}, {"a": 1}, []),
+            ([1, 2], {}, [1, 2]),
+            ("a string", {}, []),
+            (0, {}, []),
+        ]:
+            stub(value)
+            if api_dict("x") != want_dict:
+                problems.append(f"api_dict({value!r}) -> {api_dict('x')!r}")
+            if api_list("x") != want_list:
+                problems.append(f"api_list({value!r}) -> {api_list('x')!r}")
+    finally:
+        globals()["api"] = saved
+
+    # `number` and `seconds` render the table; both are handed None routinely,
+    # because a run that never started has no duration.
+    if number(None) != "\u2014" or seconds(None) != "\u2014":
+        problems.append(f"None renders as {number(None)!r} / {seconds(None)!r}")
+
+    for problem in problems:
+        print(f"  {problem}", file=sys.stderr)
+    if problems:
+        print(f"{len(problems)} problem(s) in fleet_report", file=sys.stderr)
+        return 1
+    print("fleet_report: the narrowing layer holds every shape GitHub returns")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--days", type=int, default=7)
     parser.add_argument("--html", type=Path, help="write the page here")
     parser.add_argument("--history", type=Path, help="JSONL to append a line to")
@@ -643,6 +692,9 @@ def main() -> int:
         "--cache", type=Path, default=ROOT / "build" / "fleet-artifacts"
     )
     arguments = parser.parse_args()
+
+    if arguments.self_test:
+        return self_test()
 
     report = build_report(arguments.days, arguments.cache)
 
