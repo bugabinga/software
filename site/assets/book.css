@@ -916,3 +916,46 @@ ol.contents > li {
 	color: var(--accent);
 	font-weight: 600;
 }
+
+/* The pages that are on the site and are not the book. Deliberately quiet:
+   below the contents, smaller than it, and not in any navigation. Somebody
+   looking for them finds them; somebody reading the book does not trip. */
+.aside-pages {
+	margin: 3rem auto 0;
+	max-width: 42rem;
+	padding: 1.25rem 0 0;
+	border-top: 1px solid var(--line);
+}
+
+.aside-pages h2 {
+	margin: 0 0 0.75rem;
+	font-size: 0.8rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ink-soft);
+}
+
+.aside-pages ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	gap: 0.75rem;
+}
+
+.aside-pages a {
+	font-weight: 600;
+}
+
+.aside-when {
+	margin-left: 0.4rem;
+	font-size: 0.8rem;
+	color: var(--ink-soft);
+}
+
+.aside-blurb {
+	display: block;
+	font-size: 0.875rem;
+	color: var(--ink-soft);
+}

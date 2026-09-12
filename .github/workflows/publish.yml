@@ -58,11 +58,14 @@ jobs:
           fi
           git fetch -q --depth=1 origin fleet-log
           mkdir -p dist/fleet
+          # Over the placeholder `tools/build.py` writes, which is what the
+          # landing page links to until there is a report. Leaving it in
+          # place is the right failure: a branch with no `report.html` yet is
+          # the same situation as no branch at all.
           if git show FETCH_HEAD:report.html > dist/fleet/index.html 2>/dev/null; then
             echo "::notice::published the fleet report at /fleet/"
           else
-            rmdir dist/fleet 2>/dev/null || true
-            echo "::notice::fleet-log exists but carries no report.html"
+            echo "::notice::fleet-log exists but carries no report.html; the placeholder stands"
           fi
 
       # A fresh orphan commit each time: this branch is generated output, so

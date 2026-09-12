@@ -555,6 +555,50 @@ def head_meta_html(book: Book, title: str, description: str, path: str) -> str:
     return "\n".join(parts)
 
 
+# Reachable on the site and deliberately not part of the book: no navigation,
+# no search index, no place in the contents. They were also, until this, not
+# linked from anywhere at all -- `dist/skill/` had been serving for a day and
+# the only way to find it was to know the URL, which is not "reachable".
+#
+# `when` is what a reader sees if they follow the link before the thing
+# exists. The fleet report is written by Monday's run and pulled onto the site
+# by the next publish, so it 404s until then and saying so is kinder than a
+# dead link with no explanation.
+STANDALONE = [
+    {
+        "url": "skill/",
+        "name": "Skill generator",
+        "blurb": "Builds the note-taker's Claude skill as a zip, in the browser.",
+        "when": "",
+    },
+    {
+        "url": "fleet/",
+        "name": "Fleet report",
+        "blurb": "What the agents did last week: runs, failures, cost, what merged.",
+        "when": "published by Monday's run",
+    },
+]
+
+
+def standalone_html() -> str:
+    """The not-the-book pages, for the landing page's footer."""
+    items = []
+    for page in STANDALONE:
+        when = (
+            f' <span class="aside-when">{esc(page["when"])}</span>'
+            if page["when"]
+            else ""
+        )
+        items.append(
+            f'<li><a href="{esc(page["url"])}">{esc(page["name"])}</a>{when}'
+            f'<span class="aside-blurb">{esc(page["blurb"])}</span></li>'
+        )
+    return (
+        '<nav class="aside-pages" aria-label="Not part of the book">'
+        "<h2>Also here</h2><ul>" + "".join(items) + "</ul></nav>"
+    )
+
+
 def contents_html(book: Book) -> str:
     """The landing page's table of contents: chapters, with their sections."""
     out: list[str] = []
@@ -809,6 +853,7 @@ def write_pages(book: Book, out_dir: Path, dev: bool) -> None:
             "authors": esc(authors),
             "nav": nav_html(book, None, ""),
             "contents": contents_html(book),
+            "standalone": standalone_html(),
             "start_url": book.chapters[0].url,
             "edition": esc(edition),
             "dev_script": dev_script,
@@ -821,8 +866,9 @@ def write_pages(book: Book, out_dir: Path, dev: bool) -> None:
             not_found_template,
             {
                 "lang": book.language,
-                "book_title": esc(book.title),
                 "title": esc(f"Not found — {book.title}"),
+                "heading": "That page is not part of this book",
+                "message": esc(book.title),
                 "home": esc(book.base_path),
             },
         ),
@@ -893,6 +939,37 @@ def write_site_files(book: Book, out_dir: Path, pdf: bool) -> None:
     }
     (out_dir / "build-info.json").write_text(
         json.dumps(info, indent=2), encoding="utf-8"
+    )
+
+
+def write_fleet_placeholder(book: Book, out_dir: Path) -> None:
+    """A page at `fleet/` before there is a report to put there.
+
+    `publish.yml` writes the real one over this, from `report.html` on the
+    `fleet-log` branch. Until Monday's first run there is nothing to write,
+    and the landing page links here regardless -- so without this the link
+    check fails the build, and removing the link instead would hide the page
+    from the only place it is advertised.
+    """
+    target = out_dir / "fleet" / "index.html"
+    if target.exists():
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        render(
+            (TEMPLATES / "404.html").read_text(encoding="utf-8"),
+            {
+                "lang": book.language,
+                "title": esc(f"Fleet report — {book.title}"),
+                "heading": "No report yet",
+                "message": (
+                    "The fleet report is written on Mondays and reaches the "
+                    "site on the next publish."
+                ),
+                "home": esc(book.base_path),
+            },
+        ),
+        encoding="utf-8",
     )
 
 
@@ -1069,6 +1146,8 @@ def build(args: argparse.Namespace, binary: str) -> Book:
     single = build_single_page(book, out_dir)
     write_search_index(book, out_dir)
     copy_assets(out_dir)
+    write_fleet_placeholder(book, out_dir)
+
     for stale in prune_stale_pages(book, out_dir):
         print(f"  removed stale page: {stale}/")
     epub = build_epub(book, out_dir, cover=out_dir / "social-card.png")

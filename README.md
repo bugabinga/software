@@ -36,6 +36,10 @@ Typst prelude, which stays until the same material lands in
 | EPUB     | <https://bugabinga.github.io/software/book.epub> |
 | One page | <https://bugabinga.github.io/software/book.html> |
 
+Two pages on the site are not the book, and are listed at the foot of its
+front page: the [skill generator](https://bugabinga.github.io/software/skill/)
+and the [fleet report](https://bugabinga.github.io/software/fleet/).
+
 **Every chapter is a stub.** Each carries its title, one paragraph of what it
 will argue, and a comment naming the lines of the author's notes it came from.
 The word count in the badge is those paragraphs; none of the book is written
