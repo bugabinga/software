@@ -250,8 +250,9 @@ Until this split, the reviewer wrote prose about faults a program could have
 pinned to a line, which wastes a model and produces the worse artefact.
 
 `book/terms.toml` exists and is deliberately empty: the `term-drift` rule
-is inactive until somebody writes down what this book's vocabulary is. A rule that invented its
-own terminology would be enforcing a program's opinion.
+is inactive until somebody writes down what this book's vocabulary is. A
+rule that invented its own terminology would be enforcing a program's
+opinion.
 
 ## Reviews: how the loop runs
 
