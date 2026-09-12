@@ -66,12 +66,40 @@ jobs:
           API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -uo pipefail
-          if [ -n "${OAUTH:-}" ]; then
+
+          # A secret pasted from a wrapped display carries the wrap with it,
+          # and this one did: four live dispatches died having called no
+          # model, with "Invalid Authorization header value from
+          # CLAUDE_CODE_OAUTH_TOKEN: it contains a line break at character
+          # 48". An HTTP header value cannot contain a newline, so the
+          # credential was rejected before any request was made.
+          #
+          # Stripping it here rather than asking for the secret to be pasted
+          # again: whitespace is never part of a token, the repair is exact,
+          # and a fleet that cannot run because of a stray newline is a fleet
+          # that fails again the next time someone types the value in. The
+          # warning below is so a repaired secret is still visible as one.
+          tidy() { printf '%s' "${1:-}" | tr -d '[:space:]'; }
+
+          oauth=$(tidy "${OAUTH:-}")
+          api_key=$(tidy "${API_KEY:-}")
+          [ -n "$oauth" ] && echo "::add-mask::$oauth"
+          [ -n "$api_key" ] && echo "::add-mask::$api_key"
+          {
+            echo "CLAUDE_OAUTH=$oauth"
+            echo "CLAUDE_API_KEY=$api_key"
+          } >> "$GITHUB_ENV"
+
+          if [ -n "$oauth" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
             echo "::notice::running with CLAUDE_CODE_OAUTH_TOKEN"
-          elif [ -n "${API_KEY:-}" ]; then
+            [ "$oauth" = "${OAUTH:-}" ] \
+              || echo "::warning::CLAUDE_CODE_OAUTH_TOKEN contained whitespace, which was stripped before use. Re-add it as one line to be rid of this warning."
+          elif [ -n "$api_key" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
             echo "::notice::running with ANTHROPIC_API_KEY"
+            [ "$api_key" = "${API_KEY:-}" ] \
+              || echo "::warning::ANTHROPIC_API_KEY contained whitespace, which was stripped before use. Re-add it as one line to be rid of this warning."
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
             echo "::notice::No credential, so the review feedback on this pull request is unanswered. The comments are still on the thread, but nobody is acting on them."
@@ -107,8 +135,9 @@ jobs:
           # Either credential works. The OAuth token is a Claude subscription;
           # the API key bills separately. Whichever is set in the environment
           # is the one the action uses.
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The tidied values, not the raw secrets: see the credential step.
+          claude_code_oauth_token: ${{ env.CLAUDE_OAUTH }}
+          anthropic_api_key: ${{ env.CLAUDE_API_KEY }}
           prompt: ${{ env.BRIEF }}
           # The action hides the agent's output "for security" and reports
           # only `is_error: true`. Two live dispatches died in 38ms having
