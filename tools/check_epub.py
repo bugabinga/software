@@ -67,26 +67,27 @@ def check(path: Path) -> list[str]:
                     problems.append(f"{path}: {name} is not well-formed XML: {error}")
 
         if "META-INF/container.xml" not in names:
-            return problems + [f"{path}: no META-INF/container.xml"]
+            return [*problems, f"{path}: no META-INF/container.xml"]
 
         try:
             container = ElementTree.fromstring(archive.read("META-INF/container.xml"))
         except ElementTree.ParseError as error:
-            return problems + [f"{path}: container.xml is malformed: {error}"]
+            return [*problems, f"{path}: container.xml is malformed: {error}"]
 
         rootfile = container.find(f".//{{{CONTAINER}}}rootfile")
         opf_path = rootfile.get("full-path") if rootfile is not None else None
         if not opf_path:
-            return problems + [f"{path}: container.xml names no package document"]
+            return [*problems, f"{path}: container.xml names no package document"]
         if opf_path not in names:
-            return problems + [
-                f"{path}: package document {opf_path} is not in the archive"
+            return [
+                *problems,
+                f"{path}: package document {opf_path} is not in the archive",
             ]
 
         try:
             package = ElementTree.fromstring(archive.read(opf_path))
         except ElementTree.ParseError as error:
-            return problems + [f"{path}: {opf_path} is malformed: {error}"]
+            return [*problems, f"{path}: {opf_path} is malformed: {error}"]
 
         base = opf_path.rsplit("/", 1)[0] + "/" if "/" in opf_path else ""
         manifest = {

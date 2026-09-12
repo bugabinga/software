@@ -186,7 +186,7 @@ def build_epub(book, out_dir: Path, cover: Path | None = None) -> Path:
         try:
             ElementTree.fromstring(text)
         except ElementTree.ParseError as error:
-            raise SystemExit(f"epub: {name} is not well-formed XML: {error}")
+            raise SystemExit(f"epub: {name} is not well-formed XML: {error}") from error
 
     identifier = stable_identifier(book)
     modified = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -241,7 +241,9 @@ def build_epub(book, out_dir: Path, cover: Path | None = None) -> Path:
     try:
         ElementTree.fromstring(opf)
     except ElementTree.ParseError as error:
-        raise SystemExit(f"epub: content.opf is not well-formed XML: {error}")
+        raise SystemExit(
+            f"epub: content.opf is not well-formed XML: {error}"
+        ) from error
 
     destination = out_dir / "book.epub"
     with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:

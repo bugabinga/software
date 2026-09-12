@@ -27,11 +27,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import html
 import io
-import json
 import re
-import sys
 import urllib.error
 import urllib.request
 from datetime import date, datetime, timezone
@@ -256,9 +253,9 @@ def fetch(url: str) -> tuple[bytes, str]:
         with urllib.request.urlopen(request, timeout=30) as response:
             return response.read(), response.headers.get_content_type()
     except urllib.error.HTTPError as error:
-        raise SystemExit(f"{url}: HTTP {error.code} {error.reason}")
-    except Exception as error:  # network, TLS, DNS
-        raise SystemExit(f"{url}: {type(error).__name__}: {error}")
+        raise SystemExit(f"{url}: HTTP {error.code} {error.reason}") from error
+    except Exception as error:  # network, TLS and DNS all land here
+        raise SystemExit(f"{url}: {type(error).__name__}: {error}") from error
 
 
 def existing_note_for(source: str) -> Path | None:
@@ -389,7 +386,7 @@ def reindex() -> None:
         # README.md and index.md do not, and are not listed.
         if not re.search(r"^source: ", head, re.M):
             continue
-        field = lambda name: (  # noqa: E731 - terse on purpose
+        field = lambda name, head=head: (  # noqa: E731 - terse on purpose
             match.group(1)
             if (match := re.search(rf"^{name}: (.*)$", head, re.M))
             else ""
@@ -416,7 +413,8 @@ def reindex() -> None:
         source = row["source"]
         link = f"[link]({source})" if source.startswith("http") else "`" + source + "`"
         lines.append(
-            f"| {row['first_seen']} | [{row['title']}]({row['file']}) | {row['words']} | {link} |"
+            f"| {row['first_seen']} | [{row['title']}]({row['file']}) "
+            f"| {row['words']} | {link} |"
         )
     if not rows:
         lines.append("| | *nothing ingested yet* | | |")

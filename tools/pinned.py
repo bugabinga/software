@@ -15,8 +15,9 @@ Usage:
 from __future__ import annotations
 
 import sys
-import tomllib
 from pathlib import Path
+
+import tomllib
 
 MANIFEST = Path(__file__).resolve().parent.parent / "mise.toml"
 

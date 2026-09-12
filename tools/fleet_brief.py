@@ -209,7 +209,8 @@ def main() -> None:
     parser.add_argument(
         "--issue-body-file",
         type=Path,
-        help="file holding an issue body; the agent and target are read from its form fields",
+        help="file holding an issue body; the agent and target are read "
+        "from its form fields",
     )
     parser.add_argument("--list", action="store_true", help="list the triggers")
     parser.add_argument("--self-test", action="store_true", help="check every brief")
@@ -255,7 +256,7 @@ def main() -> None:
         sys.exit(str(error))
 
     if output := os.environ.get("GITHUB_OUTPUT"):
-        with open(output, "a", encoding="utf-8") as handle:
+        with Path(output).open("a", encoding="utf-8") as handle:
             handle.write(f"agent={agent}\nbranch={branch}\n")
     print(body)
 

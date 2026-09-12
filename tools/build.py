@@ -35,6 +35,7 @@ import time
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
+from typing import ClassVar
 from urllib.parse import urlsplit
 
 if sys.version_info < (3, 11):
@@ -46,8 +47,8 @@ import tomllib
 # when the script is run by path from anywhere.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from epub import build_epub  # noqa: E402 - after the path is set up
-from pinned import pins as _pins  # noqa: E402
+from epub import build_epub
+from pinned import pins as _pins
 
 
 def pinned(tool: str) -> str:
@@ -98,7 +99,7 @@ class TypstError(RuntimeError):
 
 def run_typst(binary: str, args: list[str]) -> list[str]:
     """Run Typst, returning the warnings it emitted. Raises on failure."""
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: PLW1510 - the warnings are the return value
         [binary, *args],
         cwd=ROOT,
         capture_output=True,
@@ -260,8 +261,8 @@ TAG_RE = re.compile(r"<[^>]+>")
 class TextExtractor(HTMLParser):
     """Visible text, for the search index and word counts."""
 
-    SKIPPED = {"math", "script", "style", "figcaption"}
-    SKIPPED_CLASSES = {"permalink", "copy-button"}
+    SKIPPED: ClassVar[set[str]] = {"math", "script", "style", "figcaption"}
+    SKIPPED_CLASSES: ClassVar[set[str]] = {"permalink", "copy-button"}
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
@@ -363,7 +364,10 @@ def index_headings(body: str) -> tuple[str, str, list[tuple[int, str, str]]]:
         if 2 <= level <= 3:
             outline.append((level, anchor, text))
 
-        permalink = f'<a class="permalink" href="#{anchor}" aria-label="Permalink to this section">#</a>'
+        permalink = (
+            f'<a class="permalink" href="#{anchor}" '
+            f'aria-label="Permalink to this section">#</a>'
+        )
         return f"<h{level}{attrs}>{inner}{permalink}</h{level}>"
 
     body = HEADING_RE.sub(rewrite, body)
@@ -480,7 +484,8 @@ def nav_html(book: Book, current: Chapter | None, prefix: str) -> str:
             out.append('<ul class="toc-sections">')
             for level, anchor, text in chapter.sections:
                 out.append(
-                    f'<li class="level-{level}"><a href="#{anchor}">{esc(text)}</a></li>'
+                    f'<li class="level-{level}">'
+                    f'<a href="#{anchor}">{esc(text)}</a></li>'
                 )
             out.append("</ul>")
         out.append("</li>")
@@ -1110,13 +1115,18 @@ def snapshot() -> dict[Path, float]:
 
 
 def serve_forever(out_dir: Path, port: int, counter: list[int]) -> None:
-    from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+    # Only `--serve` needs an HTTP server; every other run would pay for
+    # the import.
+    from http.server import (  # noqa: PLC0415
+        SimpleHTTPRequestHandler,
+        ThreadingHTTPServer,
+    )
 
     class Handler(SimpleHTTPRequestHandler):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, directory=str(out_dir), **kwargs)
 
-        def do_GET(self):  # noqa: N802 - stdlib naming
+        def do_GET(self):
             if self.path.startswith("/__build"):
                 body = str(counter[0]).encode()
                 self.send_response(200)
@@ -1132,14 +1142,14 @@ def serve_forever(out_dir: Path, port: int, counter: list[int]) -> None:
             self.send_header("Cache-Control", "no-store")
             super().end_headers()
 
-        def log_message(self, *args):
+        def log_message(self, format: str, *args: object) -> None:
             pass
 
     ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
 
 
 def watch(args: argparse.Namespace, binary: str) -> None:
-    import threading
+    import threading  # noqa: PLC0415 - only `--watch` needs it
 
     out_dir = (ROOT / args.out).resolve()
     counter = [0]

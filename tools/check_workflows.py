@@ -126,6 +126,8 @@ def check_heredocs(path: Path) -> list[str]:
 def check_yaml(paths: list[Path]) -> list[str]:
     try:
         import yaml  # noqa: PLC0415 - optional
+        import yaml.constructor  # noqa: PLC0415
+        import yaml.resolver  # noqa: PLC0415
     except ImportError:
         print(
             "PyYAML not installed; skipping the syntax check (CI parses these anyway)"
@@ -234,7 +236,8 @@ def main() -> None:
         problems += check_heredocs(path)
         if "\t" in path.read_text(encoding="utf-8"):
             problems.append(
-                f"{path.relative_to(ROOT)}: contains a tab; YAML forbids them for indentation"
+                f"{path.relative_to(ROOT)}: contains a tab; "
+                "YAML forbids them for indentation"
             )
 
     for problem in problems:
@@ -249,7 +252,8 @@ def main() -> None:
         if (m := USES_RE.match(line)) and not m.group("ref").startswith("./")
     )
     print(
-        f"workflows: {len(paths)} files, {tools} tools, {pins} pinned actions, no problems"
+        f"workflows: {len(paths)} files, {tools} tools, "
+        f"{pins} pinned actions, no problems"
     )
 
 

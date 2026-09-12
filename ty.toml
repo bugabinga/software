@@ -1,0 +1,9 @@
+# `mise run check-types` over `tools/`.
+#
+# The floor is the Python the scripts already require -- 3.11, for `tomllib`.
+# `tools/` is on the path because two scripts import their siblings after a
+# `sys.path.insert`, which a typechecker reading the file cannot see.
+
+[environment]
+python-version = "3.11"
+extra-paths = ["tools"]

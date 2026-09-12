@@ -31,9 +31,10 @@ import argparse
 import json
 import re
 import sys
-import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
+
+import tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 CHAPTERS = ROOT / "book" / "chapters"
@@ -194,7 +195,8 @@ def scan_chapter(path: Path, book: Book, terms, root: Path) -> list[Finding]:
                         "dead-note",
                         relative,
                         number,
-                        f"`{match.group('path')}` is cited here and is not in the tree.",
+                        f"`{match.group('path')}` is cited here "
+                        "and is not in the tree.",
                         column,
                         match.end() + 1,
                     )
@@ -381,8 +383,8 @@ def as_text(findings: list[Finding]) -> str:
 
 def self_test() -> int:
     """Every rule fires on a tree built to trip it, and on nothing else."""
-    import shutil
-    import tempfile
+    import shutil  # noqa: PLC0415 - the self-test's own dependencies
+    import tempfile  # noqa: PLC0415
 
     problems = []
     with tempfile.TemporaryDirectory() as directory:
@@ -437,7 +439,7 @@ def self_test() -> int:
             encoding="utf-8",
         )
 
-        global ROOT, CHAPTERS, MANIFEST, TERMS
+        global ROOT, MANIFEST, TERMS
         saved = (ROOT, MANIFEST, TERMS)
         ROOT, MANIFEST, TERMS = (
             root,

@@ -25,6 +25,12 @@ habit.
 which installs mise first if the machine has none, so a fresh session already
 has the toolchain.
 
+**The Python is linted and type-checked, strictly.** `ruff check` with a wide
+selection (`ruff.toml` records why each switched-off rule is off) and `ty`
+(`ty.toml`). Both are gates. Do not silence a finding with a bare `noqa`: give
+it a code and a reason on the same line, the way the existing ones do, so the
+next reader can tell a deliberate exception from a shrug.
+
 **Formatting is mandatory, and it is never yours to decide.** `mise run
 format` before you push; `mise run check` fails if you did not. One formatter
 per language and no language without one -- typstyle for `.typ`, ruff for

@@ -42,7 +42,9 @@ HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 def gh(*args: str, check: bool = True) -> str:
     binary = shutil.which("gh") or str(ROOT / ".tools" / "gh" / "gh")
-    done = subprocess.run([binary, *args], capture_output=True, text=True, timeout=120)
+    done = subprocess.run(  # noqa: PLW1510 - returncode is read below
+        [binary, *args], capture_output=True, text=True, timeout=120
+    )
     if done.returncode != 0:
         if check:
             sys.exit(f"gh {' '.join(args)}: {done.stderr.strip()}")

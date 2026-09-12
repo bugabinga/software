@@ -74,7 +74,7 @@ def main(argv: list[str]) -> int:
         (work / "page.cjs").write_text(script, encoding="utf-8")
         (work / "driver.cjs").write_text(DRIVER, encoding="utf-8")
 
-        done = subprocess.run(
+        done = subprocess.run(  # noqa: PLW1510 - the caller reads returncode
             [node, "driver.cjs"], cwd=work, capture_output=True, text=True, timeout=60
         )
         if done.returncode != 0:

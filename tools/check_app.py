@@ -30,6 +30,68 @@ import os
 import pathlib
 import sys
 
+# Three lists, and the middle one is the point.
+#
+# ESSENTIAL is what the fleet cannot run without: a gap here is a failure.
+# CEILING is everything a book pipeline could ever want, granted once so
+# that improving the fleet never means another trip to a settings page --
+# a gap here is a note, naming what it would cost, not a failure.
+# FORBIDDEN is the guardrails: repository settings, the credentials
+# themselves, the environment rules that gate them. An agent holding any
+# of these could widen its own authority, and no review after the fact
+# would catch it. A grant here fails, loudly.
+ESSENTIAL = {
+    "contents": ("write", "push branches, read the tree"),
+    "pull_requests": ("write", "open, comment on and merge pull requests"),
+    "issues": ("write", "the task and tracking issues"),
+    "metadata": ("read", "mandatory for everything else"),
+}
+CEILING = {
+    "actions": ("write", "start CI on a pushed branch; read runs for the report"),
+    "checks": ("write", "decide whether a branch is green; post verdicts"),
+    "statuses": ("write", "report a verdict as a commit status"),
+    "deployments": ("write", "record what went live and when"),
+    "workflows": ("write", "push or merge a change under .github/workflows/"),
+}
+# Read and write are not the same finding, and saying so matters: the
+# first report this produced called `secrets` at read "the credentials
+# themselves", which is not true. GitHub never returns a secret's value
+# through the API -- reading lists names and dates. It is writing that is
+# dangerous, because overwriting a credential is how an agent would hand
+# itself a different one.
+#
+# So each entry says what read exposes and what write allows. Write fails
+# the check; read is reported and does not, because a permission that
+# cannot change anything is untidy rather than unsafe, and a check that
+# cries wolf about it will be ignored when it has something to say.
+FORBIDDEN = {
+    "administration": (
+        "sees repository settings, including the branch rules",
+        "changes those settings, and can delete the repository",
+    ),
+    "secrets": (
+        "lists which secrets exist, not their values -- the API never returns those",
+        "overwrites a credential, which is how an agent hands itself a different one",
+    ),
+    "actions_variables": (
+        "reads the variables the workflows read",
+        "changes what the workflows read",
+    ),
+    "environments": (
+        "sees the environment rules that gate every secret",
+        "edits them, which is the stop button and the branch policy",
+    ),
+    "organization_administration": (
+        "sees the account around the repository",
+        "changes the account around the repository",
+    ),
+    "organization_secrets": (
+        "lists credentials beyond this repository",
+        "overwrites credentials beyond this repository",
+    ),
+}
+RANK = {"read": 1, "write": 2, "admin": 3}
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -43,70 +105,6 @@ def main() -> int:
     install = json.loads(arguments.installation.read_text())
 
     granted = install.get("permissions") or {}
-
-    # Three lists, and the middle one is the point.
-    #
-    # ESSENTIAL is what the fleet cannot run without: a gap here is a failure.
-    # CEILING is everything a book pipeline could ever want, granted once so
-    # that improving the fleet never means another trip to a settings page --
-    # a gap here is a note, naming what it would cost, not a failure.
-    # FORBIDDEN is the guardrails: repository settings, the credentials
-    # themselves, the environment rules that gate them. An agent holding any
-    # of these could widen its own authority, and no review after the fact
-    # would catch it. A grant here fails, loudly.
-    ESSENTIAL = {
-        "contents": ("write", "push branches, read the tree"),
-        "pull_requests": ("write", "open, comment on and merge pull requests"),
-        "issues": ("write", "the task and tracking issues"),
-        "metadata": ("read", "mandatory for everything else"),
-    }
-    CEILING = {
-        "actions": ("write", "start CI on a pushed branch; read runs for the report"),
-        "checks": ("write", "decide whether a branch is green; post verdicts"),
-        "statuses": ("write", "report a verdict as a commit status"),
-        "deployments": ("write", "record what went live and when"),
-        "workflows": ("write", "push or merge a change under .github/workflows/"),
-    }
-    # Read and write are not the same finding, and saying so matters: the
-    # first report this produced called `secrets` at read "the credentials
-    # themselves", which is not true. GitHub never returns a secret's value
-    # through the API -- reading lists names and dates. It is writing that is
-    # dangerous, because overwriting a credential is how an agent would hand
-    # itself a different one.
-    #
-    # So each entry says what read exposes and what write allows. Write fails
-    # the check; read is reported and does not, because a permission that
-    # cannot change anything is untidy rather than unsafe, and a check that
-    # cries wolf about it will be ignored when it has something to say.
-    FORBIDDEN = {
-        "administration": (
-            "sees repository settings, including the branch rules",
-            "changes those settings, and can delete the repository",
-        ),
-        "secrets": (
-            "lists which secrets exist, not their values -- the API never "
-            "returns those",
-            "overwrites a credential, which is how an agent hands itself a "
-            "different one",
-        ),
-        "actions_variables": (
-            "reads the variables the workflows read",
-            "changes what the workflows read",
-        ),
-        "environments": (
-            "sees the environment rules that gate every secret",
-            "edits them, which is the stop button and the branch policy",
-        ),
-        "organization_administration": (
-            "sees the account around the repository",
-            "changes the account around the repository",
-        ),
-        "organization_secrets": (
-            "lists credentials beyond this repository",
-            "overwrites credentials beyond this repository",
-        ),
-    }
-    RANK = {"read": 1, "write": 2, "admin": 3}
 
     def verdict(name, wanted):
         have = granted.get(name)
@@ -213,7 +211,7 @@ def main() -> int:
 
     report = "\n".join(lines)
     if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
-        with open(summary, "a", encoding="utf-8") as handle:
+        with pathlib.Path(summary).open("a", encoding="utf-8") as handle:
             handle.write(report + "\n")
     print(report)
 

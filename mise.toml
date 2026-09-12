@@ -47,9 +47,14 @@ gh = "2.63.2"
 # `.typ`.
 typstyle = "0.15.1"
 
-# `.py`. Only the formatter is used -- `ruff check` is a linter and would be
-# a second opinion about the code, which is `pr-reviewer`'s job.
+# `.py`, formatter and linter both. Rules in `ruff.toml`, which says why each
+# switched-off rule is switched off.
 ruff = "0.15.8"
+
+# Type checker for `.py`. Configured in `ty.toml`. Pre-1.0 and pinned exactly
+# like everything else here, so it moves when `maintenance.yml` proposes a
+# bump and somebody reads the diff, not on its own.
+ty = "0.0.80"
 
 # `.js`, `.mjs`, `.json`, `.jsonc`. A single binary, which is the whole
 # reason it is this and not prettier: `README.md` promises no package
@@ -153,6 +158,18 @@ description = "The Actions definitions, and that every tool compiles"
 # people to skip it.
 run = ["SHELLCHECK_OPTS='-S warning' actionlint", "python3 tools/check_workflows.py"]
 
+[tasks.check-lint]
+description = "Lint the Python, strictly"
+run = "ruff check tools/"
+
+[tasks.check-types]
+description = "Type-check the Python"
+run = "ty check tools/"
+
+[tasks.check-report]
+description = "The fleet report's narrowing layer"
+run = "python3 tools/fleet_report.py --self-test"
+
 [tasks.check-fleet]
 description = "Every brief routes to an agent, and the review builder's arithmetic"
 run = ["python3 tools/fleet_brief.py --self-test"]
@@ -197,6 +214,7 @@ depends = [
   "build-strict", "check-links", "check-epub", "check-worker", "check-code",
   "check-workflows", "check-fleet", "check-format", "check-spelling",
   "check-skill", "check-review", "check-prose",
+  "check-lint", "check-types", "check-report",
 ]
 run = "echo 'all checks passed'"
 
