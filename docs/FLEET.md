@@ -169,6 +169,13 @@ already built as an assets-only Cloudflare Worker named `book-pr-<number>`.
 A fork's gets none: `workflow_run` would hand it the credential, so the head
 repository is checked rather than assumed.
 
+**The account needs a workers.dev subdomain**, once, at
+<https://dash.cloudflare.com/?to=/:account/workers/subdomain>. Without it
+wrangler refuses to publish anything that has no route, which is every Worker
+here -- and that is why `worker-deploy.yml` failed on every run from the day
+it was armed, so the notes inbox has never actually deployed. Both workflows
+now ask before deploying and say that sentence instead of failing red.
+
 It runs on `workflow_run` rather than as a step in `ci.yml`, and that is the
 whole design. The Cloudflare credential is an environment secret and the
 `Cloudflare` environment is restricted to `main` on purpose -- a deploy from a

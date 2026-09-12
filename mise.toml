@@ -78,7 +78,7 @@ shellcheck = "0.11.0"
 
 # Run by `worker-deploy.yml` and `preview.yml`, and nowhere else. Recorded
 # here so the version lives with the others rather than in a workflow's
-# `env:` block, which is where it used to be -- twice.
+# `env:` block, which is where it used to be.
 wrangler = "4.131.1"
 
 # Lints the workflow definitions properly: expression syntax, event and
