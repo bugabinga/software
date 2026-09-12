@@ -182,7 +182,8 @@ def scan_chapter(path: Path, book: Book, terms, root: Path) -> list[Finding]:
 
         # Notes are cited in a `// Source:` header and in follow-on comments,
         # so every mention of a notes path is checked wherever it appears.
-        for match in NOTE_RE.finditer(line):
+        notes_here = list(NOTE_RE.finditer(line))
+        for index, match in enumerate(notes_here):
             note = root / match.group("path")
             column = match.start() + 1
             if not note.is_file():
@@ -192,7 +193,12 @@ def scan_chapter(path: Path, book: Book, terms, root: Path) -> list[Finding]:
                     column, match.end() + 1))
                 continue
             total = line_count(note)
-            for span in LINES_RE.finditer(line):
+            # A range belongs to the path it follows. Searching the whole
+            # line makes `notes/a.md lines 1-3, notes/b.md lines 900-950`
+            # report `a.md` as too short for a range never about it.
+            stop = (notes_here[index + 1].start()
+                    if index + 1 < len(notes_here) else len(line))
+            for span in LINES_RE.finditer(line, match.end(), stop):
                 start = int(span.group("start"))
                 end = int(span.group("end") or start)
                 if max(start, end) > total:
