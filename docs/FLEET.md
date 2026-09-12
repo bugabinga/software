@@ -415,6 +415,13 @@ A run that died before calling the model still gets a line. `always()` on the
 recording step is deliberate: the runs worth tracing are disproportionately
 the ones that failed.
 
+`fleet-log` is append-only in the git sense as well as the file sense: the
+report commits on top of what is there and pushes a fast-forward. It used to
+rebuild the history each week and force-push over it, which kept the branch
+to one commit and meant the JSONL files were the only copy of a record whose
+whole purpose is to outlive the API's 90-day window. Fast-forward is also
+what lets a ruleset guard the branch with nothing on its bypass list.
+
 ## The merge policy
 
 The author's standing decision: **everything arrives as a pull request, and
