@@ -52,7 +52,7 @@ jobs:
     environment: Bot
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - id: check
         uses: ./.github/actions/check-app
         with:
@@ -65,7 +65,7 @@ jobs:
     environment: Fleet
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - id: check
         uses: ./.github/actions/check-app
         with:
@@ -77,7 +77,7 @@ jobs:
     name: Key at repository level
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - id: check
         uses: ./.github/actions/check-app
         with:
