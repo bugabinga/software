@@ -47,6 +47,12 @@ jobs:
       - name: Check the fleet's briefs
         run: python3 tools/fleet_brief.py --self-test
 
+      # The review builder's line arithmetic. A comment on the wrong line
+      # reads as a finding about code that is fine, which is worse than no
+      # comment, and nothing else would catch it.
+      - name: Check the review builder
+        run: python3 tools/post_review.py --self-test
+
       - name: Upload the built book
         id: upload
         uses: actions/upload-artifact@v7

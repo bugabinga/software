@@ -23,6 +23,9 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
+  # `contents: read` to see the diff, `pull-requests: write` to post the
+  # review and its inline threads. Still no write access to the tree: the
+  # reviewer has no Write tool and this token cannot push.
   contents: read
   pull-requests: write
   issues: write
@@ -186,6 +189,25 @@ jobs:
           path: ${{ runner.temp }}/claude-execution-output.json
           if-no-files-found: ignore
           retention-days: 90
+
+      # The agent judged; this posts. Composing the reviews API call --
+      # valid line numbers, the right side of the diff, the event, the
+      # fallback when GitHub refuses -- is something a program is right about
+      # every time and a model is right about most times.
+      - name: Post it as a review
+        if: steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ ! -f /tmp/fleet-review.json ]; then
+            echo "::notice::no verdict file yet; the next step decides what that means"
+            exit 0
+          fi
+          python3 tools/post_review.py \
+            --pr "${{ github.event.pull_request.number }}" \
+            --verdict /tmp/fleet-review.json
 
       # The verdict is a file, not a mood. A reviewer that fell over, ran out
       # of turns, or decided to say nothing leaves no file, and that counts as

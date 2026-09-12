@@ -44,7 +44,20 @@ it is reviewing. Produce the verdict from the shell instead:
 
 ```sh
 cat > /tmp/fleet-review.json <<'JSON'
-{"verdict": "pass", "summary": "one sentence", "findings": []}
+{
+  "verdict": "fail",
+  "summary": "one sentence",
+  "findings": [
+    {
+      "where": "book/chapters/03-knowledge.typ:88",
+      "path": "book/chapters/03-knowledge.typ",
+      "line": 88,
+      "what": "The citation does not say this.",
+      "why": "notes/2026-09-11-session-01.md:140 says the opposite.",
+      "suggestion": "the exact replacement for line 88, when you know it"
+    }
+  ]
+}
 JSON
 ```
 
@@ -53,17 +66,41 @@ support its claim, an agent outside its brief, or a contradiction with the
 book as it stands. Do not fail for a preference, for prose you would have
 written differently, or for anything the automated gates own.
 
-`findings` is a list of `{"where": "file:line", "what": "...", "why": "..."}`.
-Include them whether you pass or fail -- a pass with three noted reservations
-is a useful review; a pass with an empty list should mean you found nothing.
+`findings` is a list. `where`, `what` and `why` are required. `path` and
+`line` are what turn a finding into an inline thread on the line it is about,
+and you should supply them whenever the finding is about a line: the line must
+be one the diff touches, added or context. `start_line` makes it a range.
+`suggestion` is the exact replacement text for those lines, rendered as a
+block the reader applies with one click -- offer it when you know the fix and
+leave it out when you do not, because a wrong suggestion is applied faster
+than it is read.
 
-Then post the same thing as a comment on the pull request, so a person
-scrolling the thread sees what you saw:
+Include findings whether you pass or fail -- a pass with three noted
+reservations is a useful review; a pass with an empty list should mean you
+found nothing.
 
-```sh
-gh api -X POST "repos/$GITHUB_REPOSITORY/issues/<pr>/comments" -F body=@/tmp/review.md
-``` If the file is missing when the
-workflow looks for it, the review counts as failed: silence is not a pass.
+**Post nothing yourself.** `tools/post_review.py` turns that file into a real
+GitHub review: your findings become inline threads on the lines they are
+about, a `suggestion` becomes a block the reader applies with one click, and a
+`fail` becomes a request for changes rather than an opinion somebody may
+scroll past. Composing that call yourself would mean being right about line
+numbers and diff sides every time, which is what the program is for.
+
+If the file is missing when the workflow looks for it, the review counts as
+failed: silence is not a pass.
+
+## The loop you are starting
+
+A `fail` is not the end of the exchange. `review-responder` answers every
+thread you open -- a fix pushed to the branch, or a reply saying what you
+missed -- and the push runs you again on the new head. That is the point, and
+it changes what a good finding looks like: it must be specific enough to be
+answered. "This chapter is weaker than it should be" cannot be resolved by
+anyone; "line 88 cites a note that says the opposite" can.
+
+It stops after three rounds. A fourth would be two agents disagreeing, which
+is the author's to settle, so the pull request is labelled `hold` and left.
+Write findings you would be willing to defend twice.
 
 ## What makes you worth having
 
