@@ -119,6 +119,19 @@ jobs:
           # with it. Actions masks the secrets; the rest is repository
           # content the agent could read anyway. Turn it off again once the
           # fleet is known to work.
+          # Bots must be allow-listed or the action refuses to run at all:
+          # "Workflow initiated by non-human actor". That is what killed the
+          # first three dispatches, and it would have made this whole design
+          # impossible -- Copilot is a bot, so a Copilot review could never
+          # have woken the responder, and neither could a label applied
+          # through the API.
+          #
+          # `*` is acceptable here because the triggers already gate access,
+          # not the actor list: labelling an issue and pushing to main need
+          # write access, a fork's pull request does not receive the
+          # environment secret, and the action's own rule about non-write
+          # human actors is untouched by this.
+          allowed_bots: "*"
           show_full_output: true
           claude_args: >-
             --max-turns 50
