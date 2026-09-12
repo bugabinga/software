@@ -86,7 +86,13 @@ def fill(text: str, values: dict[str, str]) -> str:
     return filled
 
 
-def build(trigger: str, changed: list[str], agent: str | None, target: str | None) -> tuple[str, str, str]:
+def build(
+    trigger: str,
+    changed: list[str],
+    agent: str | None,
+    target: str | None,
+    pr: str | None = None,
+) -> tuple[str, str, str]:
     header, body = load(trigger)
 
     values = {
@@ -94,6 +100,7 @@ def build(trigger: str, changed: list[str], agent: str | None, target: str | Non
         "changed": "\n".join(f"- `{path}`" for path in changed),
         "target": target or "",
         "agent": agent or "",
+        "pr": pr or "",
     }
     # The header may itself name the agent, in which case it wins over the
     # command line -- a trigger's brief decides whose beat it is.
@@ -116,12 +123,17 @@ def self_test() -> None:
         "changed": ["notes/x.md"],
         "agent": "prose-editor",
         "target": "chapter 3",
+        "pr": "42",
     }
     for path in sorted(BRIEFS.glob("*.md")):
         trigger = path.stem
         try:
             agent, branch, body = build(
-                trigger, samples["changed"], samples["agent"], samples["target"]
+                trigger,
+                samples["changed"],
+                samples["agent"],
+                samples["target"],
+                samples["pr"],
             )
             if PLACEHOLDER.search(body) or PLACEHOLDER.search(branch):
                 failures.append(f"{trigger}: placeholder survived filling")
@@ -145,6 +157,7 @@ def main() -> None:
     parser.add_argument("--changed", default="", help="comma or newline separated paths")
     parser.add_argument("--agent", help="agent to run, for triggers that do not fix one")
     parser.add_argument("--target", help="what to work on, for on-demand dispatch")
+    parser.add_argument("--pr", help="pull request number, for the review trigger")
     parser.add_argument("--list", action="store_true", help="list the triggers")
     parser.add_argument("--self-test", action="store_true", help="check every brief")
     arguments = parser.parse_args()
@@ -162,7 +175,9 @@ def main() -> None:
 
     changed = [p.strip() for p in re.split(r"[,\n]", arguments.changed) if p.strip()]
     try:
-        agent, branch, body = build(arguments.trigger, changed, arguments.agent, arguments.target)
+        agent, branch, body = build(
+            arguments.trigger, changed, arguments.agent, arguments.target, arguments.pr
+        )
     except BriefError as error:
         sys.exit(str(error))
 

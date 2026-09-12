@@ -147,19 +147,44 @@ label a pull request `hold`.
 The owner can still merge, so nothing is stuck permanently; it just all
 routes through a human, which is the opposite of the delegation above.
 
-Two settings restore it, and they are the same two either way:
+#### Review by the fleet, which is what the protection was for
+
+The intention behind the ruleset was not "a human must approve" but "this must
+be reviewed" -- and the reviewer is the fleet. `fleet-review.yml` does that,
+and it is built as a **status check** rather than as an approving review on
+purpose. A check from Actions gates a merge in a way nothing argues with;
+whether a bot's *approval* satisfies a required-reviews rule is a question
+about GitHub's internals that would have to keep being true.
+
+`pr-reviewer` reads the diff and checks what the automated gates cannot:
+whether the agent stayed inside its brief, whether cited notes actually say
+what the change claims, whether anything was invented, whether it contradicts
+the book, and whether it is the smallest change that does the job. It writes a
+verdict file; the workflow turns that into the check. No file means failure,
+because silence must never read as approval.
+
+So the settings that fit the intention are:
 
 1. **Settings → Actions → General → Workflow permissions →** allow GitHub
-   Actions to create and approve pull requests.
-2. **The `Main` ruleset → Bypass list →** add the GitHub Actions app.
+   Actions to create and approve pull requests. Without this the fleet cannot
+   open a pull request at all, and there is nothing to review.
+2. **The `Main` ruleset → required status checks →** `Build`, `Spelling`,
+   `Outbound links`, and — once the fleet is armed — `Fleet review`. Only
+   `Spelling` is required today, so the gate that matters least is the only
+   one enforced.
+3. **The `Main` ruleset → require approvals: 0.** The review requirement moves
+   into the checks, where the fleet can satisfy it. Leave it at 1 and only a
+   second human can ever merge, since GitHub does not let an author approve
+   their own pull request.
 
-With both, the fleet pushes a branch, the workflow opens a pull request, CI
-runs, and a green one squash-merges — linear history intact, and every rule
-still enforced against everyone else.
+With those, no bypass actor is needed: the fleet opens a pull request, the
+gates and the fleet review run, and a green one squash-merges. Linear history
+intact, every rule still enforced.
 
-Worth fixing while there: the ruleset requires only the **Spelling** check.
-`Build` and `Outbound links` are not required, so the gate that matters least
-is the only one that is enforced.
+**Order matters.** Do not make `Fleet review` a required check before an
+`ANTHROPIC_API_KEY` exists and a few real pull requests have been through it.
+A required check that can never pass would brick the repository, which is why
+the workflow passes with a notice when there is no key.
 
 Until then, a green branch the fleet may not merge becomes one issue saying
 so, rather than a red run every time.

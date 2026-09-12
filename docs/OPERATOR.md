@@ -71,9 +71,11 @@ Three parties, and confusing them is the operator's characteristic failure.
 - **Pages is live** at <https://bugabinga.github.io/software/>, serving the
   `gh-pages` branch. Verified: index, a chapter, the PDF and the single-file
   build all return 200.
-- **The `Main` ruleset blocks every fleet merge.** Until Actions may create
-  pull requests and has a bypass actor on the ruleset, the fleet's work waits
-  for an owner merge. See `docs/FLEET.md`.
+- **The `Main` ruleset blocks every fleet merge.** The author's intention was
+  review by the fleet, not by a human, so the fix is `Fleet review` as a
+  required check and approvals at zero -- not a bypass actor. See
+  `docs/FLEET.md`, and do not let `Fleet review` become required before the
+  key exists.
 
 ## Failures this repository has already seen
 
