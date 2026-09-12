@@ -1,0 +1,248 @@
+name: Preview
+
+# A readable preview of every pull request, at a URL.
+#
+# The pull request comment used to link the built site as a zip to download
+# and unzip. On a phone that is not a preview of anything, and the author
+# reads these on a phone.
+#
+# Why `workflow_run` rather than a step in `ci.yml`: the Cloudflare credential
+# is an environment secret and the `Cloudflare` environment is restricted to
+# `main`, deliberately -- a deploy from a branch would be a stranger's Worker
+# on the author's account. A `workflow_run` job executes in `main`'s context,
+# so it satisfies that rule without loosening it and without a second token.
+#
+# The cost is one extra job per pull request push, which is one billed minute.
+# That is the price of a link, and it was judged worth paying.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  # Per pull request. Cancelling is right here: a superseded preview is a
+  # preview of the wrong commit.
+  # Keyed on the event as well as the branch. `ci.yml` runs on `pull_request`
+  # and, for the `agent/**` and `maintenance/**` branches it also watches, on
+  # `push` -- and both completions wake this workflow. The push one is skipped
+  # by the job's `if` below, but a run whose jobs all skip still claims the
+  # group, so without the event in the key it cancels the pull_request run
+  # mid-deploy. `ci.yml` is keyed the same way, after the cancelled required
+  # check on #59.
+  group: preview-${{ github.event.workflow_run.event }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Preview
+    # Only pull requests from this repository, and only ones that built. A
+    # red CI has nothing worth previewing, and a push to `main` is what
+    # `publish.yml` is for. `workflow_run` is privileged -- secrets and a
+    # write token, in `main`'s context -- for a fork's pull request as much
+    # as for a branch's, so the head repository is checked, not assumed.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    environment: Cloudflare
+    runs-on: ubuntu-latest
+    permissions:
+      # Reading the artifact the triggering run uploaded, and commenting the
+      # URL. Nothing writes to the repository.
+      actions: read
+      contents: read
+      pull-requests: write
+    steps:
+      # No `ref:`, deliberately. `workflow_run` defaults to the default
+      # branch, and that is what keeps a pull request from supplying its own
+      # `tools/preview.py` -- or its own workflow -- to be run in `main`'s
+      # context against the Cloudflare credential. Everything executed below
+      # comes from `main`; only `dist/` comes from the pull request, and it
+      # is data.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # `install_args: wrangler` because the default is `mise install` over
+      # the whole manifest -- typst, node, lychee, biome, ty, actionlint --
+      # to run one tool once. `ci.yml` already refuses a second mise-action
+      # step for the same reason; this is the same money.
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install_args: wrangler
+
+      # `workflow_run` carries the commit, not the pull request: the payload's
+      # `pull_requests` array is empty for anything but a same-repo branch,
+      # and empty is indistinguishable from "no pull request". Asking by head
+      # sha is the answer that is always right.
+      - name: Which pull request is this
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          number=$(gh api "repos/$REPO/commits/$SHA/pulls" \
+            --jq '[.[] | select(.state == "open")] | first | .number // empty')
+          if [ -z "$number" ]; then
+            echo "::notice::no open pull request for $SHA; nothing to preview"
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          {
+            echo "found=true"
+            echo "number=$number"
+            echo "worker=$(python3 tools/preview.py --name "$number")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Is there a credential to deploy with
+        id: key
+        if: steps.pr.outputs.found == 'true'
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -uo pipefail
+          if [ -n "${TOKEN:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Cloudflare credential, so there is no preview. The build is still attached to the CI run."
+          fi
+
+      # The account must have a workers.dev subdomain, and this one did not:
+      # every `worker-deploy.yml` run since it was armed died here with "You
+      # can either deploy your worker to one or more routes ... or register a
+      # workers.dev subdomain", which is a red job and a wall of wrangler
+      # output rather than the one sentence that fixes it. Asked first, so a
+      # missing subdomain is a notice naming the page to visit.
+      - name: Does the account have a workers.dev subdomain
+        id: subdomain
+        if: steps.pr.outputs.found == 'true' && steps.key.outputs.present == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -uo pipefail
+          # `tools/cloudflare.py` tells three situations apart that wrangler
+          # reports as one: a subdomain that exists, a token that cannot read
+          # it, and an account that has none. The last diagnosis here went
+          # after the wrong one -- the account has `software-fleet.workers.dev`
+          # and wrangler still said to register a subdomain, which is what a
+          # scope problem looks like from outside.
+          status=$(curl -sS -o /tmp/subdomain.json -w '%{http_code}' \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" \
+            || echo 000)
+          if name=$(python3 tools/cloudflare.py --subdomain --status "$status" \
+                      < /tmp/subdomain.json 2> /tmp/subdomain.why); then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::deploying to ${name}.workers.dev"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::$(cat /tmp/subdomain.why) Nothing was deployed."
+          fi
+
+      - name: Take the site the build already made
+        if: steps.subdomain.outputs.present == 'true'
+        uses: actions/download-artifact@448e3f862ab3ef47aa50ff917776823c9946035b # v7
+        with:
+          name: book-site
+          path: dist
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Deploy it
+        id: deploy
+        if: steps.subdomain.outputs.present == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WORKER: ${{ steps.pr.outputs.worker }}
+        run: |
+          set -euo pipefail
+          # Assets only -- no script, no bindings. The compatibility date is
+          # the one `worker/notes-intake/wrangler.jsonc` already carries; a
+          # static site has no runtime behaviour for it to change, but leaving
+          # it unset is an error rather than a default.
+          mise exec -- wrangler deploy \
+            --name "$WORKER" \
+            --assets dist \
+            --compatibility-date 2026-09-12 | tee /tmp/deploy.log
+
+          url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' /tmp/deploy.log | head -1 || true)
+          if [ -z "$url" ]; then
+            echo "::warning::deployed, but wrangler printed no URL to link"
+            exit 0
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "::notice::preview at $url"
+
+      - name: Say where it is
+        if: steps.deploy.outputs.url != ''
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          NUMBER: ${{ steps.pr.outputs.number }}
+          URL: ${{ steps.deploy.outputs.url }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        with:
+          script: |
+            const marker = "<!-- book-preview-url -->";
+            const body = [
+              marker,
+              `## 🌐 [Read this pull request](${process.env.URL})`,
+              "",
+              `Built from ${process.env.SHA.slice(0, 7)}. Replaced on every push,`,
+              "and deleted the next time a preview runs after this one closes.",
+            ].join("\n");
+            const number = Number(process.env.NUMBER);
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo, issue_number: number, per_page: 100,
+            });
+            const mine = comments.find((c) => c.body.startsWith(marker));
+            if (mine) {
+              await github.rest.issues.updateComment({
+                ...context.repo, comment_id: mine.id, body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo, issue_number: number, body,
+              });
+            }
+
+      # Here rather than on a schedule or on `pull_request: closed`, both of
+      # which would be another run -- and `pull_request` cannot reach the
+      # `Cloudflare` environment anyway, which is restricted to `main`. The
+      # cost of putting it here is that a closed pull request's Worker
+      # survives until some other pull request pushes and passes CI; the
+      # comment posted above says so rather than promising otherwise. The
+      # account's Worker limit is what a leak of dead previews eventually
+      # costs, and it costs it silently.
+      - name: Delete the previews whose pull requests have closed
+        if: steps.key.outputs.present == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Piped, not word-split: a Worker name is account-wide input and
+          # `--reap $scripts` would let a space in one become two arguments.
+          # `--reap` with no names reads stdin. It answers with the ones
+          # belonging to closed pull requests and ignores every other Worker
+          # on the account; an unreachable API answers "open", so a blip
+          # never deletes a live preview.
+          doomed=$(curl -fsS \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts" \
+            | python3 -c 'import json,sys; print("\n".join(s["id"] for s in json.load(sys.stdin).get("result") or []))' \
+            | python3 tools/preview.py --repo "$REPO" --reap)
+          if [ -z "$doomed" ]; then
+            echo "::notice::no stale previews"
+            exit 0
+          fi
+          for worker in $doomed; do
+            mise exec -- wrangler delete --name "$worker" --force
+            echo "::notice::deleted $worker"
+          done

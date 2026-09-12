@@ -10,10 +10,11 @@ name: Worker deploy
 # ## The npm in the room
 #
 # This repository has no package manager -- the tools are Python's standard
-# library and pinned binaries -- and `npx wrangler` is the first exception.
-# It is confined to this file: nothing a contributor runs needs node, `make
-# check` does not, and the Worker itself is one file of plain JavaScript with
-# no dependencies. Hand-rolling the script-upload API instead would have kept
+# library and pinned binaries, and wrangler is one of them: `mise.toml`.
+# Two workflows run it, this one and `preview.yml`, and nothing else:
+# nothing a contributor runs needs node, `mise run check` does not, and the
+# Worker itself is one file of plain JavaScript with no dependencies.
+# Hand-rolling the script-upload API instead would have kept
 # npm out entirely, at the cost of writing an untestable multipart request
 # against an API this session cannot reach. Wrangler is the supported path and
 # it is pinned exactly, which is the same bargain as `.typst-version`.
@@ -41,12 +42,6 @@ concurrency:
   group: worker-deploy
   cancel-in-progress: false
 
-env:
-  # Pinned, like every other tool here. Dependabot does not watch this one --
-  # there is no manifest for it to read -- so `maintenance.yml` reports it
-  # alongside the other pinned binaries.
-  WRANGLER_VERSION: "4.131.1"
-
 jobs:
   deploy:
     name: Deploy the notes inbox
@@ -57,6 +52,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # wrangler comes from `mise.toml` like every other pinned tool. It used
+      # to be `npx --yes wrangler@$WRANGLER_VERSION` against a version pinned
+      # in this file's `env:` -- a second pin of a version the manifest
+      # already held, free to drift from it, and the last `npx` in the tree.
+      # `install_args: wrangler` because the default is `mise install` over
+      # the whole manifest -- typst, node, lychee, biome, ty, actionlint --
+      # to run one tool once. `ci.yml` already refuses a second mise-action
+      # step for the same reason; this is the same money.
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install_args: wrangler
 
       # The Worker is testable without Cloudflare, without wrangler and
       # without a credential, so there is no excuse for deploying it
@@ -79,26 +85,59 @@ jobs:
             echo "::notice::No Cloudflare credential, so nothing was deployed. The worker is tested and unchanged in Cloudflare. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to the Cloudflare environment to arm it."
           fi
 
+      # Asked before deploying, because every run of this workflow since it
+      # was armed has died at the deploy with "You can either deploy your
+      # worker to one or more routes ... or register a workers.dev
+      # subdomain" -- a red job and a wall of wrangler output instead of the
+      # one sentence that fixes it. The notes inbox has therefore never
+      # actually deployed.
+      - name: Does the account have a workers.dev subdomain
+        id: subdomain
+        if: steps.key.outputs.present == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -uo pipefail
+          # `tools/cloudflare.py` tells three situations apart that wrangler
+          # reports as one: a subdomain that exists, a token that cannot read
+          # it, and an account that has none. The last diagnosis here went
+          # after the wrong one -- the account has `software-fleet.workers.dev`
+          # and wrangler still said to register a subdomain, which is what a
+          # scope problem looks like from outside.
+          status=$(curl -sS -o /tmp/subdomain.json -w '%{http_code}' \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" \
+            || echo 000)
+          if name=$(python3 tools/cloudflare.py --subdomain --status "$status" \
+                      < /tmp/subdomain.json 2> /tmp/subdomain.why); then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::deploying to ${name}.workers.dev"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::$(cat /tmp/subdomain.why) Nothing was deployed."
+          fi
+
       - name: Check what would be deployed
         if: steps.key.outputs.present == 'true'
         working-directory: worker/notes-intake
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@"$WRANGLER_VERSION" deploy --dry-run
+        run: mise exec -- wrangler deploy --dry-run
 
       - name: Deploy
-        if: steps.key.outputs.present == 'true'
+        if: steps.subdomain.outputs.present == 'true'
         working-directory: worker/notes-intake
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx --yes wrangler@"$WRANGLER_VERSION" deploy
+        run: mise exec -- wrangler deploy
 
       # Piped on stdin, never as an argument: an argument is in the process
       # table and in the log of anything that traces the runner.
       - name: Set the worker's secrets
-        if: steps.key.outputs.present == 'true'
+        if: steps.subdomain.outputs.present == 'true'
         working-directory: worker/notes-intake
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -115,13 +154,17 @@ jobs:
             exit 0
           fi
           printf '%s' "$INTAKE_TOKEN" \
-            | npx --yes wrangler@"$WRANGLER_VERSION" secret put INTAKE_TOKEN
+            | mise exec -- wrangler secret put INTAKE_TOKEN
           printf '%s' "$NOTES_GITHUB_TOKEN" \
-            | npx --yes wrangler@"$WRANGLER_VERSION" secret put GITHUB_TOKEN
+            | mise exec -- wrangler secret put GITHUB_TOKEN
           echo "::notice::secrets set from repository secrets"
 
       - name: Say where it is
-        if: steps.key.outputs.present == 'true'
+        # The same condition as the two steps it reports on. Gated on the
+        # credential alone, it wrote "Notes inbox deployed" whenever the
+        # subdomain check had stopped the deploy -- one inaccurate sentence
+        # in place of the red wall, which is not the trade that was wanted.
+        if: steps.subdomain.outputs.present == 'true'
         run: |
           {
             echo "### Notes inbox deployed"

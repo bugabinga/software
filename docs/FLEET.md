@@ -19,6 +19,7 @@ Deterministic work that a script does better than a model.
 | `fleet-report.yml`   | Mondays 09:00 UTC                                            | judges the fleet -- runs, failures, cost, turns, tokens, what each branch became, what is stuck -- and publishes one page to `<site>/fleet/`, appending a line to `history.jsonl` on the `fleet-log` branch so the record outlives the API's 90-day window |
 | `notes-reindex.yml`  | pushes to `agent/note-**`                                    | rebuilds `notes/index.md` after the Cloudflare inbox files a note, since the Worker writes one file and stops                                                                                                                                              |
 | `worker-deploy.yml`  | pushes to `main` touching `worker/**`                        | tests the notes inbox with plain node, then deploys it to Cloudflare and sets its secrets from the repository's                                                                                                                                            |
+| `preview.yml`        | CI finishing on a pull request                               | deploys the site CI just built as an assets-only Cloudflare Worker, comments its URL, and deletes the previews whose pull requests have closed                                                                                                             |
 | `maintenance.yml`    | Mondays 06:17 UTC                                            | compares every pin in `mise.toml` against its upstream, bumps Typst and opens an upgrade pull request _if the book still builds and passes every gate on it_; re-runs the outbound link check and files one standing issue for dead links                  |
 
 ### What a push costs
@@ -30,9 +31,12 @@ with money and repaid in seconds.
 
 `ci.yml` is one job now instead of three, and `agent-branches.yml` one instead
 of three, each thing gated by the event that wants it. Same work, four billed
-minutes instead of nine. The one job that stays alone is `Fleet review`,
-because it is a model call and it is the only place where the minutes are
-actually being used.
+minutes instead of nine.
+
+Two jobs stay alone, and each is a deliberate purchase. `Fleet review` is a
+model call, which is the only place the minutes are actually being spent on
+thinking. `Preview` is a fifth minute per push, bought for a URL a reviewer
+can open on a phone instead of a zip they cannot.
 
 ## 2. Agents (judgement, on a schedule or on demand)
 
@@ -156,6 +160,49 @@ be scoped to "may only file a note", so without it that session would hold
 `contents: write` on the book. Notes still live in `notes/`, in the
 repository, verbatim and never edited. Cloudflare is the inbox, not the
 archive.
+
+## Previews
+
+Every pull request from this repository gets a URL once CI is green, posted
+as a comment and replaced on each push. `preview.yml` deploys the site CI
+already built as an assets-only Cloudflare Worker named `book-pr-<number>`.
+A fork's gets none: `workflow_run` would hand it the credential, so the head
+repository is checked rather than assumed.
+
+**Deploys need a workers.dev subdomain the token can read.** The account has
+`software-fleet.workers.dev`, and `worker-deploy.yml` still failed on every
+run from the day it was armed with wrangler saying to register one -- which
+is what a token that cannot read the subdomain looks like from outside, and
+is the likeliest reading given the subdomain exists. `CLOUDFLARE_API_TOKEN`
+wants **Account / Workers Scripts / Edit**.
+
+Both workflows now ask the API first and `tools/cloudflare.py` tells the three
+situations apart that wrangler reports as one -- a subdomain that exists, a
+token that cannot read it, an account that has none -- so the next run names
+which rather than printing a wall of wrangler output. A domain in the
+Cloudflare dashboard is a zone, incidentally, and not the same thing as a
+workers.dev subdomain; conflating them is what sent the first diagnosis after
+the wrong problem.
+
+It runs on `workflow_run` rather than as a step in `ci.yml`, and that is the
+whole design. The Cloudflare credential is an environment secret and the
+`Cloudflare` environment is restricted to `main` on purpose -- a deploy from a
+branch would be a stranger's Worker on the author's account. A `workflow_run`
+job executes in `main`'s context, so it satisfies that restriction instead of
+loosening it, and needs no second token. The cost is one extra job per push,
+which is one billed minute.
+
+Previews delete themselves, but not when the pull request closes: the reaper
+runs inside the next `Preview` job, and that job needs an open pull request
+of its own to have pushed and passed CI. Close the last one and its Worker
+survives until another is built. It rides along there because that run is
+already awake and already holding the credential; a schedule or a
+`pull_request: closed` trigger would each be another run, and `pull_request`
+cannot reach the `Cloudflare` environment anyway. The naming and the matching
+live together in `tools/preview.py` and are tested against each other: a
+reaper that matches loosely deletes somebody else's Worker on the same
+account, and one that matches too tightly leaks previews until the account's
+limit stops the next deploy. Both fail quietly.
 
 ## Standalone pages
 
@@ -392,6 +439,13 @@ seconds, cost, branch, pull request, and the commit it started from.
 A run that died before calling the model still gets a line. `always()` on the
 recording step is deliberate: the runs worth tracing are disproportionately
 the ones that failed.
+
+`fleet-log` is append-only in the git sense as well as the file sense: the
+report commits on top of what is there and pushes a fast-forward. It used to
+rebuild the history each week and force-push over it, which kept the branch
+to one commit and meant the JSONL files were the only copy of a record whose
+whole purpose is to outlive the API's 90-day window. Fast-forward is also
+what lets a ruleset guard the branch with nothing on its bypass list.
 
 ## The merge policy
 

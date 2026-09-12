@@ -151,10 +151,11 @@ jobs:
           path: dist
           retention-days: 14
 
-      # A preview of every pull request, without needing a second host: the
-      # artifact is the built site, downloadable from the run. Forks get a
-      # read-only token, so a failure to comment must not fail the build --
-      # the job summary carries the same information.
+      # The built site, attached to the run and summarised here. This is the
+      # fallback and the record; the readable preview is a URL, posted by
+      # `preview.yml` after this run finishes. Forks get a read-only token,
+      # so a failure to comment must not fail the build -- the job summary
+      # carries the same information.
       - name: Comment the preview on the pull request
         if: github.event_name == 'pull_request'
         continue-on-error: true
@@ -166,14 +167,15 @@ jobs:
             const marker = "<!-- book-preview -->";
             const body = [
               marker,
-              "## 📖 Book preview",
+              "## 📖 What this build contains",
               "",
-              `Built from ${context.sha.slice(0, 7)}.`,
-              "",
-              `**[Download the built site](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}#artifacts)**`,
-              " — unzip and open `index.html`, or run `mise run serve` locally.",
+              `Built from ${context.sha.slice(0, 7)}. This is the record; where`,
+              "`preview.yml` can deploy one, a readable link follows in its own",
+              "comment.",
               "",
               summary,
+              "",
+              `<sub>[Download the built site](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}#artifacts) — unzip and open \`index.html\`, or run \`mise run serve\` locally.</sub>`,
             ].join("\n");
 
             const { data: comments } = await github.rest.issues.listComments({

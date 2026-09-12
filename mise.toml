@@ -76,8 +76,9 @@ shfmt = "3.14.1"
 # which are now none.
 shellcheck = "0.11.0"
 
-# Only ever run in `worker-deploy.yml`. Recorded here so the version lives
-# with the others rather than in a workflow's `env:` block.
+# Run by `worker-deploy.yml` and `preview.yml`, and nowhere else. Recorded
+# here so the version lives with the others rather than in a workflow's
+# `env:` block, which is where it used to be.
 wrangler = "4.131.1"
 
 # Lints the workflow definitions properly: expression syntax, event and
@@ -190,10 +191,12 @@ description = "Type-check the Python"
 run = "ty check tools/"
 
 [tasks.check-report]
-description = "The fleet report's narrowing layer and the run record"
+description = "The report's narrowing, the run record, and the previews"
 run = [
   "python3 tools/fleet_report.py --self-test",
   "python3 tools/fleet_record.py --self-test",
+  "python3 tools/preview.py --self-test",
+  "python3 tools/cloudflare.py --self-test",
 ]
 
 [tasks.check-fleet]
