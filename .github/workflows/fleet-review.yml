@@ -118,6 +118,28 @@ jobs:
         run: |
           set -euo pipefail
 
+          # claude-code-action refuses to run when the workflow invoking it
+          # differs from the copy on the default branch -- a guard against a
+          # pull request rewriting the reviewer that reviews it. It then exits
+          # *successfully*, leaving no verdict, which is not the same thing as
+          # a reviewer that produced nothing and must not be failed as one.
+          #
+          # The hole this leaves is the reason `.github/` is in the protected
+          # set: a change to the automation is not merged without a human.
+          git fetch -q --depth=1 origin main 2>/dev/null || true
+          if ! git diff --quiet FETCH_HEAD -- .github/workflows/fleet-review.yml 2>/dev/null; then
+            echo "::notice::This pull request changes fleet-review.yml itself, so the action declined to run and there is no review. Merging it is what makes the next pull request reviewable."
+            {
+              echo "### Fleet review: **skipped**"
+              echo
+              echo "This pull request changes \`fleet-review.yml\`, and the action"
+              echo "will not run a workflow that differs from the default branch's"
+              echo "copy of it. Nothing was reviewed. Changes under \`.github/\`"
+              echo "need a human anyway."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
           if [ ! -f /tmp/fleet-review.json ]; then
             echo "::error::The reviewer left no verdict at /tmp/fleet-review.json. Treating that as a failed review: silence is not a pass."
             exit 1
