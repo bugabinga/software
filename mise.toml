@@ -196,6 +196,7 @@ run = [
   "python3 tools/fleet_report.py --self-test",
   "python3 tools/fleet_record.py --self-test",
   "python3 tools/preview.py --self-test",
+  "python3 tools/cloudflare.py --self-test",
 ]
 
 [tasks.check-fleet]

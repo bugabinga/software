@@ -169,12 +169,20 @@ already built as an assets-only Cloudflare Worker named `book-pr-<number>`.
 A fork's gets none: `workflow_run` would hand it the credential, so the head
 repository is checked rather than assumed.
 
-**The account needs a workers.dev subdomain**, once, at
-<https://dash.cloudflare.com/?to=/:account/workers/subdomain>. Without it
-wrangler refuses to publish anything that has no route, which is every Worker
-here -- and that is why `worker-deploy.yml` failed on every run from the day
-it was armed, so the notes inbox has never actually deployed. Both workflows
-now ask before deploying and say that sentence instead of failing red.
+**Deploys need a workers.dev subdomain the token can read.** The account has
+`software-fleet.workers.dev`, and `worker-deploy.yml` still failed on every
+run from the day it was armed with wrangler saying to register one -- which
+is what a token that cannot read the subdomain looks like from outside, and
+is the likeliest reading given the subdomain exists. `CLOUDFLARE_API_TOKEN`
+wants **Account / Workers Scripts / Edit**.
+
+Both workflows now ask the API first and `tools/cloudflare.py` tells the three
+situations apart that wrangler reports as one -- a subdomain that exists, a
+token that cannot read it, an account that has none -- so the next run names
+which rather than printing a wall of wrangler output. A domain in the
+Cloudflare dashboard is a zone, incidentally, and not the same thing as a
+workers.dev subdomain; conflating them is what sent the first diagnosis after
+the wrong problem.
 
 It runs on `workflow_run` rather than as a step in `ci.yml`, and that is the
 whole design. The Cloudflare credential is an environment secret and the
