@@ -80,6 +80,7 @@ check-workflows: ## Check the GitHub Actions definitions
 
 check-fleet: ## Check every fleet brief routes to a defined agent
 	$(PYTHON) tools/fleet_brief.py --self-test
+	$(PYTHON) tools/post_review.py --self-test
 
 notes: ## Download a source into notes/ (make notes URL=https://..)
 	$(PYTHON) tools/ingest_notes.py $(URL)

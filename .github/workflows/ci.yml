@@ -77,6 +77,12 @@ jobs:
       - name: Test the notes inbox worker
         run: node worker/notes-intake/test.mjs
 
+      # The review builder's line arithmetic. A comment on the wrong line
+      # reads as a finding about code that is fine, which is worse than no
+      # comment, and nothing else would catch it.
+      - name: Check the review builder
+        run: python3 tools/post_review.py --self-test
+
       - name: Upload the built book
         id: upload
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

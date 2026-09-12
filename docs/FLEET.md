@@ -210,7 +210,41 @@ one rather than filing duplicates:
 
 It does not open an issue to say it looked and found nothing.
 
-## Reviews: Copilot, and answering it
+## Reviews: how the loop runs
+
+`pr-reviewer` posts a **real GitHub review**, not a comment: findings become
+inline threads on the lines they are about, and where the reviewer knows the
+fix it comes as a `suggestion` block applied with one click. A `fail` is
+submitted as *changes requested*.
+
+`review-responder` then answers every unresolved thread -- a fix pushed to the
+same branch, or a reply saying what the finding missed -- and **resolves it**.
+Its push runs the reviewer again on the new head. That is the loop, and it is
+the point: a review that nothing has to answer decays into a note.
+
+Three things keep it from running forever:
+
+- **Three rounds.** `fleet-respond.yml` counts the fleet's own
+  changes-requested reviews. On the fourth it does not run the agent at all:
+  it labels the pull request `hold`, says once why, and leaves it. Two agents
+  disagreeing is the author's to settle.
+- **The responder does not answer itself.** It wakes on a
+  `pull_request_review` that requests changes, never on a
+  `pull_request_review_comment`, which is what its own replies are.
+- **A pass dismisses the objection.** The reviewer never approves -- whether a
+  bot's approval satisfies a rule is a question about GitHub's internals, and
+  the merge is gated by the `Fleet review` check instead. So when a later
+  round passes, `tools/post_review.py` dismisses the earlier changes-requested
+  reviews. Without that a fixed pull request would carry a standing objection
+  from three commits ago and never become mergeable.
+
+The reviewer writes only JSON; `tools/post_review.py` turns it into the
+review. Line numbers, diff sides, the range syntax and the fallback when
+GitHub refuses a request for changes on its own pull request are things a
+program is right about every time. Its `--self-test` checks the line
+arithmetic, which is the part that silently misplaces a comment.
+
+## Copilot, and answering it
 
 The ruleset turns on Copilot's automated review. A review nobody answers is
 worse than no review — the comments pile up, stop being read, and
