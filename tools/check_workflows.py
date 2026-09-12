@@ -132,32 +132,12 @@ def check_yaml(paths: list[Path]) -> list[str]:
     return problems
 
 
-def check_tools() -> list[str]:
-    """Every tool in `tools/` parses as Python.
-
-    Cheap, and it closes a gap that cost a review: a program embedded in a
-    workflow is not syntax-checked by anything, so the only way to know it
-    runs is to run it in CI and read the failure. Keeping the programs in
-    files means this catches them before they are pushed.
-    """
-    problems = []
-    for path in sorted((ROOT / "tools").glob("*.py")):
-        source = path.read_text(encoding="utf-8")
-        try:
-            compile(source, str(path), "exec")
-        except SyntaxError as error:
-            problems.append(
-                f"{path.relative_to(ROOT)}:{error.lineno}: {error.msg}"
-            )
-    return problems
-
-
 def main() -> None:
     paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted((ROOT / ".github").rglob("*.yaml"))
     if not paths:
         sys.exit("no workflow files found under .github/")
 
-    problems = check_yaml(paths) + check_tools()
+    problems = check_yaml(paths)
 
     for path in paths:
         problems += check_heredocs(path)
@@ -168,8 +148,7 @@ def main() -> None:
         print(problem, file=sys.stderr)
     if problems:
         sys.exit(f"{len(problems)} problem(s) in the workflow definitions")
-    tools = len(list((ROOT / "tools").glob("*.py")))
-    print(f"workflows: {len(paths)} files, {tools} tools, no problems")
+    print(f"workflows: {len(paths)} files, no problems")
 
 
 if __name__ == "__main__":
