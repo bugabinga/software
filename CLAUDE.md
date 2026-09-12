@@ -137,8 +137,15 @@ and `notes/` is never edited.
 
 ## Content
 
-`book/chapters/` currently holds placeholder chapters that exercise every
-feature of the pipeline (callouts, math, snippets from `code/`, figures,
-tables, footnotes, cross-references). They are meant to be replaced by the
-real book; keep `99-prelude-reference.typ` as living documentation of the
-prelude, or fold it into `docs/AUTHORING.md` if you drop it.
+`book/chapters/` holds the outline the author's notes fixed: a preface, five
+Foundations chapters, five Craft chapters, and four appendices. Each is a stub
+-- a source comment naming the note lines it came from, the title, and one
+paragraph of what the chapter will argue. None of them is written yet.
+
+`99-prelude-reference.typ` is not a stub and not part of that outline: it is
+living documentation of the prelude, and it stays until the same material
+lands in `docs/AUTHORING.md`.
+
+The book's shape is the fleet's to change. Notes arrive one at a time and any
+of them can invalidate the current outline, so treat the chapter list as the
+latest answer rather than a settled one.
