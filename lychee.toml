@@ -1,6 +1,6 @@
 # Outbound link checking, run by CI over the built site.
 #
-# Local runs are optional (`make check-external-links` when lychee is
+# Local runs are optional (`mise run check-external-links` when lychee is
 # installed); CI is the gate.
 
 # Retry before failing: a flaky host should not fail a pull request outright.

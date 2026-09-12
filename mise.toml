@@ -151,14 +151,27 @@ run = "typstyle --check book/"
 description = "Format the Typst source in place"
 run = "typstyle --inplace book/"
 
+[tasks.check-skill]
+description = "The skill generator's page builds a zip both node and Python read"
+run = "python3 tools/check_skill_page.py"
+
+[tasks.check-review]
+description = "The review builder's line arithmetic"
+run = "python3 tools/post_review.py --self-test"
+
+[tasks.check-prose]
+description = "The mechanical faults in the chapters a program can decide"
+run = ["python3 tools/prose_scan.py --self-test", "python3 tools/prose_scan.py"]
+
 [tasks.check]
 description = "Every gate CI runs"
-# The three pull requests still open each add a gate -- check-prose (#66),
-# check-skill (#60) and the review builder's self-test (#61). They add a
-# Makefile target today; whichever merges after this one adds a task instead.
+# check-skill (#60), check-review (#61) and check-prose (#66) landed on main
+# while this branch carried the migration, each as a Makefile target and a
+# `run:` step in ci.yml. Here they are tasks, called once, by both.
 depends = [
   "build-strict", "check-links", "check-epub", "check-worker", "check-code",
   "check-workflows", "check-fleet", "check-format", "check-spelling",
+  "check-skill", "check-review", "check-prose",
 ]
 run = "echo 'all checks passed'"
 

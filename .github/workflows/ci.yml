@@ -61,6 +61,9 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      # For the prose scan's SARIF. Without it the upload fails with a 403
+      # that reads like a missing file.
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -105,6 +108,26 @@ jobs:
           pattern=$(python3 -c 'import json, re; base = json.load(open("dist/build-info.json")).get("base_url", ""); print("^" + re.escape(base) if base else "^https://never.invalid/")')
           echo "exclude=$pattern" >> "$GITHUB_OUTPUT"
           echo "::notice::excluding $pattern from the outbound link check"
+
+      # The mechanical half of prose review. SARIF is not a security format --
+      # it is findings with a file, a line, a rule and a severity, and GitHub
+      # takes it from any tool. What it buys over an agent writing the same
+      # thing in prose: the finding lands as an annotation on the line, with a
+      # rule id, a dismissal flow, and history.
+      #
+      # `--fail-on never` because the gate is the ruleset's, not this step's:
+      # a warning should annotate and not redden a build.
+      - name: Scan the prose
+        run: python3 tools/prose_scan.py --sarif build/prose.sarif --fail-on never
+
+      - name: Upload what it found
+        # Forks get a read-only token no matter what `permissions:` grants
+        # (see the preview-comment step below) -- this 403s there.
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3
+        with:
+          sarif_file: build/prose.sarif
+          category: prose-scan
 
       - name: Check outbound links
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2

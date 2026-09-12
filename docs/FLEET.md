@@ -157,6 +157,26 @@ be scoped to "may only file a note", so without it that session would hold
 `contents: write` on the book. Notes still live in `notes/`, in the
 repository, verbatim and never edited. Cloudflare is the inbox, not the
 archive.
+## Standalone pages
+
+Reachable on the site, and deliberately not part of the book: no navigation,
+no sitemap entry, no search index, `noindex` in their own head. A reader who
+wandered into one from a chapter would be right to be confused.
+
+| Page | What it is |
+| --- | --- |
+| `<site>/skill/` | Builds the note-taker's skill. Two fields in, a zip out. The zip is assembled in the browser, so the intake token never leaves the page -- there is no server behind a static file on Pages, which is the whole reason this is a page rather than an endpoint. |
+| `<site>/fleet/` | The weekly fleet report, folded in by `publish.yml` from the `fleet-log` branch. |
+
+Anything under `site/` that is not `assets` or `templates` is copied to the
+site root by `tools/build.py`, so a new standalone page is a directory and
+nothing else.
+
+`tools/check_skill_page.py` runs the generator's own script under node and
+opens the zip it produces with Python's `zipfile`. Two runtimes have to agree
+it is a zip before it is published, because the failure mode is the author
+discovering a corrupt download at the moment they are setting up their
+note-taker.
 
 ## Identities the fleet does not have yet
 
@@ -223,7 +243,65 @@ one rather than filing duplicates:
 
 It does not open an issue to say it looked and found nothing.
 
-## Reviews: Copilot, and answering it
+## Two channels for two kinds of finding
+
+A fault in a chapter is either decidable or it is judgement, and they should
+not share an artefact.
+
+**Decidable** — a cross-reference to no chapter, a note cited at a line it does
+not have, a marker left in the prose. `tools/prose_scan.py` finds these and
+emits SARIF, which GitHub takes from any tool: the finding lands as an
+annotation on the line, with a rule id, a severity, a dismissal flow and
+history in the Security tab. `mise run check` runs it too. The test for a rule
+belonging here is whether two people would agree on every result without
+discussing it.
+
+**Judgement** — invention, a citation that does not support its claim, an
+agent outside its brief. That is `pr-reviewer`'s, delivered as review threads.
+
+Until this split, the reviewer wrote prose about faults a program could have
+pinned to a line, which wastes a model and produces the worse artefact.
+
+`book/terms.toml` exists and is deliberately empty: the `term-drift` rule
+is inactive until somebody writes down what this book's vocabulary is. A
+rule that invented its own terminology would be enforcing a program's
+opinion.
+
+## Reviews: how the loop runs
+
+`pr-reviewer` posts a **real GitHub review**, not a comment: findings become
+inline threads on the lines they are about, and where the reviewer knows the
+fix it comes as a `suggestion` block applied with one click. A `fail` is
+submitted as *changes requested*.
+
+`review-responder` then answers every unresolved thread -- a fix pushed to the
+same branch, or a reply saying what the finding missed -- and **resolves it**.
+Its push runs the reviewer again on the new head. That is the loop, and it is
+the point: a review that nothing has to answer decays into a note.
+
+Three things keep it from running forever:
+
+- **Three rounds.** `fleet-respond.yml` counts the fleet's own
+  changes-requested reviews. On the fourth it does not run the agent at all:
+  it labels the pull request `hold`, says once why, and leaves it. Two agents
+  disagreeing is the author's to settle.
+- **The responder does not answer itself.** It wakes on a
+  `pull_request_review` that requests changes, never on a
+  `pull_request_review_comment`, which is what its own replies are.
+- **A pass dismisses the objection.** The reviewer never approves -- whether a
+  bot's approval satisfies a rule is a question about GitHub's internals, and
+  the merge is gated by the `Fleet review` check instead. So when a later
+  round passes, `tools/post_review.py` dismisses the earlier changes-requested
+  reviews. Without that a fixed pull request would carry a standing objection
+  from three commits ago and never become mergeable.
+
+The reviewer writes only JSON; `tools/post_review.py` turns it into the
+review. Line numbers, diff sides, the range syntax and the fallback when
+GitHub refuses a request for changes on its own pull request are things a
+program is right about every time. Its `--self-test` checks the line
+arithmetic, which is the part that silently misplaces a comment.
+
+## Copilot, and answering it
 
 The ruleset turns on Copilot's automated review. A review nobody answers is
 worse than no review — the comments pile up, stop being read, and

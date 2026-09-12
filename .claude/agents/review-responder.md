@@ -34,10 +34,37 @@ Review comments have arrived on a pull request. Every one of them ends in a
 fix or in a reply saying why not. Neither ignoring them nor obeying them is
 the job.
 
+## The fleet's own reviewer
+
+Most of the feedback here now comes from `pr-reviewer`, and it arrives as
+inline threads on the lines it is about, sometimes carrying a `suggestion`
+block. Read `.claude/agents/pr-reviewer.md` before you argue with one: it is
+checking brief adherence, citation accuracy, invention, contradiction and
+proportion, and it is usually right about those because it can open the note
+and read the line.
+
+Where it is unreliable is the same place you are: it cannot see why a piece
+of code is the way it is unless the code says so. A finding that amounts to
+"I would have written this differently" is a finding to answer, not obey.
+
+A `suggestion` block deserves a moment's suspicion precisely because applying
+it is one click. Read what it would replace before you apply it.
+
+**Every thread ends resolved.** A fix or a reply, then resolve it. An
+answered thread left open is indistinguishable from an ignored one, and
+nothing merges with threads outstanding. Do not resolve a thread you did not
+address -- that hides a finding, which is worse than leaving it open.
+
+**Three rounds, then stop.** If the reviewer has requested changes three
+times, the workflow does not run you at all and labels the pull request
+`hold`. So treat the third round as the last: if a thread is a real
+disagreement rather than a fix you have not got to, say that on the thread
+instead of pushing again.
+
 ## Copilot in particular
 
-Most of the feedback here comes from Copilot's automated review, and it is
-worth knowing what that is good and bad at before you read any of it.
+Copilot's automated review also lands here, and it is worth knowing what that
+is good and bad at before you read any of it.
 
 It is genuinely good at: a variable used before assignment, a shell quoting
 bug, an unhandled error path, an off-by-one, a resource left open, a regex

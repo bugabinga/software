@@ -1,0 +1,59 @@
+# The book's vocabulary: one term, one meaning, one spelling.
+#
+# Read by `tools/prose_scan.py`, which reports a `term-drift` warning wherever
+# a chapter uses a spelling this file says to avoid. The finding lands as an
+# annotation on the line, not as prose somebody has to act on.
+#
+# ## What belongs here
+#
+# Only pairs where the book has *decided*. A word with two spellings in the
+# corpus is not automatically drift -- the author may mean two things -- so an
+# entry is a claim that these are one referent and this is its name.
+#
+# Nothing that needs judgement to check. `substrate` versus `medium` is
+# decidable once decided; "this paragraph is unclear" is not, and belongs to
+# `pr-reviewer`.
+#
+# ## Who maintains it
+#
+# `prose-editor`: terminology is its beat and "one term, one meaning" is the
+# thing it protects. It proposes entries; the author approves them, because
+# `.github/CODEOWNERS` owns this file.
+#
+# That ownership is deliberate and it is not distrust. This file is a rule the
+# fleet has to satisfy, and the cheapest way past a failing rule is to delete
+# the rule -- an agent that can drop an entry instead of fixing a chapter has
+# a gate that is really a suggestion. It is also the one place where what the
+# book *calls* things is written down, which is the author's to settle.
+#
+# ## Format
+#
+#   [[term]]
+#   name = "substrate"                 # what the book says
+#   avoid = ["medium", "carrier"]      # spellings that mean the same thing
+#   why = "notes/…-session-01.md:88"   # where the decision came from
+#
+# `why` is free text and is not checked; a note reference is the useful kind.
+
+# --------------------------------------------------------------------------
+# No entries yet, and that is a finding rather than an omission.
+#
+# Every pair worth suspecting is already consistent across `notes/` and
+# `book/chapters/`: `artifact` appears 19 times and `artefact` never;
+# `behaviour` 3 times and `behavior` never. There is nothing to correct, so
+# recording a rule would be recording this file's opinion rather than the
+# book's.
+#
+# Counted whole-word and case-insensitively over `notes/*.md` and
+# `book/chapters/`, excluding `notes/raw/`, which holds the unprocessed copy
+# of the same two notes and so counts every word in them twice. Say the scope
+# whenever a number goes in this file: without it, a recount reads 31 and 6
+# and the entry looks invented. That has already happened once, in review.
+#
+# One thing for `prose-editor` to settle rather than for the pipeline to
+# guess: the corpus mixes dialects. `artifact` is American, `behaviour` is
+# British. Both are internally consistent, so neither is drift, but the book
+# should pick one and this is where that gets written down.
+#
+# The rule stays inactive while this file has no entries, which is correct.
+# --------------------------------------------------------------------------
