@@ -1,0 +1,30 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
+  "formatter": { "enabled": true },
+  // Every recommended rule, on. Two are switched off below, each for one file
+  // and each with the reason -- a suppression nobody can audit is the thing
+  // the zero-warnings policy exists to prevent.
+  "linter": { "enabled": true, "rules": { "recommended": true } },
+  "overrides": [
+    {
+      // The test file is a sequence of bare `{ ... }` blocks, one per group,
+      // so each group's `const`s cannot leak into the next. That is what the
+      // block is for; biome reads it as leftover punctuation.
+      "includes": ["worker/notes-intake/test.mjs"],
+      "linter": {
+        "rules": { "complexity": { "noUselessLoneBlockStatements": "off" } }
+      }
+    },
+    {
+      // The stylesheet is organised by component, and biome compares two
+      // selectors by their last compound: it reads `.pager a` as descending
+      // from `.toc-sections .level-3 a` because both end in `a`. They cannot
+      // match the same element -- one is inside `.pager`, the other inside
+      // `.toc-sections` -- so the cascade it warns about does not exist.
+      // Reordering 780 lines by specificity to satisfy that would be a
+      // visual change nobody here can see the result of.
+      "includes": ["site/assets/book.css"],
+      "linter": { "rules": { "style": { "noDescendingSpecificity": "off" } } }
+    }
+  ]
+}

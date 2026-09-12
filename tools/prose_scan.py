@@ -53,7 +53,7 @@ SOURCE_RE = re.compile(r"//\s*Sources?:")
 # not.
 EXEMPT_RE = re.compile(r"//\s*Not from notes:\s*(?P<reason>\S.*)$")
 NOTE_RE = re.compile(r"(?P<path>notes/[^\s,]+\.md)")
-LINES_RE = re.compile(r"lines?\s+(?P<start>\d+)(?:\s*[-–]\s*(?P<end>\d+))?")
+LINES_RE = re.compile(r"lines?\s+(?P<start>\d+)(?:\s*[-–]\s*(?P<end>\d+))?")  # noqa: RUF001 - an en dash is the right character in a range
 XREF_RE = re.compile(r'#xref\(\s*"(?P<slug>[^"]+)"')
 SNIPPET_RE = re.compile(r'#snippet\(\s*"(?P<path>[^"]+)"')
 TODO_RE = re.compile(r"\b(TODO|FIXME|XXX)\b")
@@ -221,7 +221,7 @@ def scan_chapter(path: Path, book: Book, terms, root: Path) -> list[Finding]:
                             relative,
                             number,
                             f"`{match.group('path')}` has {total} lines; this cites "
-                            f"{start}–{end}.",
+                            f"{start}–{end}.",  # noqa: RUF001 - an en dash is the right character in a range
                             span.start() + 1,
                             span.end() + 1,
                         )
