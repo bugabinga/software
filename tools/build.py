@@ -919,6 +919,19 @@ def copy_assets(out_dir: Path) -> None:
         shutil.rmtree(assets)
     shutil.copytree(SITE_DIR / "assets", assets)
 
+    # Standalone pages: reachable on the site, and deliberately not part of
+    # the book. No navigation, no sitemap entry, no search index, `noindex` in
+    # their own head. `site/skill/` is the generator that builds the
+    # note-taker's skill; `/fleet/` arrives by another route because it is
+    # generated weekly rather than checked in.
+    for page in sorted((SITE_DIR).iterdir()):
+        if not page.is_dir() or page.name in {"assets", "templates"}:
+            continue
+        destination = out_dir / page.name
+        if destination.exists():
+            shutil.rmtree(destination)
+        shutil.copytree(page, destination)
+
 
 def build_social_card(binary: str, out_dir: Path) -> list[str]:
     """The repository's social preview image.

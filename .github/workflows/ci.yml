@@ -47,6 +47,12 @@ jobs:
       - name: Check the fleet's briefs
         run: python3 tools/fleet_brief.py --self-test
 
+      # The generator writes a zip container by hand so the token never
+      # leaves the browser. Node runs the shipped script, Python opens what
+      # it produced: two runtimes have to agree it is a zip.
+      - name: Check the skill generator
+        run: python3 tools/check_skill_page.py
+
       - name: Upload the built book
         id: upload
         uses: actions/upload-artifact@v7

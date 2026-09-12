@@ -119,6 +119,27 @@ part of the book: not in the navigation, the sitemap or the search index.
 `publish.yml` folds it in from the `fleet-log` branch, so it survives the
 force-push that replaces the site.
 
+## Standalone pages
+
+Reachable on the site, and deliberately not part of the book: no navigation,
+no sitemap entry, no search index, `noindex` in their own head. A reader who
+wandered into one from a chapter would be right to be confused.
+
+| Page | What it is |
+| --- | --- |
+| `<site>/skill/` | Builds the note-taker's skill. Two fields in, a zip out. The zip is assembled in the browser, so the intake token never leaves the page -- there is no server behind a static file on Pages, which is the whole reason this is a page rather than an endpoint. |
+| `<site>/fleet/` | The weekly fleet report, folded in by `publish.yml` from the `fleet-log` branch. |
+
+Anything under `site/` that is not `assets` or `templates` is copied to the
+site root by `tools/build.py`, so a new standalone page is a directory and
+nothing else.
+
+`tools/check_skill_page.py` runs the generator's own script under node and
+opens the zip it produces with Python's `zipfile`. Two runtimes have to agree
+it is a zip before it is published, because the failure mode is the author
+discovering a corrupt download at the moment they are setting up their
+note-taker.
+
 ## Identities the fleet does not have yet
 
 Two things need a human and are written out in `docs/IDENTITY.md`: a GitHub

@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Notes inbox — skill generator</title>
+<!--
+  Builds a Claude skill for the book's notes inbox.
+
+  Everything happens in this page. The zip is assembled in JavaScript from the
+  values in the form and handed to the browser as a blob: the token is never
+  sent anywhere, because there is nowhere to send it -- this is a static file
+  on GitHub Pages and there is no server behind it. That is the whole reason
+  the generator is a page rather than an endpoint.
+
+  No dependencies. The zip writer below is about eighty lines because a zip of
+  small text files, stored uncompressed, is a header, the bytes, a directory
+  and an end record. Pulling in a library to avoid writing them would have put
+  the first npm dependency into the published site.
+-->
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfaf8; --fg: #1a1a1a; --dim: #5d5b57;
+    --line: #ddd9d2; --field: #fff; --accent: #2f6f4f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16151a; --fg: #e8e6e1; --dim: #9a968f;
+      --line: #33313a; --field: #1e1d24; --accent: #6fbf90;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 ui-serif, "Libertinus Serif", Georgia, serif;
+    padding: 3rem 1.25rem 6rem;
+  }
+  main { max-width: 40rem; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin: 0 0 .3rem; }
+  p.lede { color: var(--dim); margin: 0 0 2.5rem; }
+  label { display: block; margin: 1.5rem 0 .35rem; font-weight: 600; font-size: .95rem; }
+  .hint { color: var(--dim); font-size: .85rem; font-weight: 400; display: block; margin-top: .15rem; }
+  input, textarea {
+    width: 100%; padding: .6rem .7rem; font: inherit; font-size: .95rem;
+    background: var(--field); color: var(--fg);
+    border: 1px solid var(--line); border-radius: .3rem;
+  }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  code, .mono { font-family: ui-monospace, "DejaVu Sans Mono", monospace; font-size: .9em; }
+  button {
+    margin-top: 2rem; padding: .7rem 1.4rem; font: inherit; font-weight: 600;
+    background: var(--accent); color: var(--bg); border: 0; border-radius: .3rem;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .note {
+    margin-top: 2.5rem; padding: 1rem 1.2rem; border-left: 3px solid var(--line);
+    color: var(--dim); font-size: .92rem;
+  }
+  .note strong { color: var(--fg); }
+  #status { margin-top: 1rem; min-height: 1.5em; font-size: .92rem; }
+  #status.bad { color: #c0392b; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Notes inbox — skill generator</h1>
+  <p class="lede">
+    Makes a Claude skill that lets a note-taking session file notes to the
+    book. Fill in the two values, download the zip, add it to that session.
+  </p>
+
+  <form id="form">
+    <label for="endpoint">Inbox URL
+      <span class="hint">The worker's address, printed by the deploy. Ends in <code>.workers.dev</code>.</span>
+    </label>
+    <input id="endpoint" class="mono" type="url" required spellcheck="false"
+           placeholder="https://notes-intake.your-subdomain.workers.dev"
+           autocomplete="off">
+
+    <label for="token">Intake token
+      <span class="hint">The value of <code>NOTES_INTAKE_TOKEN</code>.</span>
+    </label>
+    <input id="token" class="mono" type="password" required spellcheck="false"
+           placeholder="the long random string" autocomplete="off">
+
+    <label for="book">What the notes are for
+      <span class="hint">One line, so the skill knows when it applies.</span>
+    </label>
+    <input id="book" type="text" value="a book about software, written in Typst"
+           autocomplete="off">
+
+    <button id="go" type="submit">Download the skill</button>
+    <p id="status" role="status"></p>
+  </form>
+
+  <p class="note">
+    <strong>The token never leaves this page.</strong> The zip is built here,
+    in your browser, and handed straight to the download. This is a static
+    file on GitHub Pages; there is no server behind it to send anything to.
+  </p>
+  <p class="note">
+    <strong>Treat the zip as a credential.</strong> The token is written into
+    the skill, because a Claude session has no other way to hold one. Anyone
+    with the zip can file notes to the book. Rotating the token means changing
+    <code>NOTES_INTAKE_TOKEN</code> and generating a new one here.
+  </p>
+  <p class="note">
+    Not part of the book — <a href="../">that is over here</a>.
+  </p>
+</main>
+
+<script>
+"use strict";
+
+// --- the skill ------------------------------------------------------------
+
+function skillMarkdown({ endpoint, token, book }) {
+  return `---
+name: file-note
+description: >-
+  File a note to the book's notes inbox. Use whenever the author says to save,
+  keep, file or send a note, or asks for what was just discussed to reach the
+  book. The book is ${book}.
+---
+
+# Filing a note to the book
+
+The author thinks out loud here; the book is written elsewhere, by a fleet of
+agents that read \`notes/\`. This skill is the hand-off between the two.
+
+## When to use it
+
+When the author says any of: save this, keep this, file it, send it to the
+book, add this to the notes. Also when a session has produced material the
+author clearly means to keep and is about to move on from — ask first.
+
+## What a note is
+
+**Raw material, not writing.** Send what was actually said and thought,
+including the parts that contradict each other. Do not tidy it into an
+argument, do not resolve the contradictions, and do not decide what the book
+should do about it — that is the fleet's job, and a note that has already been
+decided for it is worth less than the thinking that produced it.
+
+Markdown. A heading and prose is plenty. Length is not a problem; the limit is
+512 KB.
+
+## How
+
+\`\`\`
+POST ${endpoint}/note
+Authorization: Bearer ${token}
+Content-Type: application/json
+
+{
+  "title": "Session 02 — what a machine is",
+  "body": "# Heading\\n\\nThe note, verbatim.\\n",
+  "source": "claude content session, exported 2026-09-20"
+}
+\`\`\`
+
+\`title\` and \`body\` are required. \`source\` is free text and should say where
+the material came from, so a reader of the book's notes can trace it.
+
+## What the replies mean
+
+| Status | Meaning |
+| --- | --- |
+| \`201\` | Filed. The reply names the branch and the path. |
+| \`200\` with \`"created": false\` | That exact note is already filed. Retrying is safe and files nothing twice. |
+| \`400\` | The note is malformed — a missing title, or an empty body. |
+| \`401\` | The token is wrong. Do not retry; tell the author. |
+| \`413\` | Over 512 KB. Split it into two notes. |
+| \`502\` | The inbox reached GitHub and GitHub refused. Retrying later is reasonable. |
+
+Tell the author the path it was filed at. Do not paste the token back into the
+conversation.
+
+## What happens next, so you can say so
+
+The note lands on a branch of the book's repository, verbatim — \`notes/\` is
+never edited by anyone. A pull request opens, and once it merges the fleet's
+cartographer reads the note and decides what it means for the book's shape:
+a new chapter, a reordering, a stub rewritten. That decision is not yours and
+not the author's to make here.
+`;
+}
+
+// --- a zip ----------------------------------------------------------------
+//
+// Stored (uncompressed) entries only. For a few kilobytes of Markdown the
+// saving from deflate is not worth an implementation, and every unzip
+// understands stored.
+
+const CRC_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i += 1) c = CRC_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function dosTime(date) {
+  const time = ((date.getHours() & 31) << 11) | ((date.getMinutes() & 63) << 5)
+    | ((date.getSeconds() / 2) & 31);
+  const day = (((date.getFullYear() - 1980) & 127) << 9)
+    | (((date.getMonth() + 1) & 15) << 5) | (date.getDate() & 31);
+  return { time, day };
+}
+
+function zip(files) {
+  const encoder = new TextEncoder();
+  const now = dosTime(new Date());
+  const chunks = [];
+  const directory = [];
+  let offset = 0;
+
+  const push = (bytes) => { chunks.push(bytes); offset += bytes.length; };
+
+  for (const [name, text] of Object.entries(files)) {
+    const nameBytes = encoder.encode(name);
+    const data = encoder.encode(text);
+    const sum = crc32(data);
+
+    const local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);
+    local.setUint16(6, 0x0800, true); // names are UTF-8
+    local.setUint16(8, 0, true);      // stored
+    local.setUint16(10, now.time, true);
+    local.setUint16(12, now.day, true);
+    local.setUint32(14, sum, true);
+    local.setUint32(18, data.length, true);
+    local.setUint32(22, data.length, true);
+    local.setUint16(26, nameBytes.length, true);
+    local.setUint16(28, 0, true);
+
+    directory.push({ nameBytes, sum, size: data.length, offset });
+    push(new Uint8Array(local.buffer));
+    push(nameBytes);
+    push(data);
+  }
+
+  const directoryStart = offset;
+  for (const entry of directory) {
+    const central = new DataView(new ArrayBuffer(46));
+    central.setUint32(0, 0x02014b50, true);
+    central.setUint16(4, 20, true);
+    central.setUint16(6, 20, true);
+    central.setUint16(8, 0x0800, true);
+    central.setUint16(10, 0, true);
+    central.setUint16(12, now.time, true);
+    central.setUint16(14, now.day, true);
+    central.setUint32(16, entry.sum, true);
+    central.setUint32(20, entry.size, true);
+    central.setUint32(24, entry.size, true);
+    central.setUint16(28, entry.nameBytes.length, true);
+    central.setUint16(30, 0, true);
+    central.setUint16(32, 0, true);
+    central.setUint16(34, 0, true);
+    central.setUint16(36, 0, true);
+    central.setUint32(38, 0, true);
+    central.setUint32(42, entry.offset, true);
+    push(new Uint8Array(central.buffer));
+    push(entry.nameBytes);
+  }
+
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);
+  end.setUint16(4, 0, true);
+  end.setUint16(6, 0, true);
+  end.setUint16(8, directory.length, true);
+  end.setUint16(10, directory.length, true);
+  end.setUint32(12, offset - directoryStart, true);
+  end.setUint32(16, directoryStart, true);
+  end.setUint16(20, 0, true);
+  push(new Uint8Array(end.buffer));
+
+  return new Blob(chunks, { type: "application/zip" });
+}
+
+// Exported for `tools/check_skill_page.py`, which runs this script under
+// node. `typeof module` is "undefined" in a browser, so this is inert there;
+// under CommonJS `module` is a local binding in the wrapper rather than a
+// property of the global, which is why it is tested bare.
+if (typeof module === "object" && module && module.exports) {
+  module.exports = { zip, crc32, skillMarkdown };
+}
+
+// --- the page -------------------------------------------------------------
+
+// Guarded so the file is testable as written: `tools/check_skill_page.py`
+// pulls this script out and runs it under node, where there is no document.
+// Testing a copy of the zip writer would be testing the wrong thing.
+const form = typeof document === "undefined" ? null : document.getElementById("form");
+const status = form && document.getElementById("status");
+
+if (form) form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  status.className = "";
+  status.textContent = "";
+
+  const endpoint = document.getElementById("endpoint").value.trim().replace(/\/+$/, "");
+  const token = document.getElementById("token").value.trim();
+  const book = document.getElementById("book").value.trim() || "a book";
+
+  if (!/^https:\/\//.test(endpoint)) {
+    status.className = "bad";
+    status.textContent = "The inbox URL has to be https.";
+    return;
+  }
+  if (token.length < 16) {
+    status.className = "bad";
+    status.textContent = "That token looks too short to be the real one.";
+    return;
+  }
+
+  const blob = zip({ "file-note/SKILL.md": skillMarkdown({ endpoint, token, book }) });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "file-note-skill.zip";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // Revoked on the next tick: the download has the blob by then, and holding
+  // the URL keeps the token alive in the page longer than it needs to be.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+
+  status.textContent = "Downloaded. Add it to the note-taking session, then try one note.";
+});
+</script>
+</body>
+</html>
