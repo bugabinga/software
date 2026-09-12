@@ -17,6 +17,8 @@ Deterministic work that a script does better than a model.
 | `release.yml` | `v*` tags | attaches the PDF and a zip of the site to a release |
 | `agent-branches.yml` | pushes to `agent/**` and `maintenance/**`, and CI completing | opens a pull request for a branch the fleet pushed where the repository permits it, and then merges green chores or reports everything else |
 | `fleet-report.yml` | Mondays 09:00 UTC | judges the fleet -- runs, failures, cost, turns, tokens, what each branch became, what is stuck -- and publishes one page to `<site>/fleet/`, appending a line to `history.jsonl` on the `fleet-log` branch so the record outlives the API's 90-day window |
+| `notes-reindex.yml` | pushes to `agent/note-**` | rebuilds `notes/index.md` after the Cloudflare inbox files a note, since the Worker writes one file and stops |
+| `worker-deploy.yml` | pushes to `main` touching `worker/**` | tests the notes inbox with plain node, then deploys it to Cloudflare and sets its secrets from the repository's |
 | `maintenance.yml` | Mondays 06:17 UTC | compares `.typst-version` against the latest Typst release and opens an upgrade pull request *if the book still builds and passes every gate on it*; re-runs the outbound link check and files one standing issue for dead links |
 
 ## 2. Agents (judgement, on a schedule or on demand)
@@ -118,6 +120,19 @@ The page is at `<site>/fleet/`. It is reachable and `noindex`, and it is not
 part of the book: not in the navigation, the sitemap or the search index.
 `publish.yml` folds it in from the `fleet-log` branch, so it survives the
 force-push that replaces the site.
+
+## How notes arrive
+
+`docs/NOTES-INBOX.md` is the whole of it. In short: the author's note-taking
+session POSTs to a Cloudflare Worker, which writes the note to an
+`agent/note-**` branch and stops. Everything after that is the machinery
+already described here.
+
+The Worker exists for one reason, and it is not hosting: a GitHub token cannot
+be scoped to "may only file a note", so without it that session would hold
+`contents: write` on the book. Notes still live in `notes/`, in the
+repository, verbatim and never edited. Cloudflare is the inbox, not the
+archive.
 
 ## Identities the fleet does not have yet
 
