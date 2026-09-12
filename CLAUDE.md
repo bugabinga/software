@@ -159,6 +159,31 @@ task, no summary of your summary, no "I have now".
 **One claim per sentence, and no adjectives you cannot defend.** "Comprehensive"
 and "robust" are how a report sounds when it has nothing to say.
 
+### Three registers, because there are three readers
+
+A commit message, a pull request and a comment are not one text at three
+lengths. Different readers, at different moments, holding different things.
+Writing one and pasting it into the others is the characteristic failure, and
+it happens because it feels efficient.
+
+**Commit — what and why, technical.** The reader is in `git log` or `git
+blame`, months from now, with the diff already in front of them, asking why
+this line is like this. Never narrate the diff. Say what it cannot: the
+constraint you hit, the alternative you rejected and why, the fact that will
+have been forgotten. Unsentimental, no audience. One commit, one concern.
+
+**Pull request — the story, high level.** The reader is deciding whether to
+accept this, now, with no context. What hurt, what you did about it, what is
+different afterwards. Written for someone who has not read the commits and may
+not. **Never a copy of the commit body** — if the two are the same text, one
+of them is wrong. Link the commits; that is what they are for.
+
+**Comment — terse, context-aware.** The reader is in a conversation already in
+progress and has the thread. No preamble, no restating what is above, no
+summarising the exchange. Contribute the next thing and stop. This is the only
+one of the three *addressed to someone*, so it may be short in a way the
+others may not: a sentence is often the whole comment.
+
 ## The fleet
 
 `docs/FLEET.md` is the roster: which workflows run when, which agents exist

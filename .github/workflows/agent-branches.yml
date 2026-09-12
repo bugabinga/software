@@ -59,12 +59,40 @@ jobs:
             exit 0
           fi
 
-          # The branch's own commit message is the description: an agent that
-          # explained itself in the commit does not have to explain twice.
+          # Not the commit body. A commit answers "why is this line like
+          # this" for someone holding the diff; a pull request answers "should
+          # this land" for someone holding nothing. Pasting one into the other
+          # is how this workflow used to produce descriptions that read like
+          # footnotes, and it is the one thing CLAUDE.md's three registers
+          # tells every worker here not to do.
+          #
+          # A workflow cannot write the story -- that is judgement, and it
+          # belongs to whoever opened the branch. What it can do is lay out
+          # the facts a reviewer needs first, and say plainly that the
+          # narrative is missing rather than dressing the commit body up as
+          # one.
           subject=$(git log -1 --format=%s)
-          git log -1 --format=%b > /tmp/pr-body.md
-          printf '\n---\n_Opened by the agent-branches workflow. See docs/FLEET.md._\n' \
-            >> /tmp/pr-body.md
+          {
+            echo "Opened for \`$BRANCH\`, which the fleet pushed and cannot open a"
+            echo "pull request for itself."
+            echo
+            echo "**Commits**"
+            echo
+            git log --reverse --format='- %s' "origin/main..HEAD" 2>/dev/null \
+              || git log -1 --format='- %s'
+            echo
+            echo "**Files**"
+            echo
+            git diff --name-only "origin/main...HEAD" 2>/dev/null | sed 's/^/- `/; s/$/`/' \
+              || true
+            echo
+            echo "The commit messages carry the technical reasoning. Nobody has"
+            echo "written the story of this change — what hurt, and what is"
+            echo "different now — because no human opened it."
+            echo
+            echo "---"
+            echo "_Opened by the agent-branches workflow. See docs/FLEET.md._"
+          } > /tmp/pr-body.md
 
           if number=$(gh api -X POST "repos/$REPO/pulls" \
               -f title="$subject" \
