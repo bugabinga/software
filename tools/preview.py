@@ -121,11 +121,8 @@ def self_test() -> int:
         "book-pr-x",
         "notes-intake",
         "xbook-pr-70",
-        "book-pr-70 ",
         "",
     ):
-        if name == "book-pr-70 ":  # trailing space is stripped, and is ours
-            continue
         if pr_of(name) is not None:
             problems.append(f"claimed {name!r} as pull request {pr_of(name)}")
 
