@@ -1,5 +1,13 @@
 # A Book Written in Types
 
+[![CI](https://github.com/bugabinga/software/actions/workflows/ci.yml/badge.svg)](https://github.com/bugabinga/software/actions/workflows/ci.yml)
+[![Book](https://img.shields.io/endpoint?url=https%3A%2F%2Fbugabinga.github.io%2Fsoftware%2Fbadges%2Fprogress.json)](https://bugabinga.github.io/software/)
+[![Typst](https://img.shields.io/endpoint?url=https%3A%2F%2Fbugabinga.github.io%2Fsoftware%2Fbadges%2Ftypst.json)](https://typst.app)
+[![PDF](https://img.shields.io/badge/PDF-read-blue)](https://bugabinga.github.io/software/book.pdf)
+[![License](https://img.shields.io/github/license/bugabinga/software)](LICENSE)
+
+[![The book's cover card](https://bugabinga.github.io/software/social-card.png)](https://bugabinga.github.io/software/)
+
 The source of a book written in [Typst](https://typst.app), published twice
 from one tree: as a website and as a PDF.
 
