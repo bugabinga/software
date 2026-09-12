@@ -356,6 +356,41 @@ noticing.
 What the tier asks for and what actually served are different facts. The
 weekly report records the second, per agent, because a fallback under load
 changes it and nothing else in the repository would say so.
+## What is written down, and where
+
+Three records, and each exists because the one above it expires.
+
+| Record | Granularity | Lives | Written by |
+| --- | --- | --- | --- |
+| `fleet-run-<id>` artifact | one run | 90 days | each dispatching workflow |
+| `runs.jsonl` on `fleet-log` | one run | forever | `fleet_report.py --runs-log` |
+| `history.jsonl` on `fleet-log` | one week | forever | `fleet_report.py --history` |
+
+The artifact holds two files. Claude Code's execution output says how many
+turns a run took, what it cost and which model served it. `provenance.json`,
+written by `tools/fleet_record.py`, says what the run was *for*: the trigger,
+the agent, the model its definition asked for, a digest of the brief it was
+given, the branch it was pointed at and the commit it started from.
+
+Both are needed and neither is enough. Without provenance the report has to
+guess the agent from the workflow name, which works for `fleet-review.yml` and
+`fleet-respond.yml` and collapses everything `fleet.yml` dispatches into one
+row called "dispatched". Without the execution output there is no cost.
+
+The brief is recorded as a digest rather than its text. It is generated from a
+template and the occasion, it can be long, and the question worth answering is
+"was this the same instruction as last time", which a hash answers and a copy
+does not.
+
+`runs.jsonl` is the durable half, appended weekly and deduplicated by run id.
+Both the artifact and the API's own run listing stop at 90 days, so a question
+asked in the spring about a run in the winter has nothing else to read. One
+line per agent run: trigger, agent, model asked for, model served, turns,
+seconds, cost, branch, pull request, and the commit it started from.
+
+A run that died before calling the model still gets a line. `always()` on the
+recording step is deliberate: the runs worth tracing are disproportionately
+the ones that failed.
 
 ## The merge policy
 

@@ -188,8 +188,11 @@ description = "Type-check the Python"
 run = "ty check tools/"
 
 [tasks.check-report]
-description = "The fleet report's narrowing layer"
-run = "python3 tools/fleet_report.py --self-test"
+description = "The fleet report's narrowing layer and the run record"
+run = [
+  "python3 tools/fleet_report.py --self-test",
+  "python3 tools/fleet_record.py --self-test",
+]
 
 [tasks.check-fleet]
 description = "Every brief routes to an agent, and the review builder's arithmetic"
