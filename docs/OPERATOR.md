@@ -78,6 +78,10 @@ Three parties, and confusing them is the operator's characteristic failure.
   `docs/FLEET.md`, and do not let `Fleet review` become required before the
   key exists.
 
+- **Turn `show_full_output` back off** in the three fleet workflows once the
+  fleet is known to work. It is on to diagnose a failure that reported no
+  reason, and this repository is public.
+
 ## Failures this repository has already seen
 
 Recorded because each one cost the author time, and each is easy to repeat.
