@@ -46,6 +46,11 @@ typstyle = "0.15.1"
 # with the others rather than in a workflow's `env:` block.
 wrangler = "4.131.1"
 
+# Lints the workflow definitions properly: expression syntax, event and
+# context validity, shellcheck over every `run:` block. `check_workflows.py`
+# only ever checked YAML validity, heredocs and tabs.
+actionlint = "1.7.12"
+
 # Outbound link checking. The task used to begin "if lychee is installed";
 # now it is, so the branch is gone.
 lychee = "0.24.2"
@@ -127,7 +132,7 @@ run = "node worker/notes-intake/test.mjs"
 
 [tasks.check-workflows]
 description = "The Actions definitions, and that every tool compiles"
-run = "python3 tools/check_workflows.py"
+run = ["actionlint", "python3 tools/check_workflows.py"]
 
 [tasks.check-fleet]
 description = "Every brief routes to an agent, and the review builder's arithmetic"

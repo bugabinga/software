@@ -41,11 +41,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    # `agent-branches.yml` requires a check run of exactly this name before
-    # it will call a branch green. Renaming the job renames the check, and
-    # the fleet would then merge nothing at all.
-    name: Build
+  ci:
+    # One job, and the reason is billing rather than tidiness.
+    #
+    # This used to be three -- Build, Spelling, Outbound links -- running in
+    # parallel. Measured on one push: nine jobs across all workflows, 131
+    # seconds of actual work, nine minutes billed, because GitHub rounds every
+    # job up to the whole minute. The three CI jobs were 21s, 17s and 12s of
+    # which roughly five seconds each was runner setup and checkout. Parallel
+    # saved perhaps fifteen seconds of wall clock and cost two minutes.
+    #
+    # It also deletes the artifact round-trip: the link check used to download
+    # the site that the build had just uploaded from the same commit.
+    #
+    # The check is now named `CI`, so the ruleset's required checks change
+    # from three names to one. That is the rule change this depends on.
+    name: CI
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -66,6 +77,35 @@ jobs:
       # seconds each -- that sharing one would cost more in indirection.
       - name: Check
         run: mise run check
+
+      - name: Check spelling
+        run: mise run check-spelling
+
+      - name: Restore the lychee cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: .lycheecache
+          key: lychee-${{ github.sha }}
+          restore-keys: lychee-
+
+      # Self-canonical links, og:url and every sitemap entry point at the
+      # site being built, and cannot resolve before its first deployment.
+      # Reading the URL out of the build keeps it out of lychee.toml.
+      - name: Work out the site's own URL
+        id: site
+        run: |
+          set -euo pipefail
+          pattern=$(python3 -c 'import json, re; base = json.load(open("dist/build-info.json")).get("base_url", ""); print("^" + re.escape(base) if base else "^https://never.invalid/")')
+          echo "exclude=$pattern" >> "$GITHUB_OUTPUT"
+          echo "::notice::excluding $pattern from the outbound link check"
+
+      - name: Check outbound links
+        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
+        with:
+          args: >-
+            --config lychee.toml --cache --max-cache-age 1d
+            --exclude "${{ steps.site.outputs.exclude }}" dist
+          fail: true
 
       - name: Upload the built book
         id: upload
@@ -124,52 +164,3 @@ jobs:
               });
             }
 
-  spelling:
-    name: Spelling
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
-
-      - name: Check spelling
-        run: mise run check-spelling
-
-  external-links:
-    name: Outbound links
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
-
-      - name: Download the built book
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: book-site
-          path: dist
-
-      - name: Restore the lychee cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
-        with:
-          path: .lycheecache
-          key: lychee-${{ github.sha }}
-          restore-keys: lychee-
-
-      # Self-canonical links, og:url and every sitemap entry point at the
-      # site being built, and cannot resolve before its first deployment.
-      # Reading the URL out of the build keeps it out of lychee.toml.
-      - name: Work out the site's own URL
-        id: site
-        run: |
-          set -euo pipefail
-          pattern=$(python3 -c 'import json, re; base = json.load(open("dist/build-info.json")).get("base_url", ""); print("^" + re.escape(base) if base else "^https://never.invalid/")')
-          echo "exclude=$pattern" >> "$GITHUB_OUTPUT"
-          echo "::notice::excluding $pattern from the outbound link check"
-
-      - name: Check outbound links
-        uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
-        with:
-          args: >-
-            --config lychee.toml --cache --max-cache-age 1d
-            --exclude "${{ steps.site.outputs.exclude }}" dist
-          fail: true
