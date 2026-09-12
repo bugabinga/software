@@ -131,6 +131,34 @@ Two kinds of session work in this repository, and they have different jobs.
   6. **A fleet rule is not shipped until it has been checked against the
      situations that actually exist in the repository.**
 
+## How the fleet writes
+
+Every worker here, the operator included. This is a house style, not a
+preference, because the author reads all of it on a phone.
+
+**Terse.** The diff is the record. A commit body that narrates the diff makes
+the reader read the change twice. Say what the diff cannot: why, what you
+verified, what you left alone. Three lines is usually enough and five is
+usually too many.
+
+**Link, do not restate.** `docs/FLEET.md`, `notes/2026-09-11-session-01.md:140`,
+a run URL, a pull request number. A pointer to the source of truth outlives a
+paraphrase of it and cannot drift from it. If you find yourself explaining
+what a file says, link the file.
+
+**The exception is code comments.** A comment explaining why something is the
+way it is earns its length, because the next reader has no other way to
+recover the reasoning and the alternative is rediscovering it. That is the
+opposite case from a report, which the reader is holding the artefact for
+already. Long comments, short reports.
+
+**A report is three things**: what changed, what you checked, what you
+deliberately did not do. Nothing else. No preamble, no restatement of the
+task, no summary of your summary, no "I have now".
+
+**One claim per sentence, and no adjectives you cannot defend.** "Comprehensive"
+and "robust" are how a report sounds when it has nothing to say.
+
 ## The fleet
 
 `docs/FLEET.md` is the roster: which workflows run when, which agents exist
