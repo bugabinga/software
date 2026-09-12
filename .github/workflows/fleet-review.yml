@@ -171,9 +171,12 @@ jobs:
           # read, not Claude Code subagents, so nothing was reading their
           # frontmatter and every agent ran on whatever the action defaulted
           # to. `tools/fleet_brief.py` resolves the tier to an id.
+          # 60, raised from 40 after a review needed 46 to read a diff that
+          # had grown over five rounds. The ceiling is a runaway-loop guard,
+          # not a budget: the budget is `Fleet review` being one job.
           claude_args: >-
             --model ${{ steps.brief.outputs.model }}
-            --max-turns 40
+            --max-turns 60
             --allowedTools "Bash,Read,Grep,Glob"
 
       # The evidence, kept. `tools/fleet_report.py` reads this to say what the
@@ -213,8 +216,15 @@ jobs:
       # valid line numbers, the right side of the diff, the event, the
       # fallback when GitHub refuses -- is something a program is right about
       # every time and a model is right about most times.
+      #
+      # `always()` because the verdict is written before the action decides
+      # whether it approves of the run. One review finished its work in 46
+      # turns against a ceiling of 40, reported `"subtype": "success"` and
+      # `"is_error": false`, and the action failed the step anyway -- so the
+      # findings it had already written were skipped past, the pull request
+      # got a red check with nothing in it, and $3.51 bought silence.
       - name: Post it as a review
-        if: steps.key.outputs.present == 'true'
+        if: always() && steps.key.outputs.present == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -232,7 +242,7 @@ jobs:
       # of turns, or decided to say nothing leaves no file, and that counts as
       # a failure: silence must never read as approval.
       - name: Read the verdict
-        if: steps.key.outputs.present == 'true'
+        if: always() && steps.key.outputs.present == 'true'
         run: |
           set -euo pipefail
 

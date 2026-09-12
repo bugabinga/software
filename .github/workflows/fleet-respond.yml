@@ -241,9 +241,14 @@ jobs:
           # read, not Claude Code subagents, so nothing was reading their
           # frontmatter and every agent ran on whatever the action defaulted
           # to. `tools/fleet_brief.py` resolves the tier to an id.
+          # 70, raised from 50 after a run hit the ceiling mid-answer:
+          # `"subtype": "error_max_turns"`, 51 turns, $1.24, nothing pushed
+          # and no reply on any thread. Answering a review means reading the
+          # diff, the threads and the code under them, and the ceiling is a
+          # runaway guard rather than a budget.
           claude_args: >-
             --model ${{ steps.brief.outputs.model }}
-            --max-turns 50
+            --max-turns 70
             --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
 
       # The evidence, kept. `tools/fleet_report.py` reads this to say what the
