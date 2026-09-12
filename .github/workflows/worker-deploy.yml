@@ -11,9 +11,9 @@ name: Worker deploy
 #
 # This repository has no package manager -- the tools are Python's standard
 # library and pinned binaries, and wrangler is one of them: `mise.toml`.
-# It is confined to this file: nothing a contributor runs needs node, `make
-# check` does not, and the Worker itself is one file of plain JavaScript with
-# no dependencies. Hand-rolling the script-upload API instead would have kept
+# Two workflows run it, this one and `preview.yml`, and nothing else:
+# nothing a contributor runs needs node, `mise run check` does not, and the
+# Worker itself is one file of plain JavaScript with no dependencies. Hand-rolling the script-upload API instead would have kept
 # npm out entirely, at the cost of writing an untestable multipart request
 # against an API this session cannot reach. Wrangler is the supported path and
 # it is pinned exactly, which is the same bargain as `.typst-version`.

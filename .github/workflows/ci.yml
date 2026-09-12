@@ -167,14 +167,14 @@ jobs:
             const marker = "<!-- book-preview -->";
             const body = [
               marker,
-              "## 📖 Book preview",
+              "## 📖 What this build contains",
               "",
-              `Built from ${context.sha.slice(0, 7)}.`,
-              "",
-              `**[Download the built site](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}#artifacts)**`,
-              " — unzip and open `index.html`, or run `mise run serve` locally.",
+              `Built from ${context.sha.slice(0, 7)}. The readable version is`,
+              "the preview link in the comment below; this is the record.",
               "",
               summary,
+              "",
+              `<sub>[Download the built site](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}#artifacts) — unzip and open \`index.html\`, or run \`mise run serve\` locally.</sub>`,
             ].join("\n");
 
             const { data: comments } = await github.rest.issues.listComments({

@@ -49,6 +49,12 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      # No `ref:`, deliberately. `workflow_run` defaults to the default
+      # branch, and that is what keeps a pull request from supplying its own
+      # `tools/preview.py` -- or its own workflow -- to be run in `main`'s
+      # context against the Cloudflare credential. Everything executed below
+      # comes from `main`; only `dist/` comes from the pull request, and it
+      # is data.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
 
@@ -141,7 +147,7 @@ jobs:
               `## 🌐 [Read this pull request](${process.env.URL})`,
               "",
               `Built from ${process.env.SHA.slice(0, 7)}. Replaced on every push,`,
-              "and deleted when this pull request closes.",
+              "and deleted the next time a preview runs after this one closes.",
             ].join("\n");
             const number = Number(process.env.NUMBER);
             const { data: comments } = await github.rest.issues.listComments({
@@ -159,8 +165,11 @@ jobs:
             }
 
       # Here rather than on a schedule or on `pull_request: closed`, both of
-      # which would be another run: this one is already awake and already
-      # holding the credential. The account's Worker limit is what a leak of
+      # which would be another run -- and `pull_request` cannot reach the
+      # `Cloudflare` environment anyway, which is restricted to `main`. The
+      # cost of putting it here is that a closed pull request's Worker
+      # survives until some other pull request pushes and passes CI; the
+      # comment posted above says so rather than promising otherwise. The account's Worker limit is what a leak of
       # dead previews eventually costs, and it costs it silently.
       - name: Delete the previews whose pull requests have closed
         if: steps.key.outputs.present == 'true'

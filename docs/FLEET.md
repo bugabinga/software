@@ -19,6 +19,7 @@ Deterministic work that a script does better than a model.
 | `fleet-report.yml`   | Mondays 09:00 UTC                                            | judges the fleet -- runs, failures, cost, turns, tokens, what each branch became, what is stuck -- and publishes one page to `<site>/fleet/`, appending a line to `history.jsonl` on the `fleet-log` branch so the record outlives the API's 90-day window |
 | `notes-reindex.yml`  | pushes to `agent/note-**`                                    | rebuilds `notes/index.md` after the Cloudflare inbox files a note, since the Worker writes one file and stops                                                                                                                                              |
 | `worker-deploy.yml`  | pushes to `main` touching `worker/**`                        | tests the notes inbox with plain node, then deploys it to Cloudflare and sets its secrets from the repository's                                                                                                                                            |
+| `preview.yml`        | CI finishing on a pull request                               | deploys the site CI just built as an assets-only Cloudflare Worker, comments its URL, and deletes the previews whose pull requests have closed                                                                                                             |
 | `maintenance.yml`    | Mondays 06:17 UTC                                            | compares every pin in `mise.toml` against its upstream, bumps Typst and opens an upgrade pull request _if the book still builds and passes every gate on it_; re-runs the outbound link check and files one standing issue for dead links                  |
 
 ### What a push costs
@@ -30,9 +31,12 @@ with money and repaid in seconds.
 
 `ci.yml` is one job now instead of three, and `agent-branches.yml` one instead
 of three, each thing gated by the event that wants it. Same work, four billed
-minutes instead of nine. The one job that stays alone is `Fleet review`,
-because it is a model call and it is the only place where the minutes are
-actually being used.
+minutes instead of nine.
+
+Two jobs stay alone, and each is a deliberate purchase. `Fleet review` is a
+model call, which is the only place the minutes are actually being spent on
+thinking. `Preview` is a fifth minute per push, bought for a URL a reviewer
+can open on a phone instead of a zip they cannot.
 
 ## 2. Agents (judgement, on a schedule or on demand)
 
