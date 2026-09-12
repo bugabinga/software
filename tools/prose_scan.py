@@ -129,10 +129,11 @@ class Book:
     chapters: list[Path] = field(default_factory=list)
 
 
-def slug_of(relative: str) -> str:
-    """Mirrors `slug_of` in tools/build.py and `slug-of` in the prelude."""
-    return re.sub(r"^[0-9]+[-_]", "", Path(relative).stem)
-
+# One implementation, not a third. `CLAUDE.md` records that the slug rule
+# lives in exactly two places -- `slug-of` in the prelude and `slug_of` in
+# `tools/build.py` -- and that the two must match.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build import slug_of  # noqa: E402 - after the path is set up
 
 def load_book() -> Book:
     if not MANIFEST.is_file():
