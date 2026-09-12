@@ -64,6 +64,11 @@ ALLOWED_WARNINGS = ("html export is under active development and incomplete",)
 # --------------------------------------------------------------------------- #
 
 
+def typst_pin() -> str:
+    """The Typst version this tree is pinned to, per `.typst-version`."""
+    return (ROOT / ".typst-version").read_text(encoding="utf-8").strip()
+
+
 def typst_binary() -> str:
     """The Typst to build with: $TYPST, then a local install, then $PATH."""
     if env := os.environ.get("TYPST"):
@@ -861,6 +866,7 @@ def write_site_files(book: Book, out_dir: Path, pdf: bool) -> None:
         "base_path": book.base_path,
         "base_url": book.base_url,
         "built": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "typst": typst_pin(),
         "chapters": [
             {
                 "slug": chapter.slug,
@@ -901,6 +907,43 @@ def prune_stale_pages(book: Book, out_dir: Path) -> list[str]:
         entry.rmdir()
         removed.append(entry.name)
     return removed
+
+
+def write_badges(book: Book, out_dir: Path) -> None:
+    """Shields endpoints for the README, generated rather than typed.
+
+    A badge whose text is written into the README is wrong the first time
+    anyone changes the thing it describes, and nobody notices, because a
+    badge is the part of a README that is looked at and not read. These are
+    JSON documents on the published site, read by shields.io's endpoint
+    badge, so what the README claims is whatever the last deployment
+    measured.
+
+    <https://shields.io/badges/endpoint-badge> defines the schema. The
+    `cacheSeconds` floor is shields' own; asking for less does not get less.
+    """
+    badges_dir = out_dir / "badges"
+    badges_dir.mkdir(parents=True, exist_ok=True)
+
+    words = sum(chapter.words for chapter in book.chapters)
+    endpoints = {
+        "progress.json": {
+            "label": "book",
+            "message": f"{len(book.chapters)} chapters · {words:,} words",
+            "color": "blue",
+        },
+        "typst.json": {
+            "label": "typst",
+            "message": typst_pin(),
+            "color": "239dad",  # Typst's own.
+        },
+    }
+    for name, badge in endpoints.items():
+        (badges_dir / name).write_text(
+            json.dumps({"schemaVersion": 1, "cacheSeconds": 3600, **badge}, indent=2)
+            + "\n",
+            encoding="utf-8",
+        )
 
 
 def copy_assets(out_dir: Path) -> None:
@@ -990,6 +1033,7 @@ def build(args: argparse.Namespace, binary: str) -> Book:
     for stale in prune_stale_pages(book, out_dir):
         print(f"  removed stale page: {stale}/")
     epub = build_epub(book, out_dir, cover=out_dir / "social-card.png")
+    write_badges(book, out_dir)
     write_site_files(book, out_dir, pdf=not args.no_pdf)
     elapsed = time.perf_counter() - started
 

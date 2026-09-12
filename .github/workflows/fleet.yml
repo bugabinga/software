@@ -52,6 +52,8 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  # To start CI on the branch the agent pushed. See "Say where it went".
+  actions: write
   # claude-code-action exchanges an OIDC token to authenticate, and asks
   # for this by name: without it the run fails with "Could not fetch an OIDC
   # token" after the credential has already resolved, which reads like a bad
@@ -245,22 +247,35 @@ jobs:
           # every call is an anonymous one against a repository it cannot see.
           GH_TOKEN: ${{ github.token }}
         with:
-          # Either credential works. The OAuth token is a Claude subscription;
-          # the API key bills separately. Whichever is set in the environment
-          # is the one the action uses.
-          # The tidied values, not the raw secrets: see the credential step.
+          # Either credential works: the OAuth token is a Claude
+          # subscription, the API key bills separately, and whichever is set
+          # is the one the action uses. Both are the tidied values rather
+          # than the raw secrets -- see the credential step above.
           claude_code_oauth_token: ${{ env.CLAUDE_OAUTH }}
           anthropic_api_key: ${{ env.CLAUDE_API_KEY }}
           prompt: ${{ env.BRIEF }}
-          # The action hides the agent's output "for security" and reports
-          # only `is_error: true`. Two live dispatches died in 38ms having
-          # called no model, and no amount of reading the log said why --
-          # `--debug` in claude_args is not the lever, this input is.
+          # What the run is answerable for afterwards.
           #
-          # This repository is public, so what the agent prints is public
-          # with it. Actions masks the secrets; the rest is repository
-          # content the agent could read anyway. Turn it off again once the
-          # fleet is known to work.
+          # `display_report` writes the Claude Code Report into the job
+          # summary: which tools were called, how many turns, how long, what
+          # it cost. That is the audit artefact, and it outlives nothing --
+          # a job summary goes when the run's logs are pruned -- so it is the
+          # first half of the answer, not the whole of it. The durable half
+          # is the branch and the pull request the agent leaves behind.
+          #
+          # It replaces `show_full_output`, which was on to diagnose four
+          # dispatches that died in 38ms having called no model and said
+          # nothing about why. It did its job -- the answer was a newline in
+          # the credential -- and raw JSON in a public repository is not a
+          # thing to leave switched on once the question is answered.
+          display_report: true
+          # Not `use_commit_signing`: it commits through GitHub's API rather
+          # than the git CLI, which the action's own security document says
+          # "cannot perform complex git operations". Every agent here works
+          # by making a branch with git and pushing it, so that input would
+          # take the CLI out from under the design in exchange for a Verified
+          # badge. `ssh_signing_key` signs without touching git, and needs a
+          # signing key on the author's account to exist first.
           # Bots must be allow-listed or the action refuses to run at all:
           # "Workflow initiated by non-human actor". That is what killed the
           # first three dispatches, and it would have made this whole design
@@ -274,10 +289,22 @@ jobs:
           # environment secret, and the action's own rule about non-write
           # human actors is untouched by this.
           allowed_bots: "*"
-          show_full_output: true
           claude_args: >-
             --max-turns 60
             --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
+
+      # The evidence, kept. `tools/fleet_report.py` reads this to say what the
+      # fleet cost and how hard it worked; without it the weekly report can
+      # only count runs. `always()` because a run that failed is exactly the
+      # one worth having a record of.
+      - name: Keep the run's record
+        if: always() && steps.key.outputs.present == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: fleet-run-${{ github.run_id }}
+          path: ${{ runner.temp }}/claude-execution-output.json
+          if-no-files-found: ignore
+          retention-days: 90
 
       # The agent pushes a branch and stops, exactly as it would from a
       # session. agent-branches.yml then opens the pull request and decides
@@ -308,15 +335,35 @@ jobs:
           gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$ISSUE/comments" \
             -F body=@/tmp/picked-up.md > /dev/null
 
-      - name: Say where it went
+      - name: Say where it went, and get it checked
         if: steps.key.outputs.present == 'true'
         env:
           BRANCH: ${{ steps.brief.outputs.branch }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
-            echo "::notice::the agent pushed $BRANCH; agent-branches.yml takes it from here"
-          else
+          if ! git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
             echo "::notice::the agent pushed nothing, which is a valid outcome"
+            exit 0
+          fi
+
+          # The agent pushes with the workflow token, and a push made with
+          # GITHUB_TOKEN triggers nothing: "with the exception of
+          # workflow_dispatch and repository_dispatch, other GITHUB_TOKEN
+          # triggered events do not create workflow runs at all". So the
+          # fleet's own branches arrived with no CI on them, which meant
+          # agent-branches.yml -- which waits for CI to complete before
+          # deciding anything -- never woke up for them. The fleet's first
+          # real delivery sat unchecked and unmergeable for exactly this
+          # reason.
+          #
+          # workflow_dispatch is one of the two exceptions, so asking for the
+          # run explicitly is the way through. Nothing else about the design
+          # changes: CI runs, its completion fires agent-branches.yml, and
+          # the merge decision is still made by rules in the repository.
+          if gh workflow run ci.yml --ref "$BRANCH" 2>/tmp/dispatch-error; then
+            echo "::notice::the agent pushed $BRANCH; CI dispatched, agent-branches.yml takes it from there"
+          else
+            cat /tmp/dispatch-error >&2
+            echo "::warning::$BRANCH is pushed but CI could not be started on it, so nothing downstream will pick it up. Start it by hand from the Actions tab, or re-run this step."
           fi

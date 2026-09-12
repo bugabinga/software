@@ -16,6 +16,7 @@ Deterministic work that a script does better than a model.
 | `publish.yml` | pushes to `main` | builds, then force-pushes the site to the `gh-pages` branch as a single orphan commit |
 | `release.yml` | `v*` tags | attaches the PDF and a zip of the site to a release |
 | `agent-branches.yml` | pushes to `agent/**` and `maintenance/**`, and CI completing | opens a pull request for a branch the fleet pushed where the repository permits it, and then merges green chores or reports everything else |
+| `fleet-report.yml` | Mondays 09:00 UTC | judges the fleet -- runs, failures, cost, turns, tokens, what each branch became, what is stuck -- and publishes one page to `<site>/fleet/`, appending a line to `history.jsonl` on the `fleet-log` branch so the record outlives the API's 90-day window |
 | `maintenance.yml` | Mondays 06:17 UTC | compares `.typst-version` against the latest Typst release and opens an upgrade pull request *if the book still builds and passes every gate on it*; re-runs the outbound link check and files one standing issue for dead links |
 
 ## 2. Agents (judgement, on a schedule or on demand)
@@ -92,6 +93,39 @@ It needs an `ANTHROPIC_API_KEY` repository secret, which cannot be set from
 the author's Claude sessions — the Actions secrets API is blocked to that
 environment. Until the key exists, every run exits early with a notice rather
 than failing. Everything in sections 1 and 2 works without it.
+
+## Judging the fleet
+
+`tools/fleet_report.py` is the operator's instrument, run weekly by
+`fleet-report.yml` and by hand with `make fleet-report` (`DAYS=30` for a
+longer window). It gathers what exists while it still exists -- workflow runs
+and their conclusions, each agent run's execution record uploaded as an
+artifact, every `agent/**` branch and whether it merged, and the open issues
+-- and says a few blunt sentences about it before any table.
+
+Three things make it worth reading rather than a dashboard nobody opens:
+
+- It reports what it does *not* know. A run whose usage was never recorded is
+  counted as unmeasured, because "we cannot say what the fleet cost" is a
+  finding about the pipeline.
+- It names work that will never land: a branch with no pull request and no
+  merge is effort spent for nothing, and that is a fleet fault, not a backlog.
+- Its history is a file, not a query. `history.jsonl` on `fleet-log` keeps one
+  line per report forever, so a bad month is still visible after GitHub has
+  pruned the runs it was derived from.
+
+The page is at `<site>/fleet/`. It is reachable and `noindex`, and it is not
+part of the book: not in the navigation, the sitemap or the search index.
+`publish.yml` folds it in from the `fleet-log` branch, so it survives the
+force-push that replaces the site.
+
+## Identities the fleet does not have yet
+
+Two things need a human and are written out in `docs/IDENTITY.md`: a GitHub
+App, which is what would let the fleet open its own pull requests and get its
+branches checked without a workaround, and an SSH signing key, which is what
+would make its commits read Verified. Until the App exists, a branch the fleet
+pushes cannot reach `main` without somebody opening a pull request for it.
 
 ## Nothing here needs setting up
 
