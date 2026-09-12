@@ -12,20 +12,21 @@ docstring-code-format = true
 
 [lint]
 select = [
-  "E", "W",    # pycodestyle
-  "F",         # pyflakes
-  "I",         # import order
-  "UP",        # pyupgrade -- the floor is 3.11, so say so
-  "B",         # bugbear
-  "BLE",       # blind `except Exception`
-  "SIM",       # simplify
-  "C4",        # comprehensions
-  "RET",       # returns
-  "PTH",       # pathlib over os.path
-  "ARG",       # unused arguments
-  "N",         # naming
-  "RUF",       # ruff's own
-  "PL",        # pylint
+  "E", # pycodestyle errors
+  "W", # pycodestyle warnings
+  "F", # pyflakes
+  "I", # import order
+  "UP", # pyupgrade -- the floor is 3.11, so say so
+  "B", # bugbear
+  "BLE", # blind `except Exception`
+  "SIM", # simplify
+  "C4", # comprehensions
+  "RET", # returns
+  "PTH", # pathlib over os.path
+  "ARG", # unused arguments
+  "N", # naming
+  "RUF", # ruff's own
+  "PL", # pylint
 ]
 
 ignore = [
@@ -33,11 +34,16 @@ ignore = [
   # prose uses en dashes, curly quotes and non-breaking spaces because those
   # are the correct characters. A linter calling them ambiguous is the linter
   # being wrong about the domain.
-  "RUF001", "RUF002", "RUF003",
+  "RUF001",
+  "RUF002",
+  "RUF003",
   # `tools/build.py` is a pipeline: one long function that does the steps in
   # order is the honest shape for it, and splitting it to satisfy a counter
   # would make it harder to read, not easier.
-  "PLR0911", "PLR0912", "PLR0913", "PLR0915",
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
   # Ports, sizes and exit codes are clearer written where they are used than
   # hoisted to a constant nobody looks up.
   "PLR2004",

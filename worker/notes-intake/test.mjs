@@ -52,7 +52,7 @@ function fakeGitHub({ branchExists = false } = {}) {
 			route,
 			method: init.method || "GET",
 			body: init.body ? JSON.parse(init.body) : null,
-			auth: (init.headers || {}).Authorization,
+			auth: init.headers?.Authorization,
 		});
 		if (route.startsWith("git/ref/heads/agent/note-")) {
 			return branchExists

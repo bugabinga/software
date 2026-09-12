@@ -4,16 +4,14 @@
  * is. Everything degrades to a perfectly readable page if it fails to load.
  */
 
-(function () {
-	"use strict";
-
+(() => {
 	const prefix = document.body.dataset.prefix || "";
 
 	/* ------------------------------------------------------------- theme -- */
 
 	const themeToggle = document.querySelector(".theme-toggle");
 	if (themeToggle) {
-		themeToggle.addEventListener("click", function () {
+		themeToggle.addEventListener("click", () => {
 			const dark = matchMedia("(prefers-color-scheme: dark)").matches;
 			const current =
 				document.documentElement.dataset.theme || (dark ? "dark" : "light");
@@ -21,7 +19,7 @@
 			document.documentElement.dataset.theme = next;
 			try {
 				localStorage.setItem("book-theme", next);
-			} catch (error) {
+			} catch (_error) {
 				/* private browsing */
 			}
 		});
@@ -32,7 +30,7 @@
 	const sidebar = document.getElementById("sidebar");
 	const sidebarToggle = document.querySelector(".sidebar-toggle");
 	if (sidebar && sidebarToggle) {
-		sidebarToggle.addEventListener("click", function () {
+		sidebarToggle.addEventListener("click", () => {
 			const open = sidebar.classList.toggle("open");
 			sidebarToggle.setAttribute("aria-expanded", String(open));
 		});
@@ -56,7 +54,7 @@
 		const sectionLinks = new Map();
 		document
 			.querySelectorAll('.toc-sections a[href^="#"], .page-toc a[href^="#"]')
-			.forEach(function (link) {
+			.forEach((link) => {
 				const id = decodeURIComponent(link.hash.slice(1));
 				if (!sectionLinks.has(id)) sectionLinks.set(id, []);
 				sectionLinks.get(id).push(link);
@@ -64,7 +62,7 @@
 
 		let active = null;
 		const observer = new IntersectionObserver(
-			function (entries) {
+			(entries) => {
 				const visible = entries
 					.filter((entry) => entry.isIntersecting)
 					.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
@@ -72,34 +70,38 @@
 				const id = visible[0].target.id;
 				if (id === active) return;
 				if (active) {
-					(sectionLinks.get(active) || []).forEach((l) =>
-						l.classList.remove("active"),
-					);
+					for (const l of sectionLinks.get(active) || []) {
+						l.classList.remove("active");
+					}
 				}
 				active = id;
-				(sectionLinks.get(id) || []).forEach((l) => l.classList.add("active"));
+				for (const l of sectionLinks.get(id) || []) {
+					l.classList.add("active");
+				}
 			},
 			{ rootMargin: "-15% 0px -70% 0px", threshold: 0 },
 		);
-		headings.forEach((heading) => observer.observe(heading));
+		for (const heading of headings) {
+			observer.observe(heading);
+		}
 	}
 
 	/* ------------------------------------------------------ copy buttons -- */
 
 	if (navigator.clipboard) {
-		document.querySelectorAll(".chapter pre").forEach(function (block) {
+		document.querySelectorAll(".chapter pre").forEach((block) => {
 			const button = document.createElement("button");
 			button.className = "copy-button";
 			button.type = "button";
 			button.textContent = "copy";
-			button.addEventListener("click", function () {
+			button.addEventListener("click", () => {
 				const code = block.querySelector("code");
 				navigator.clipboard.writeText((code || block).innerText).then(
-					function () {
+					() => {
 						button.textContent = "copied";
 						setTimeout(() => (button.textContent = "copy"), 1200);
 					},
-					function () {
+					() => {
 						button.textContent = "failed";
 					},
 				);
@@ -117,16 +119,16 @@
 	let selected = 0;
 
 	function escapeHtml(text) {
-		return text.replace(/[&<>"]/g, function (character) {
-			return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[
-				character
-			];
-		});
+		return text.replace(
+			/[&<>"]/g,
+			(character) =>
+				({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[character],
+		);
 	}
 
 	async function loadIndex() {
 		if (documents) return documents;
-		const response = await fetch(prefix + "search-index.json");
+		const response = await fetch(`${prefix}search-index.json`);
 		documents = (await response.json()).documents;
 		return documents;
 	}
@@ -138,16 +140,13 @@
 			at = lower.indexOf(term);
 			if (at !== -1) break;
 		}
-		if (at === -1) return escapeHtml(text.slice(0, 140)) + "…";
+		if (at === -1) return `${escapeHtml(text.slice(0, 140))}…`;
 		const from = Math.max(0, at - 60);
-		const raw = (from > 0 ? "…" : "") + text.slice(from, at + 100) + "…";
+		const raw = `${(from > 0 ? "…" : "") + text.slice(from, at + 100)}…`;
 		let marked = escapeHtml(raw);
 		for (const term of terms) {
 			marked = marked.replace(
-				new RegExp(
-					"(" + term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")",
-					"gi",
-				),
+				new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"),
 				"<mark>$1</mark>",
 			);
 		}
@@ -181,8 +180,8 @@
 			if (score > 0) {
 				found.push({
 					score: score,
-					url: prefix + entry.url + (anchor ? "#" + anchor : ""),
-					title: entry.number ? entry.number + ". " + entry.title : entry.title,
+					url: prefix + entry.url + (anchor ? `#${anchor}` : ""),
+					title: entry.number ? `${entry.number}. ${entry.title}` : entry.title,
 					snippet: snippet(entry.text, terms),
 				});
 			}
@@ -197,8 +196,8 @@
 			return;
 		}
 		results.innerHTML = matches
-			.map(function (match, index) {
-				return (
+			.map(
+				(match, index) =>
 					'<a class="search-result" role="option" href="' +
 					match.url +
 					'" aria-selected="' +
@@ -207,9 +206,8 @@
 					escapeHtml(match.title) +
 					"</strong><em>" +
 					match.snippet +
-					"</em></a>"
-				);
-			})
+					"</em></a>",
+			)
 			.join("");
 	}
 
@@ -231,29 +229,29 @@
 		try {
 			await loadIndex();
 			if (input.value) renderResults(search(input.value, documents));
-		} catch (error) {
+		} catch (_error) {
 			results.innerHTML =
 				'<p class="search-empty">Search index unavailable.</p>';
 		}
 	}
 
 	if (dialog && input && results) {
-		document.querySelectorAll(".search-open").forEach(function (button) {
+		document.querySelectorAll(".search-open").forEach((button) => {
 			button.addEventListener("click", openSearch);
 		});
 		document
 			.querySelector(".search-close")
-			.addEventListener("click", function (event) {
+			.addEventListener("click", (event) => {
 				event.preventDefault();
 				dialog.close();
 			});
 
-		input.addEventListener("input", function () {
+		input.addEventListener("input", () => {
 			if (!documents) return;
 			renderResults(search(input.value, documents));
 		});
 
-		input.addEventListener("keydown", function (event) {
+		input.addEventListener("keydown", (event) => {
 			if (event.key === "ArrowDown") {
 				event.preventDefault();
 				move(1);
@@ -272,7 +270,7 @@
 
 	/* -------------------------------------------------- global shortcuts -- */
 
-	document.addEventListener("keydown", function (event) {
+	document.addEventListener("keydown", (event) => {
 		const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(
 			document.activeElement.tagName,
 		);
@@ -290,7 +288,7 @@
 		}
 		if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
 			const rel = event.key === "ArrowLeft" ? "prev" : "next";
-			const link = document.querySelector('.pager a[rel="' + rel + '"]');
+			const link = document.querySelector(`.pager a[rel="${rel}"]`);
 			if (link) location.href = link.href;
 		}
 	});

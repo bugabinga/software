@@ -56,10 +56,21 @@ ruff = "0.15.8"
 # bump and somebody reads the diff, not on its own.
 ty = "0.0.80"
 
-# `.js`, `.mjs`, `.json`, `.jsonc`. A single binary, which is the whole
-# reason it is this and not prettier: `README.md` promises no package
-# manager, lockfile or `node_modules`, and prettier is all three.
+# `.js`, `.mjs`, `.json`, `.jsonc`, `.css` -- formatter and linter both,
+# configured in `biome.json`. A single binary, which is the whole reason it is
+# this and not prettier: `README.md` promises no package manager, lockfile or
+# `node_modules`, and prettier is all three.
 biome = "2.5.13"
+
+# `.toml` and `.yml`, via two wasm plugins named in `dprint.json`.
+#
+# Markdown is deliberately not among them. dprint pads every table cell to the
+# width of the widest, which turns `docs/FLEET.md`'s workflow table into
+# 300-column lines in a repository whose prose is hard-wrapped at 80 because
+# the author reads it on a phone. A formatter that makes the source worse is
+# not worth the consistency, and this is the one place that trade goes the
+# other way.
+dprint = "0.57.4"
 
 # Only ever run in `worker-deploy.yml`. Recorded here so the version lives
 # with the others rather than in a workflow's `env:` block.
@@ -156,11 +167,21 @@ description = "The Actions definitions, and that every tool compiles"
 # expressions where the `$` is jq's and single quotes are the only
 # correct spelling. A gate whose findings you must not act on teaches
 # people to skip it.
-run = ["SHELLCHECK_OPTS='-S warning' actionlint", "python3 tools/check_workflows.py"]
+run = [
+  "SHELLCHECK_OPTS='-S warning' actionlint",
+  "python3 tools/check_workflows.py",
+]
 
 [tasks.check-lint]
-description = "Lint the Python, strictly"
-run = "ruff check tools/"
+description = "Lint the Python and the JavaScript, strictly"
+# `site/templates/` is out of biome's reach in both tasks: those files carry
+# `{{placeholder}}` inside `<style>` and `lang="{{lang}}"`, which no HTML or
+# CSS parser accepts and which `tools/build.py` substitutes before anything
+# renders them. Their findings were false for that reason, not ignored.
+run = [
+  "ruff check tools/",
+  "biome lint worker/ site/assets/ site/skill/",
+]
 
 [tasks.check-types]
 description = "Type-check the Python"
@@ -182,7 +203,8 @@ description = "Every hand-written file is formatted the one way"
 run = [
   "git ls-files -z '*.typ' | xargs -0 typstyle --check",
   "ruff format --check tools/",
-  "biome format worker/ site/",
+  "biome format worker/ site/assets/ site/skill/",
+  "dprint check",
 ]
 
 [tasks.format]
@@ -190,7 +212,8 @@ description = "Format everything in place"
 run = [
   "git ls-files -z '*.typ' | xargs -0 typstyle --inplace",
   "ruff format tools/",
-  "biome format --write worker/ site/",
+  "biome format --write worker/ site/assets/ site/skill/",
+  "dprint fmt",
 ]
 
 [tasks.check-skill]
@@ -211,10 +234,21 @@ description = "Every gate CI runs"
 # while this branch carried the migration, each as a Makefile target and a
 # `run:` step in ci.yml. Here they are tasks, called once, by both.
 depends = [
-  "build-strict", "check-links", "check-epub", "check-worker", "check-code",
-  "check-workflows", "check-fleet", "check-format", "check-spelling",
-  "check-skill", "check-review", "check-prose",
-  "check-lint", "check-types", "check-report",
+  "build-strict",
+  "check-links",
+  "check-epub",
+  "check-worker",
+  "check-code",
+  "check-workflows",
+  "check-fleet",
+  "check-format",
+  "check-spelling",
+  "check-skill",
+  "check-review",
+  "check-prose",
+  "check-lint",
+  "check-types",
+  "check-report",
 ]
 run = "echo 'all checks passed'"
 

@@ -34,12 +34,19 @@ next reader can tell a deliberate exception from a shrug.
 **Formatting is mandatory, and it is never yours to decide.** `mise run
 format` before you push; `mise run check` fails if you did not. One formatter
 per language and no language without one -- typstyle for `.typ`, ruff for
-`.py`, biome for `.js`/`.json`. The reason is the reader: a diff that mixes a
-change with a reflow costs them the ability to see the change, and the author
-reads these on a phone. Do not argue with a formatter's output and do not
-configure around it; the value is that there is one answer, not that it is
-the best one. Shell is the gap -- 195 lines across four scripts, no formatter
-pinned yet.
+`.py`, biome for `.js`/`.json`/`.css`, dprint for `.toml`/`.yml`. The reason
+is the reader: a diff that mixes a change with a reflow costs them the ability
+to see the change, and the author reads these on a phone. Do not argue with a
+formatter's output and do not configure around it; where its shape and the
+file's fight, change the file -- `ruff.toml`'s rule list is one code per line
+because that is what the TOML formatter wanted, and it reads no worse.
+
+Two deliberate exceptions, both because the formatter would make the source
+worse rather than merely different. **Markdown** is unformatted: dprint pads
+every table cell to the width of the widest, which turns `docs/FLEET.md` into
+300-column lines in prose hard-wrapped at 80. **Shell** has no formatter
+pinned at all -- 195 lines across four scripts, and nothing verified from
+here.
 
 ## Architecture, and what must stay true
 
