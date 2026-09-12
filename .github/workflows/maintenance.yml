@@ -32,6 +32,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # For `mise latest`. Nothing else in the sweep needs it, and no tools
+      # are installed here -- only asked about.
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+        with:
+          install: false
+
       - name: Compare every pin against its latest release
         id: versions
         env:
@@ -45,38 +51,25 @@ jobs:
           # mise ecosystem -- nor asdf, nor .tool-versions -- so this is the
           # only thing watching these, and adding a tool to the manifest is
           # enough to get it watched.
-          # Where each tool's real version comes from. Not always a GitHub
-          # release: wrangler ships from the `workers-sdk` monorepo, whose
-          # tags belong to whichever package was cut, so asking that repo
-          # returns a number that has nothing to do with wrangler. npm is the
-          # authority for it, and mise resolves it as `npm:wrangler` too.
-          declare -A upstream=(
-            [typst]=gh:typst/typst
-            [typos]=gh:crate-ci/typos
-            [gh]=gh:cli/cli
-            [typstyle]=gh:typstyle-rs/typstyle
-            [wrangler]=npm:wrangler
-          )
-
-          latest_from() {
-            case "$1" in
-              gh:*)  latest_of "${1#gh:}" ;;
-              npm:*) npm view "${1#npm:}" version 2>/dev/null ;;
-              *)     return 1 ;;
-            esac
-          }
+          # `mise latest` rather than a table of upstreams kept here.
+          #
+          # The table lasted one dry run. wrangler ships from the
+          # `workers-sdk` monorepo, whose tags belong to whichever package was
+          # cut, so asking that repo returned 2.0.8 for a tool pinned at
+          # 4.131.1. mise's registry already knows each tool's real source --
+          # aqua, npm, ubi -- and writing it down a second time here is what
+          # produced the wrong answer.
+          #
+          # `mise outdated` is the obvious command and it is the wrong one:
+          # it compares against the newest version matching your specifier,
+          # so an exact pin is never outdated. `mise latest` ignores the pin.
 
           behind=0
           rows=""
           while IFS=$'\t' read -r tool pinned; do
-            repo="${upstream[$tool]:-}"
-            if [ -z "$repo" ]; then
-              rows+="| \`$tool\` | $pinned | — | not watched: no upstream recorded |"$'\n'
-              continue
-            fi
-            latest=$(latest_from "$repo" 2>/dev/null || echo "?")
-            if [ "$latest" = "?" ]; then
-              rows+="| \`$tool\` | $pinned | ? | could not ask $repo |"$'\n'
+            latest=$(mise latest "$tool" 2>/dev/null || echo "?")
+            if [ -z "$latest" ] || [ "$latest" = "?" ]; then
+              rows+="| \`$tool\` | $pinned | ? | mise could not resolve it |"$'\n'
             elif [ "$pinned" = "$latest" ]; then
               rows+="| \`$tool\` | $pinned | $latest | current |"$'\n'
             else

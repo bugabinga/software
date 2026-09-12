@@ -17,11 +17,21 @@ inputs:
 runs:
   using: composite
   steps:
+    # Keyed on the Typst pin alone, not on the manifest's hash. Hashing the
+    # whole file was a regression I introduced when the pins were
+    # consolidated: bumping typos or wrangler would have thrown away a
+    # perfectly good Typst download, and the compiler is the only thing here
+    # big enough to be worth caching.
+    - name: Which Typst
+      id: pin
+      shell: bash
+      run: echo "typst=$(python3 tools/pinned.py typst)" >> "$GITHUB_OUTPUT"
+
     - name: Cache the pinned Typst
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
       with:
         path: .tools/typst
-        key: typst-${{ runner.os }}-${{ hashFiles('mise.toml') }}
+        key: typst-${{ runner.os }}-${{ steps.pin.outputs.typst }}
 
     - name: Install Typst
       shell: bash
