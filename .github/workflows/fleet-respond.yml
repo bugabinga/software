@@ -99,6 +99,10 @@ jobs:
       - name: Respond
         if: steps.key.outputs.present == 'true'
         uses: anthropics/claude-code-action@v1
+        env:
+          # The agent shells out to gh; without a token in its own environment
+          # every call is an anonymous one against a repository it cannot see.
+          GH_TOKEN: ${{ github.token }}
         with:
           # Either credential works. The OAuth token is a Claude subscription;
           # the API key bills separately. Whichever is set in the environment

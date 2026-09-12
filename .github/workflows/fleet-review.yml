@@ -85,11 +85,20 @@ jobs:
 
       - name: Install the toolchain the reviewer will need
         if: steps.key.outputs.present == 'true'
-        run: tools/install-typst.sh
+        run: |
+          tools/install-typst.sh
+          # Every command in the reviewer's brief is a gh command. Without
+          # this it ran, found no gh, and produced neither a verdict nor a
+          # comment -- which the verdict step then correctly called a failure.
+          tools/install-gh.sh
 
       - name: Review
         if: steps.key.outputs.present == 'true'
         uses: anthropics/claude-code-action@v1
+        env:
+          # The agent shells out to gh; without a token in its own environment
+          # every call is an anonymous one against a repository it cannot see.
+          GH_TOKEN: ${{ github.token }}
         with:
           # Either credential works. The OAuth token is a Claude subscription;
           # the API key bills separately. Whichever is set in the environment

@@ -39,10 +39,13 @@ check:
 
 ## The verdict
 
-Write `/tmp/fleet-review.json`, exactly:
+You have no Write tool -- deliberately, so that a reviewer cannot modify what
+it is reviewing. Produce the verdict from the shell instead:
 
-```json
+```sh
+cat > /tmp/fleet-review.json <<'JSON'
 {"verdict": "pass", "summary": "one sentence", "findings": []}
+JSON
 ```
 
 `verdict` is `pass` or `fail`. Fail for: invention, a citation that does not
@@ -54,8 +57,12 @@ written differently, or for anything the automated gates own.
 Include them whether you pass or fail -- a pass with three noted reservations
 is a useful review; a pass with an empty list should mean you found nothing.
 
-Then post the same thing as a comment on the pull request with `gh`, so that a
-person scrolling the thread sees what you saw. If the file is missing when the
+Then post the same thing as a comment on the pull request, so a person
+scrolling the thread sees what you saw:
+
+```sh
+gh api -X POST "repos/$GITHUB_REPOSITORY/issues/<pr>/comments" -F body=@/tmp/review.md
+``` If the file is missing when the
 workflow looks for it, the review counts as failed: silence is not a pass.
 
 ## What makes you worth having
