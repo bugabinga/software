@@ -19,14 +19,26 @@ name: Bot check
 # installed without it. Read-only throughout -- nothing here writes, opens,
 # merges or comments.
 #
-# Runs on demand, and on a push to a `agent/bot-check*` branch so it can be
-# tried without anyone opening the Actions tab.
+# Runs from `main`, because that is the only branch the `Bot` environment
+# lets deploy and the key lives there. Pushing this from a branch was how that
+# was established: the job failed at the gate with "Branch
+# \"agent/bot-check\" is not allowed to deploy to Bot due to environment
+# protection rules", which is the policy working rather than a fault.
+#
+# Monthly as well as on demand: an app's permissions are edited on a web page
+# by a human, months apart, and the failure mode is silent until the one call
+# that needed the permission that went away.
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - "agent/bot-check*"
+    branches: [main]
+    paths:
+      - ".github/workflows/bot-check.yml"
+      - ".github/actions/check-app/action.yml"
+  schedule:
+    # First of the month, before the fleet's own monthly run at 08:00.
+    - cron: "0 6 1 * *"
 
 permissions: {}
 
