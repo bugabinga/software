@@ -896,7 +896,19 @@ def prune_stale_pages(book: Book, out_dir: Path) -> list[str]:
     `index.html`, sits directly under the output, and is neither a current
     chapter nor somewhere another part of the pipeline writes.
     """
-    keep = {chapter.slug for chapter in book.chapters} | {"assets", "badges", "fleet"}
+    # Derived, not listed. A hardcoded set drifts the moment somebody adds a
+    # standalone page: `dist/skill/` holds one index.html and is not a
+    # chapter, which is exactly the shape this deletes.
+    standalone = {
+        entry.name
+        for entry in SITE_DIR.iterdir()
+        if entry.is_dir() and entry.name not in {"assets", "templates"}
+    }
+    keep = (
+        {chapter.slug for chapter in book.chapters}
+        | {"assets", "badges", "fleet"}
+        | standalone
+    )
     removed = []
     for entry in sorted(out_dir.iterdir()):
         if not entry.is_dir() or entry.name in keep:
@@ -951,6 +963,19 @@ def copy_assets(out_dir: Path) -> None:
     if assets.exists():
         shutil.rmtree(assets)
     shutil.copytree(SITE_DIR / "assets", assets)
+
+    # Standalone pages: reachable on the site, and deliberately not part of
+    # the book. No navigation, no sitemap entry, no search index, `noindex` in
+    # their own head. `site/skill/` is the generator that builds the
+    # note-taker's skill; `/fleet/` arrives by another route because it is
+    # generated weekly rather than checked in.
+    for page in sorted((SITE_DIR).iterdir()):
+        if not page.is_dir() or page.name in {"assets", "templates"}:
+            continue
+        destination = out_dir / page.name
+        if destination.exists():
+            shutil.rmtree(destination)
+        shutil.copytree(page, destination)
 
 
 def build_social_card(binary: str, out_dir: Path) -> list[str]:

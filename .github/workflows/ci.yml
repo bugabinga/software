@@ -76,6 +76,11 @@ jobs:
       # untested worker when the test costs a second.
       - name: Test the notes inbox worker
         run: node worker/notes-intake/test.mjs
+      # The generator writes a zip container by hand so the token never
+      # leaves the browser. Node runs the shipped script, Python opens what
+      # it produced: two runtimes have to agree it is a zip.
+      - name: Check the skill generator
+        run: python3 tools/check_skill_page.py
 
       # The review builder's line arithmetic. A comment on the wrong line
       # reads as a finding about code that is fine, which is worse than no
