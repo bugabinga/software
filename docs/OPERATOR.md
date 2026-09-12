@@ -72,11 +72,18 @@ Three parties, and confusing them is the operator's characteristic failure.
 - **Pages is live** at <https://bugabinga.github.io/software/>, serving the
   `gh-pages` branch. Verified: index, a chapter, the PDF and the single-file
   build all return 200.
-- **The `Main` ruleset blocks every fleet merge.** The author's intention was
-  review by the fleet, not by a human, so the fix is `Fleet review` as a
-  required check and approvals at zero -- not a bypass actor. See
-  `docs/FLEET.md`, and do not let `Fleet review` become required before the
-  key exists.
+- **The `Main` ruleset still requires an approving review**, and that is now
+  the only thing standing between a green pull request and `main`. It was
+  right to wait: `Fleet review` had to be armed and seen working first, and it
+  is -- it passes on every branch and it caught a real bug in #63 that a local
+  dry run could not. So the change is ripe: **required approvals to zero,
+  `Fleet review` required.** Not a bypass actor, and not the bypass toggle,
+  which is a decision taken once per pull request and remembered by nobody.
+
+  The author *can* approve in the meantime -- the fleet's pull requests are
+  authored by `claude[bot]`, so approving them is not approving their own
+  work -- but that is a click per pull request forever, which is the tax this
+  whole arrangement exists to remove.
 
 - **`show_full_output` is off again.** It was on to diagnose four dispatches
   that died in 38ms having called no model; the answer was a line break
