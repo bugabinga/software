@@ -39,11 +39,16 @@
 # No entries yet, and that is a finding rather than an omission.
 #
 # Every pair worth suspecting is already consistent across `notes/` and
-# `book/chapters/`: `artifact` appears 31 times (36 counting `artifacts`) and
-# `artefact` never; `behaviour` 6 times and `behavior` never. There is nothing
-# to correct, so
+# `book/chapters/`: `artifact` appears 19 times and `artefact` never;
+# `behaviour` 3 times and `behavior` never. There is nothing to correct, so
 # recording a rule would be recording this file's opinion rather than the
 # book's.
+#
+# Counted whole-word and case-insensitively over `notes/*.md` and
+# `book/chapters/`, excluding `notes/raw/`, which holds the unprocessed copy
+# of the same two notes and so counts every word in them twice. Say the scope
+# whenever a number goes in this file: without it, a recount reads 31 and 6
+# and the entry looks invented. That has already happened once, in review.
 #
 # One thing for `prose-editor` to settle rather than for the pipeline to
 # guess: the corpus mixes dialects. `artifact` is American, `behaviour` is
