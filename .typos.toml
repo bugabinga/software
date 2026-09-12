@@ -25,5 +25,8 @@ extend-ignore-re = [
 
 [default.extend-words]
 typ = "typ"
+# EPUB's package document is `content.opf`, for Open Packaging Format. The
+# checker reads every occurrence as a misspelling of "of".
+opf = "opf"
 Typst = "Typst"
 typst = "typst"

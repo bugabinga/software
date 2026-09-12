@@ -44,6 +44,12 @@ jobs:
       - name: Check the workflow definitions
         run: python3 tools/check_workflows.py
 
+      # The EPUB is generated rather than exported, so nothing else would
+      # notice if a change to the page shell made a chapter stop parsing as
+      # XML -- and a reader finding out is a reader who cannot open the book.
+      - name: Check the EPUB
+        run: python3 tools/check_epub.py dist/book.epub
+
       - name: Check the fleet's briefs
         run: python3 tools/fleet_brief.py --self-test
 
