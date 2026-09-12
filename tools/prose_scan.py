@@ -233,12 +233,16 @@ def scan_chapter(path: Path, book: Book, terms, root: Path) -> list[Finding]:
                     f"`{match.group(1)}` left in the prose.",
                     match.start() + 1, match.end() + 1))
 
+        if line.lstrip().startswith("//"):
+            continue
+
         for preferred, avoid in terms:
             for spelling in avoid:
                 for match in re.finditer(rf"\b{re.escape(spelling)}\b", line, re.I):
                     findings.append(Finding(
                         "term-drift", relative, number,
                         f"`{match.group(0)}` — this book says `{preferred}`.",
+                        match.start() + 1, match.end() + 1))
                         match.start() + 1, match.end() + 1))
 
     if not cited:
