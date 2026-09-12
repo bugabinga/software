@@ -110,6 +110,10 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: ${{ env.BRIEF }}
+          # --debug because the action's own failure output is a single
+          # `is_error: true` with no reason. The first armed run died in 38ms
+          # having called no model, and nothing in the log said why.
           claude_args: >-
+            --debug
             --max-turns 50
             --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
