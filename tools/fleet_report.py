@@ -223,6 +223,10 @@ def summarise_execution(payload: object) -> dict | None:
         return None
     usage = result.get("usage") or {}
     return {
+        # Which model actually served the run, as opposed to which one the
+        # agent's definition asked for. A fallback under load changes this
+        # and nothing else in the repository would say so.
+        "model": served_model(result),
         "turns": result.get("num_turns"),
         "cost_usd": result.get("total_cost_usd"),
         "seconds": (
@@ -347,7 +351,15 @@ def judge(runs: list[dict], usage: dict[int, dict]) -> dict:
             for r in group
             if r["id"] in usage
         )
+        models = sorted(
+            {
+                usage[r["id"]]["model"]
+                for r in group
+                if r["id"] in usage and usage[r["id"]].get("model")
+            }
+        )
         return {
+            "models": models or None,
             "runs": len(group),
             "finished": len(done),
             "succeeded": len(good),
@@ -425,6 +437,21 @@ def money(value: float | None) -> str:
     return "—" if value is None else f"${value:,.2f}"
 
 
+def served_model(result: dict) -> str | None:
+    """The model a run actually used.
+
+    Claude Code reports it as `model` on newer runs and only as the sole key
+    of `modelUsage` on older ones, so both are read. A run that says neither
+    is `None` rather than a guess.
+    """
+    if isinstance(result.get("model"), str):
+        return result["model"]
+    usage = result.get("modelUsage")
+    if isinstance(usage, dict) and usage:
+        return next(iter(usage))
+    return None
+
+
 def number(value: int | None) -> str:
     return "—" if value is None else f"{value:,}"
 
@@ -454,7 +481,8 @@ def as_text(report: dict) -> str:
     )
     for name, tally in report["judgement"]["by_agent"].items():
         lines.append(
-            f"    {name:<18} {tally['runs']:>3} runs"
+            f"    {name:<18} {(', '.join(tally['models'] or ['?']))[:22]:<22}"
+            f" {tally['runs']:>3} runs"
             f"  {tally['failed']:>2} failed"
             f"  {seconds(tally['median_seconds']):>8}"
             f"  {money(tally['cost_usd']):>9}"
@@ -483,6 +511,7 @@ def as_html(report: dict) -> str:
         rows.append(
             "<tr>"
             f"<td>{esc(name)}</td>"
+            f"<td><code>{esc(', '.join(tally['models'] or ['—']))}</code></td>"
             f"<td class=n>{tally['runs']}</td>"
             f"<td class=n>{tally['failed']}</td>"
             f"<td class=n>{esc(seconds(tally['median_seconds']))}</td>"
@@ -556,7 +585,7 @@ def as_html(report: dict) -> str:
 
 <h2>Agents</h2>
 <div class="wrap"><table>
-  <tr><th>agent</th><th class=n>runs</th><th class=n>failed</th>
+  <tr><th>agent</th><th>served by</th><th class=n>runs</th><th class=n>failed</th>
       <th class=n>median</th><th class=n>turns</th><th class=n>tokens</th>
       <th class=n>cost</th></tr>
   {"".join(rows) or "<tr><td colspan=7>No agent runs in this window.</td></tr>"}
@@ -666,6 +695,20 @@ def self_test() -> int:
                 problems.append(f"api_list({value!r}) -> {api_list('x')!r}")
     finally:
         globals()["api"] = saved
+
+    # `served_model` reads two shapes of the same fact, and a run that says
+    # neither must not be guessed at -- an invented model in the report is
+    # worse than a blank, because the report is what the tiers get judged on.
+    for result, want in [
+        ({"model": "claude-opus-5"}, "claude-opus-5"),
+        ({"modelUsage": {"claude-sonnet-5": {"input_tokens": 1}}}, "claude-sonnet-5"),
+        ({"model": "claude-opus-5", "modelUsage": {"other": {}}}, "claude-opus-5"),
+        ({"modelUsage": {}}, None),
+        ({}, None),
+        ({"model": None}, None),
+    ]:
+        if served_model(result) != want:
+            problems.append(f"served_model({result!r}) -> {served_model(result)!r}")
 
     # `number` and `seconds` render the table; both are handed None routinely,
     # because a run that never started has no duration.

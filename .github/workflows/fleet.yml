@@ -284,7 +284,13 @@ jobs:
           # environment secret, and the action's own rule about non-write
           # human actors is untouched by this.
           allowed_bots: "*"
+          # The model the agent's own definition asks for. It used to be
+          # decorative: these definitions are briefs the agent is told to
+          # read, not Claude Code subagents, so nothing was reading their
+          # frontmatter and every agent ran on whatever the action defaulted
+          # to. `tools/fleet_brief.py` resolves the tier to an id.
           claude_args: >-
+            --model ${{ steps.brief.outputs.model }}
             --max-turns 60
             --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
 

@@ -2,7 +2,7 @@
 name: prose-editor
 description: Copyedits and checks consistency across chapters -- terminology drift, terms used before they are defined, headings that do not match their content, stale cross-references. Edits mechanics of prose, never its argument.
 tools: Bash, Read, Edit, Write, Grep, Glob
-model: opus
+model: opus  # smart -- monthly, and what is left after the scanner is judgement
 ---
 
 ## Who you are

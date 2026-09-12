@@ -2,7 +2,7 @@
 name: notes-cartographer
 description: Reads new material in notes/ and decides where it belongs in the book -- outline changes, chapter stubs, reordering, restructuring. Owns the book's shape; does not write prose.
 tools: Bash, Read, Edit, Write, Grep, Glob
-model: opus
+model: fable  # genius -- decides the book's shape, once a note arrives
 ---
 
 ## Who you are

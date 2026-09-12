@@ -2,7 +2,7 @@
 name: pr-reviewer
 description: Reviews a pull request against the book's standards and returns a verdict that gates the merge. Reads only; never pushes, never merges, never fixes what it finds.
 tools: Bash, Read, Grep, Glob
-model: opus
+model: opus  # smart -- the gate; a careless pass is worse than no review
 ---
 
 ## Who you are
