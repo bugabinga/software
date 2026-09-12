@@ -52,6 +52,11 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  # claude-code-action exchanges an OIDC token to authenticate, and asks
+  # for this by name: without it the run fails with "Could not fetch an OIDC
+  # token" after the credential has already resolved, which reads like a bad
+  # secret and is not.
+  id-token: write
 
 # One agent at a time. Two agents pushing branches from the same base and
 # reading each other's half-finished work is not a race worth having.
@@ -62,6 +67,10 @@ concurrency:
 jobs:
   dispatch:
     name: Dispatch
+    # The credential is an environment secret, so the job has to name the
+    # environment to see it at all. If this name is wrong the secret is
+    # simply absent and the run says so rather than failing obscurely.
+    environment: Fleet
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -176,17 +185,22 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Is there a key to run it with
+      - name: Is there a credential to run with
         id: key
-        if: steps.occasion.outputs.trigger != ''
         env:
-          CLAUDE_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          if [ -z "${CLAUDE_KEY:-}" ]; then
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Routed correctly, but there is no API key, so no agent ran. The brief is in the job summary. Add ANTHROPIC_API_KEY under Settings, Secrets and variables, Actions to arm the fleet."
-          else
+          set -uo pipefail
+          if [ -n "${OAUTH:-}" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::running with CLAUDE_CODE_OAUTH_TOKEN"
+          elif [ -n "${API_KEY:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::running with ANTHROPIC_API_KEY"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Routed correctly, but there is no credential, so no agent ran. The brief is in the job summary. Add CLAUDE_CODE_OAUTH_TOKEN to the Fleet environment to arm it."
           fi
 
       - name: Install the toolchain the agent will need
@@ -198,7 +212,15 @@ jobs:
       - name: Run the agent
         if: steps.key.outputs.present == 'true'
         uses: anthropics/claude-code-action@v1
+        env:
+          # The agent shells out to gh; without a token in its own environment
+          # every call is an anonymous one against a repository it cannot see.
+          GH_TOKEN: ${{ github.token }}
         with:
+          # Either credential works. The OAuth token is a Claude subscription;
+          # the API key bills separately. Whichever is set in the environment
+          # is the one the action uses.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: ${{ env.BRIEF }}
           claude_args: >-

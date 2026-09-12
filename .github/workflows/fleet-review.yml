@@ -26,6 +26,11 @@ permissions:
   contents: read
   pull-requests: write
   issues: write
+  # claude-code-action exchanges an OIDC token to authenticate, and asks
+  # for this by name: without it the run fails with "Could not fetch an OIDC
+  # token" after the credential has already resolved, which reads like a bad
+  # secret and is not.
+  id-token: write
 
 concurrency:
   # Per pull request, and cancel superseded runs: a review of an old head is
@@ -37,22 +42,32 @@ jobs:
   review:
     name: Fleet review
     if: github.event.pull_request.draft == false
+    # The credential is an environment secret, so the job has to name the
+    # environment to see it at all. If this name is wrong the secret is
+    # simply absent and the run says so rather than failing obscurely.
+    environment: Fleet
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Is there a key to review with
+      - name: Is there a credential to run with
         id: key
         env:
-          CLAUDE_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          if [ -z "${CLAUDE_KEY:-}" ]; then
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No API key, so no review happened. This check passes so that adding it to the ruleset before the fleet is armed cannot lock the repository -- but it is not a review, and it should not be a required check until a key exists."
-          else
+          set -uo pipefail
+          if [ -n "${OAUTH:-}" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::running with CLAUDE_CODE_OAUTH_TOKEN"
+          elif [ -n "${API_KEY:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::running with ANTHROPIC_API_KEY"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No credential, so no review happened. This check passes so that requiring it before the fleet is armed cannot lock the repository -- but it is not a review."
           fi
 
       - name: Build the reviewer's brief
@@ -70,12 +85,25 @@ jobs:
 
       - name: Install the toolchain the reviewer will need
         if: steps.key.outputs.present == 'true'
-        run: tools/install-typst.sh
+        run: |
+          tools/install-typst.sh
+          # Every command in the reviewer's brief is a gh command. Without
+          # this it ran, found no gh, and produced neither a verdict nor a
+          # comment -- which the verdict step then correctly called a failure.
+          tools/install-gh.sh
 
       - name: Review
         if: steps.key.outputs.present == 'true'
         uses: anthropics/claude-code-action@v1
+        env:
+          # The agent shells out to gh; without a token in its own environment
+          # every call is an anonymous one against a repository it cannot see.
+          GH_TOKEN: ${{ github.token }}
         with:
+          # Either credential works. The OAuth token is a Claude subscription;
+          # the API key bills separately. Whichever is set in the environment
+          # is the one the action uses.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: ${{ env.BRIEF }}
           claude_args: >-
@@ -89,6 +117,28 @@ jobs:
         if: steps.key.outputs.present == 'true'
         run: |
           set -euo pipefail
+
+          # claude-code-action refuses to run when the workflow invoking it
+          # differs from the copy on the default branch -- a guard against a
+          # pull request rewriting the reviewer that reviews it. It then exits
+          # *successfully*, leaving no verdict, which is not the same thing as
+          # a reviewer that produced nothing and must not be failed as one.
+          #
+          # The hole this leaves is the reason `.github/` is in the protected
+          # set: a change to the automation is not merged without a human.
+          git fetch -q --depth=1 origin main 2>/dev/null || true
+          if ! git diff --quiet FETCH_HEAD -- .github/workflows/fleet-review.yml 2>/dev/null; then
+            echo "::notice::This pull request changes fleet-review.yml itself, so the action declined to run and there is no review. Merging it is what makes the next pull request reviewable."
+            {
+              echo "### Fleet review: **skipped**"
+              echo
+              echo "This pull request changes \`fleet-review.yml\`, and the action"
+              echo "will not run a workflow that differs from the default branch's"
+              echo "copy of it. Nothing was reviewed. Changes under \`.github/\`"
+              echo "need a human anyway."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
           if [ ! -f /tmp/fleet-review.json ]; then
             echo "::error::The reviewer left no verdict at /tmp/fleet-review.json. Treating that as a failed review: silence is not a pass."

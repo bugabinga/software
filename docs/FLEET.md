@@ -62,17 +62,24 @@ the repository, and whole-book consistency is only checkable periodically.
 **Silence is the normal outcome.** No pull request, no issue, no message. An
 agent that reports every walk around the garden is worse than no agent.
 
-`fleet.yml` needs an `ANTHROPIC_API_KEY` secret to actually run an agent.
-Without it, every trigger still fires, routes, and prints the brief it would
-have used into the job summary -- so the triggers can be watched working
-before any money is spent on them.
+#### The credential
 
-#### Interim: the scheduled sessions
+The three fleet workflows read `CLAUDE_CODE_OAUTH_TOKEN` from the **`Fleet`
+environment**, falling back to `ANTHROPIC_API_KEY` if that is what is set.
+An environment secret is invisible to a job that does not name the
+environment, which is why every fleet job carries `environment: Fleet`; get
+that name wrong and the secret is simply absent, and the run says so rather
+than failing obscurely.
 
-Until that key exists, two Routines fire fresh Claude sessions instead: a
-daily sweep at 07:00 UTC and a monthly prose pass on the 1st. They do the same
-work less legibly, and **they are to be deleted the moment the key lands**, or
-the weekly and monthly work will run twice.
+Without either credential every trigger still fires, routes, and prints the
+brief it would have used into the job summary. That is deliberate: it makes
+`Fleet review` safe to require before the fleet is armed, and it makes the
+routing watchable for nothing.
+
+Note that a GitHub environment can carry protection rules of its own --
+required reviewers, wait timers. Any set on `Fleet` apply to every fleet run,
+which is a second place, besides the branch ruleset, where the fleet can be
+paused or gated.
 
 ## 3. The bot inside GitHub (on request)
 
