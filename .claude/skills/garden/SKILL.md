@@ -25,14 +25,14 @@ request with red CI is more urgent than anything below it).
    policy*) get merged. Anything touching `book/chapters/` or `book/book.toml`
    waits for the author, however green.
 
-3. **The gates, locally.** `make check`. If it fails on a clean checkout of
+3. **The gates, locally.** `mise run check`. If it fails on a clean checkout of
    `main`, that is the most important thing in the repository and everything
    else waits.
 
 4. **Typst.** Compare every pin in `mise.toml` (`tools/pinned.py --all`) against its upstream
    (`gh api repos/typst/typst/releases/latest --jq .tag_name`). If it is
-   behind, hand it to the `pipeline-gardener` agent: bump, `make setup`,
-   `make check`, and read a built chapter before believing it. The HTML export
+   behind, hand it to the `pipeline-gardener` agent: bump, `mise install`,
+   `mise run check`, and read a built chapter before believing it. The HTML export
    is experimental, so an upgrade that builds is not automatically an upgrade
    that renders.
 

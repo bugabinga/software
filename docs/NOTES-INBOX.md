@@ -114,7 +114,7 @@ No zone permissions: there is no domain, and `*.workers.dev` is free.
 
 ## Testing it
 
-`node worker/notes-intake/test.mjs`, which `make check` and CI both run. The
+`node worker/notes-intake/test.mjs`, which `mise run check` and CI both run. The
 Worker uses only web-standard APIs, so the whole of its behaviour is testable
 with plain node — no wrangler, no Cloudflare, no credential. Twenty-two cases,
 including the ones that matter: a wrong token, a traversal in the title, a

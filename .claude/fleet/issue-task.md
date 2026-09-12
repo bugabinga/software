@@ -26,4 +26,4 @@ need, and stop. A request that comes back as a question costs less than one
 that comes back as the wrong work.
 
 Put `Closes #{{issue}}` in your commit message so the issue closes when this
-merges. `make check` before pushing. Push to the branch named above and stop.
+merges. `mise run check` before pushing. Push to the branch named above and stop.

@@ -8,15 +8,21 @@ reading the tree.
 ## Commands
 
 ```sh
-make setup    # install the pinned Typst into .tools/ (needed once per machine)
-make build    # website + PDF into dist/
-make serve    # build, serve on :8000, rebuild and live-reload on save
-make check    # every gate CI runs; run before pushing
+mise install       # the pinned toolchain, once per machine
+mise run build     # website + PDF into dist/
+mise run serve     # build, serve on :8000, rebuild and live-reload on save
+mise run check     # every gate CI runs; run before pushing
+mise tasks         # everything there is
 ```
 
-`make setup` needs network access to `github.com/typst/typst/releases`. The
-`.claude/settings.json` SessionStart hook runs it, so a fresh session should
-already have a working `.tools/typst/typst`.
+There is one way to run each of those, deliberately. The tasks live in
+`mise.toml` and CI calls the same ones -- a green `mise run check` locally is
+a green pull request, because it is not a second definition that agrees by
+habit.
+
+`mise install` needs network access to the tools' release pages. The
+`.claude/settings.json` SessionStart hook runs it, so a fresh session already
+has the toolchain.
 
 ## Architecture, and what must stay true
 
@@ -59,7 +65,7 @@ already have a working `.tools/typst/typst`.
 - Two adjacent `page(..)` calls leave a blank leaf between them. Use a scoped
   `set page(..)` in a block instead (see `book/book.typ`).
 - Typst warns about every font family it cannot resolve, including fallbacks
-  in a list, and `make check` treats unexpected warnings as failures. Name
+  in a list, and `mise run check` treats unexpected warnings as failures. Name
   only families that exist. Embedded: Libertinus Serif, New Computer Modern,
   New Computer Modern Math, DejaVu Sans Mono. Bundled in `book/fonts/` and
   reached via `--font-path book/fonts`, which every invocation passes: Noto

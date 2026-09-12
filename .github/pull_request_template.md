@@ -14,7 +14,7 @@ requests answer the same three questions, so this is the shape to match.
 ## What I checked
 
 <!--
-Not "make check passed" -- CI says that itself. What did you verify that a
+Not "the checks passed" -- CI says that itself. What did you verify that a
 machine could not? A citation you opened, a page you rendered and looked at,
 a failure you reproduced before fixing.
 -->

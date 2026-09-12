@@ -132,6 +132,39 @@ def check_yaml(paths: list[Path]) -> list[str]:
     return problems
 
 
+USES_RE = re.compile(r"^\s*(?:- )?uses:\s*(?P<ref>[^\s#]+)\s*(?P<comment>#.*)?$", re.M)
+PINNED_RE = re.compile(r"^[^@]+@[0-9a-f]{40}$")
+
+
+def check_pins(paths: list[Path]) -> list[str]:
+    """Every third-party action is a commit, with its version in a comment.
+
+    A tag is mutable: whoever owns an action can move `v4` onto a different
+    commit, and this repository runs those actions with a token that can write
+    to it. `actionlint` does not check this and Dependabot is happy either way,
+    so nothing else would notice a tag creeping back in -- which is exactly
+    how it would happen, one convenient copy-paste at a time.
+
+    The trailing `# v4` is required too, because a bare forty-character hash
+    tells a reader nothing about what they are running.
+    """
+    problems = []
+    for path in paths:
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            match = USES_RE.match(line)
+            if not match:
+                continue
+            ref = match.group("ref")
+            if ref.startswith("./"):
+                continue
+            where = f"{path.relative_to(ROOT)}:{number}"
+            if not PINNED_RE.match(ref):
+                problems.append(f"{where}: {ref} is not pinned to a commit")
+            elif not (match.group("comment") or "").strip().startswith("# "):
+                problems.append(f"{where}: {ref} has no `# version` comment")
+    return problems
+
+
 def check_tools() -> list[str]:
     """Every tool in `tools/` parses as Python.
 
@@ -157,7 +190,7 @@ def main() -> None:
     if not paths:
         sys.exit("no workflow files found under .github/")
 
-    problems = check_yaml(paths) + check_tools()
+    problems = check_yaml(paths) + check_tools() + check_pins(paths)
 
     for path in paths:
         problems += check_heredocs(path)
@@ -169,7 +202,9 @@ def main() -> None:
     if problems:
         sys.exit(f"{len(problems)} problem(s) in the workflow definitions")
     tools = len(list((ROOT / "tools").glob("*.py")))
-    print(f"workflows: {len(paths)} files, {tools} tools, no problems")
+    pins = sum(1 for p in paths for line in p.read_text(encoding="utf-8").splitlines()
+               if (m := USES_RE.match(line)) and not m.group("ref").startswith("./"))
+    print(f"workflows: {len(paths)} files, {tools} tools, {pins} pinned actions, no problems")
 
 
 if __name__ == "__main__":

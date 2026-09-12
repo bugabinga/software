@@ -35,16 +35,20 @@ permissions:
   checks: read
 
 jobs:
-  open-pull-request:
-    name: Open the pull request
-    if: github.event_name == 'push'
+  branches:
+    # One job, three things, each gated by the event that wants it. They were
+    # three jobs, which cost three billed minutes for about eight seconds of
+    # work -- GitHub rounds every job up to the whole minute, and none of
+    # these needs to run in parallel with the others.
+    name: Agent branches
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
 
-      - name: Open one if this repository allows it
+      - if: github.event_name == 'push'
+        name: Open one if this repository allows it
         env:
           GH_TOKEN: ${{ github.token }}
           BRANCH: ${{ github.ref_name }}
@@ -121,22 +125,8 @@ jobs:
           cat /tmp/pr-error >&2
           exit 1
 
-  tidy:
-    name: Close finished tracking issues
-    # Every branch this workflow cannot merge gets an issue saying so, and
-    # until now nothing ever closed one. Sixteen were open at once, all but a
-    # couple naming branches that had long since merged, which is how an issue
-    # list stops being something anybody reads.
-    #
-    # An issue here tracks exactly one branch, named in its title, so the
-    # question "is this still true" has a mechanical answer: the branch is
-    # gone, or a pull request for it merged. Runs on every push and every CI
-    # completion, because the moment a branch lands is the moment its notice
-    # becomes litter.
-    if: github.event_name != 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Close the ones whose branch is done
+      - if: github.event_name != 'workflow_dispatch'
+        name: Close the ones whose branch is done
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -185,15 +175,8 @@ jobs:
 
           echo "::notice::closed $closed finished tracking issue(s)"
 
-  decide:
-    name: Merge green chores
-    if: >-
-      github.event_name == 'workflow_run' &&
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch != 'main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Decide what this branch has earned
+      - if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch != 'main'
+        name: Decide what this branch has earned
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}

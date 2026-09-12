@@ -17,25 +17,10 @@ inputs:
 runs:
   using: composite
   steps:
-    # Keyed on the Typst pin alone, not on the manifest's hash. Hashing the
-    # whole file was a regression I introduced when the pins were
-    # consolidated: bumping typos or wrangler would have thrown away a
-    # perfectly good Typst download, and the compiler is the only thing here
-    # big enough to be worth caching.
-    - name: Which Typst
-      id: pin
-      shell: bash
-      run: echo "typst=$(python3 tools/pinned.py typst)" >> "$GITHUB_OUTPUT"
-
-    - name: Cache the pinned Typst
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: .tools/typst
-        key: typst-${{ runner.os }}-${{ steps.pin.outputs.typst }}
-
-    - name: Install Typst
-      shell: bash
-      run: tools/install-typst.sh
+    # mise installs the pinned toolchain and caches it itself, which is why
+    # the hand-rolled cache and the two install scripts are gone. One
+    # manifest, one installer.
+    - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
 
     - name: Build the website and the PDF
       shell: bash

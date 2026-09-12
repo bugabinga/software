@@ -85,7 +85,7 @@ def typst_binary() -> str:
     if not found:
         sys.exit(
             "no typst binary found.\n"
-            "  run `make setup` to install the pinned version into .tools/,\n"
+            "  run `mise install` to install the pinned version into .tools/,\n"
             "  or set TYPST=/path/to/typst"
         )
     return found

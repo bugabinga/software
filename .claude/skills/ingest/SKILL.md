@@ -16,7 +16,7 @@ Try these in order and stop at the first that works.
 1. **An ordinary web page.**
 
    ```sh
-   make notes URL=https://example.com/the-thing
+   mise run notes URL=https://example.com/the-thing
    ```
 
    Works for articles, documentation, papers.

@@ -21,6 +21,19 @@ Deterministic work that a script does better than a model.
 | `worker-deploy.yml` | pushes to `main` touching `worker/**` | tests the notes inbox with plain node, then deploys it to Cloudflare and sets its secrets from the repository's |
 | `maintenance.yml` | Mondays 06:17 UTC | compares every pin in `mise.toml` against its upstream, bumps Typst and opens an upgrade pull request *if the book still builds and passes every gate on it*; re-runs the outbound link check and files one standing issue for dead links |
 
+### What a push costs
+
+Measured, not guessed: one push to a branch with an open pull request used to
+run **nine jobs, 131 seconds of work, nine billed minutes**. GitHub rounds
+every job up to the whole minute, so parallelism across short jobs is bought
+with money and repaid in seconds.
+
+`ci.yml` is one job now instead of three, and `agent-branches.yml` one instead
+of three, each thing gated by the event that wants it. Same work, four billed
+minutes instead of nine. The one job that stays alone is `Fleet review`,
+because it is a model call and it is the only place where the minutes are
+actually being used.
+
 ## 2. Agents (judgement, on a schedule or on demand)
 
 Each definition in `.claude/agents/` opens with **who that agent is** — its
@@ -64,7 +77,7 @@ generic instruction:
 
 The briefs live in `.claude/fleet/*.md`, not in the workflow, so changing what
 an agent is told on a given occasion is a readable diff. `tools/fleet_brief.py`
-routes the occasion to a brief and fills it in; `make check` runs its
+routes the occasion to a brief and fills it in; `mise run check` runs its
 self-test, because a broken brief is a fleet outage that would otherwise only
 show itself at 07:00 on a Monday.
 
