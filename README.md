@@ -116,7 +116,7 @@ tools/
 .github/
   actions/build-book/   one build definition, used by the four workflows
                         that need a built book
-  workflows/            fifteen, listed in docs/FLEET.md
+  workflows/            fifteen; docs/FLEET.md is the roster
 ```
 
 ## How the build works

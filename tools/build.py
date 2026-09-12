@@ -582,13 +582,13 @@ STANDALONE = [
         "url": "fleet/",
         "name": "Fleet report",
         "blurb": "What the agents did last week: runs, failures, cost, what merged.",
-        "when": "published by Monday's run",
+        "when": "written on Mondays",
     },
 ]
 
 
 def check_standalone() -> None:
-    """Every standalone directory in `site/` is listed, and every listing real.
+    """Every standalone directory in `site/` is listed in `STANDALONE`.
 
     `docs/FLEET.md` says a standalone page is a directory plus an entry in
     `STANDALONE`, and names this check as what enforces it. Without it that
@@ -1031,18 +1031,27 @@ def prune_stale_pages(book: Book, out_dir: Path) -> list[str]:
     `index.html`, sits directly under the output, and is neither a current
     chapter nor somewhere another part of the pipeline writes.
     """
-    # Derived, not listed. A hardcoded set drifts the moment somebody adds a
-    # standalone page: `dist/skill/` holds one index.html and is not a
-    # chapter, which is exactly the shape this deletes.
-    standalone = {
+    # Two sources, because there are two kinds of standalone page and each
+    # knows about one. `site/` has the ones that are directories in the tree;
+    # `STANDALONE` has every page the front page links, including `fleet/`,
+    # which no directory produces -- `write_fleet_placeholder` writes it
+    # immediately before this runs, and it is exactly the shape this deletes:
+    # one `index.html`, directly under the output, no chapter.
+    #
+    # Keeping them separate is what made `fleet/` survive on a hardcoded name
+    # rather than on being listed. The next generated page would have been
+    # deleted by the build that wrote it and reported as stale.
+    from_site = {
         entry.name
         for entry in SITE_DIR.iterdir()
         if entry.is_dir() and entry.name not in {"assets", "templates"}
     }
+    from_list = {page["url"].rstrip("/") for page in STANDALONE}
     keep = (
         {chapter.slug for chapter in book.chapters}
-        | {"assets", "badges", "fleet"}
-        | standalone
+        | {"assets", "badges"}
+        | from_site
+        | from_list
     )
     removed = []
     for entry in sorted(out_dir.iterdir()):
