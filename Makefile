@@ -10,7 +10,7 @@ PYTHON ?= python3
 .DEFAULT_GOAL := help
 .PHONY: help setup build build-strict html pdf serve watch check check-links \
         check-external-links check-spelling check-code check-workflows check-fleet \
-        check-epub check-worker check-prose notes fleet-report \
+        check-epub check-worker check-prose check-skill notes fleet-report \
         reindex-notes clean
 
 help: ## Show this list
@@ -37,7 +37,7 @@ serve: ## Build, serve on :8000, rebuild and reload on every save
 watch: ## Rebuild on every save, without serving
 	$(PYTHON) tools/build.py --out $(OUT) --watch
 
-check: build-strict check-links check-epub check-prose check-code check-workflows check-fleet check-worker check-spelling ## Run every gate CI runs
+check: build-strict check-links check-epub check-code check-workflows check-fleet check-worker check-spelling check-skill check-prose ## Run every gate CI runs
 	@echo "all checks passed"
 
 build-strict: ## Build with warnings treated as failures
@@ -72,6 +72,8 @@ check-worker: ## Test the notes inbox worker, if node is installed
 	else \
 		echo "node not installed; CI tests the worker on every pull request"; \
 	fi
+check-skill: ## Check the skill generator makes a real zip
+	$(PYTHON) tools/check_skill_page.py
 check-epub: ## Check the EPUB is a well-formed EPUB 3 container
 	$(PYTHON) tools/check_epub.py $(OUT)/book.epub
 
@@ -83,6 +85,7 @@ check-workflows: ## Check the GitHub Actions definitions
 
 check-fleet: ## Check every fleet brief routes to a defined agent
 	$(PYTHON) tools/fleet_brief.py --self-test
+	$(PYTHON) tools/post_review.py --self-test
 
 notes: ## Download a source into notes/ (make notes URL=https://..)
 	$(PYTHON) tools/ingest_notes.py $(URL)
