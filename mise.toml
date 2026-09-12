@@ -69,6 +69,13 @@ dprint = "0.57.4"
 # formatter at all.
 shfmt = "3.14.1"
 
+# actionlint runs shellcheck over every `run:` block *if it can find one*, and
+# says nothing when it cannot. That silence is why a local run disagreed with
+# CI for a whole afternoon: the runner had shellcheck and this machine did
+# not, so six findings existed only in CI. Pinned, so both see the same six --
+# which are now none.
+shellcheck = "0.11.0"
+
 # Only ever run in `worker-deploy.yml`. Recorded here so the version lives
 # with the others rather than in a workflow's `env:` block.
 wrangler = "4.131.1"
@@ -161,15 +168,11 @@ run = "node worker/notes-intake/test.mjs"
 
 [tasks.check-workflows]
 description = "The Actions definitions, and that every tool compiles"
-# `-S warning` because bare actionlint surfaces shellcheck `info` and
-# `style` too, and four of the six it found here are `gh api --jq '..'`
-# expressions where the `$` is jq's and single quotes are the only
-# correct spelling. A gate whose findings you must not act on teaches
-# people to skip it.
-run = [
-  "SHELLCHECK_OPTS='-S warning' actionlint",
-  "python3 tools/check_workflows.py",
-]
+# No severity filter. The four `info` findings this used to hide were
+# backticks and sed syntax inside single quotes, all correct; each now
+# carries a `# shellcheck disable=SC2016` and a reason at the line it is
+# about. A blanket filter hides the next finding too.
+run = ["actionlint", "python3 tools/check_workflows.py"]
 
 [tasks.check-lint]
 description = "Lint the Python and the JavaScript, strictly"

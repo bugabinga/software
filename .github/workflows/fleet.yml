@@ -79,7 +79,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
       # Which occasion is this? A push carries its changed paths; a schedule
       # carries the cron that fired it; a manual run carries its own inputs.
       - name: Work out the occasion

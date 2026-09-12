@@ -115,16 +115,22 @@ jobs:
       # thing in prose: the finding lands as an annotation on the line, with a
       # rule id, a dismissal flow, and history.
       #
-      # `--fail-on never` because the gate is the ruleset's, not this step's:
-      # a warning should annotate and not redden a build.
+      # `--fail-on error` -- the default -- so a dead note or a dead xref
+      # reddens the build. It was `never` on the theory that the ruleset
+      # would gate on code-scanning results, and the ruleset never did:
+      # required checks is `CI` alone, so `never` meant an error-level
+      # finding blocked nothing at all. Warnings still only annotate.
       - name: Scan the prose
-        run: python3 tools/prose_scan.py --sarif build/prose.sarif --fail-on never
+        run: python3 tools/prose_scan.py --sarif build/prose.sarif
 
       - name: Upload what it found
+        # `always()` so the annotations still land on the diff when the step
+        # above just failed -- which is exactly when they are worth reading.
+        if: always()
         # Forks get a read-only token no matter what `permissions:` grants
         # (see the preview-comment step below) -- this 403s there.
         continue-on-error: true
-        uses: github/codeql-action/upload-sarif@faaca9a8f6edddba5725ffe5adefdab6669a2eca # v3
+        uses: github/codeql-action/upload-sarif@311b4ee155dcdab395044f00946f664bd51ff173 # v4
         with:
           sarif_file: build/prose.sarif
           category: prose-scan

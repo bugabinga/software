@@ -34,7 +34,7 @@ jobs:
 
       # For `mise latest`. Nothing else in the sweep needs it, and no tools
       # are installed here -- only asked about.
-      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           install: false
 

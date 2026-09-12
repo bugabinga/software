@@ -25,6 +25,16 @@ habit.
 which installs mise first if the machine has none, so a fresh session already
 has the toolchain.
 
+**Zero warnings.** Every gate runs at full severity and a warning fails the
+build like an error does. Suppress only where the tool is wrong about this
+repository, only at the line or the file it is wrong about, and always with
+the reason written next to it -- `# noqa: RUF001 - an en dash is the right
+character in a range`, `# shellcheck disable=SC2016  # backticks are markdown
+here`, an `overrides` entry in `biome.jsonc`. A blanket severity filter or a
+project-wide `off` hides the next finding too, which is the failure this rule
+exists to prevent. `ruff.toml` states how many findings its one remaining
+exception covers; recount before adding to it.
+
 **The Python is linted and type-checked, strictly.** `ruff check` with a wide
 selection (`ruff.toml` records why each switched-off rule is off) and `ty`
 (`ty.toml`). Both are gates. Do not silence a finding with a bare `noqa`: give

@@ -69,7 +69,9 @@ jobs:
             echo "| file | size |"
             echo "| --- | --- |"
             for f in release/*; do
-              printf '| `%s` | %s |\n' "$(basename "$f")" "$(du -h "$f" | cut -f1)"
+              # shellcheck disable=SC2016  # the backticks are markdown for the
+            # summary table, not command substitution.
+            printf '| `%s` | %s |\n' "$(basename "$f")" "$(du -h "$f" | cut -f1)"
             done
           } >> "$GITHUB_STEP_SUMMARY"
 

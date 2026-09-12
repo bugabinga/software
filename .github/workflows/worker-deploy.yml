@@ -126,6 +126,8 @@ jobs:
           {
             echo "### Notes inbox deployed"
             echo
+            # shellcheck disable=SC2016  # backticks are markdown here.
             echo 'The note-taker POSTs to `/note` on the workers.dev URL in the'
+            # shellcheck disable=SC2016
             echo 'deploy output above. See `docs/NOTES-INBOX.md`.'
           } >> "$GITHUB_STEP_SUMMARY"

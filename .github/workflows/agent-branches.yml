@@ -234,7 +234,7 @@ jobs:
             echo "nothing to merge: $BRANCH does not differ from main"
             exit 0
           fi
-          echo "files changed:"; echo "$files" | sed 's/^/  /'
+          echo "files changed:"; echo "${files//$'\n'/$'\n  '}"
 
           # What still needs a human, per docs/FLEET.md: only the machinery.
           # A change to .github/ or .claude/ is the automation deciding its
@@ -274,7 +274,7 @@ jobs:
             sleep 5
           done
 
-          echo "checks on $HEAD_SHA:"; echo "$states" | sed 's/^/  /'
+          echo "checks on $HEAD_SHA:"; echo "${states//$'\n'/$'\n  '}"
           if ! echo "$states" | grep -q '^Build:completed:success$'; then
             echo "::notice::$BRANCH has no successful Build check on $HEAD_SHA, so there is nothing to call green; leaving it"
             exit 0
@@ -306,6 +306,8 @@ jobs:
               echo "> $subject"
               echo
               echo "Files: "
+              # shellcheck disable=SC2016  # `$/` is sed, and the backticks
+              # are the markdown this prints. Both must stay unexpanded.
               echo "$files" | sed 's/^/- `/; s/$/`/'
               echo
               echo "---"
