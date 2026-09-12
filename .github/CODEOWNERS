@@ -19,3 +19,9 @@
 # The automation, and the briefs that tell it what it may do.
 /.github/   @bugabinga
 /.claude/   @bugabinga
+
+# The rules the fleet has to satisfy. A gate whose own definition the
+# fleet can edit is advisory: the cheapest way past a failing rule is to
+# weaken the rule, and nothing downstream would notice.
+/tools/prose_scan.py   @bugabinga
+/book/terms.toml       @bugabinga
