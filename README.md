@@ -8,15 +8,42 @@
 
 [![The book's cover card](https://bugabinga.github.io/software/social-card.png)](https://bugabinga.github.io/software/)
 
-The source of a book written in [Typst](https://typst.app), published twice
-from one tree: as a website and as a PDF.
+> **The title is a placeholder.** `A Book Written in Types` was invented by
+> the build so that something could be rendered. It has not been chosen.
 
-- **Website** — GitHub Pages, rebuilt on every push to `main`.
-- **PDF** — built alongside the site, linked from every page, and attached to
-  every release.
+One programmer's thoughts about software. There is no overarching thesis, and
+[the preface](book/chapters/00-preface.typ) says that is a decision rather
+than an omission: what holds the chapters together is a shared vocabulary and
+a foundation meant to be revised when later material strains it.
 
-The content is placeholder text for now; the pipeline around it is finished
-and runs on every commit.
+**Part I — Foundations.** Machine and program · Information and entropy ·
+Knowledge · Software and its forms · Operating systems
+
+**Part II — Craft.** Learning the craft · Beauty and mechanical sympathy ·
+The cycle and its costs · The practices · Intent and product engineering
+
+Then four appendices — the questions still open, agents, citations, a
+glossary — and a fifth that is not part of the book: a live reference for the
+Typst prelude, which stays until the same material lands in
+[docs/AUTHORING.md](docs/AUTHORING.md).
+
+### Read it
+
+|          |                                                  |
+| -------- | ------------------------------------------------ |
+| Web      | <https://bugabinga.github.io/software/>          |
+| PDF      | <https://bugabinga.github.io/software/book.pdf>  |
+| EPUB     | <https://bugabinga.github.io/software/book.epub> |
+| One page | <https://bugabinga.github.io/software/book.html> |
+
+**Every chapter is a stub.** Each carries its title, one paragraph of what it
+will argue, and a comment naming the lines of the author's notes it came from.
+The word count in the badge is those paragraphs; none of the book is written
+yet.
+
+---
+
+The rest of this file is about building it.
 
 ## Quick start
 
