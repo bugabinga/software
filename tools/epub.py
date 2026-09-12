@@ -37,9 +37,7 @@ from xml.etree import ElementTree
 
 # Void elements, which XHTML requires be self-closed. Typst's own export is
 # already close to XHTML; these come from helpers that emit raw HTML.
-VOID = (
-    "area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr"
-)
+VOID = "area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr"
 VOID_RE = re.compile(rf"<({VOID})\b([^>]*?)\s*/?>", re.I)
 # An ampersand that is not already a character reference.
 BARE_AMP_RE = re.compile(r"&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#\d+|#[xX][0-9a-fA-F]+);)")

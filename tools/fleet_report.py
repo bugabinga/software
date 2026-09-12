@@ -183,9 +183,7 @@ def usage_for(repo: str, run_id: int, cache: Path | None) -> dict | None:
     target.write_bytes(blob.encode("latin-1", errors="ignore"))
     try:
         with zipfile.ZipFile(target) as bundle:
-            name = next(
-                (n for n in bundle.namelist() if n.endswith(".json")), None
-            )
+            name = next((n for n in bundle.namelist() if n.endswith(".json")), None)
             if not name:
                 return None
             payload = json.loads(bundle.read(name))
@@ -249,9 +247,7 @@ def collect_branches(repo: str) -> list[dict]:
             {
                 "branch": name,
                 "pull": (openish or merged or [{}])[0].get("number"),
-                "fate": (
-                    "merged" if merged else "open" if openish else "stranded"
-                ),
+                "fate": ("merged" if merged else "open" if openish else "stranded"),
             }
         )
     return out
@@ -267,9 +263,7 @@ def collect_issues(repo: str) -> dict:
         or []
     )
     tracking = [
-        issue
-        for issue in issues
-        if issue["title"].startswith(TRACKING_PREFIXES)
+        issue for issue in issues if issue["title"].startswith(TRACKING_PREFIXES)
     ]
     return {
         "open": len(issues),
@@ -385,9 +379,7 @@ def findings(report: dict) -> list[str]:
     if overall["runs"] == 0:
         out.append("The fleet did not run at all this week.")
     elif overall["failed"]:
-        out.append(
-            f"{overall['failed']} of {overall['finished']} agent runs failed."
-        )
+        out.append(f"{overall['failed']} of {overall['finished']} agent runs failed.")
 
     if overall["runs"] and not overall["measured"]:
         out.append(
@@ -438,8 +430,7 @@ def seconds(value: int | None) -> str:
 
 def as_text(report: dict) -> str:
     lines = [
-        f"Fleet report — {report['window_days']} days to "
-        f"{report['generated'][:10]}",
+        f"Fleet report — {report['window_days']} days to {report['generated'][:10]}",
         "",
     ]
     for finding in report["findings"]:
@@ -501,13 +492,16 @@ def as_html(report: dict) -> str:
         for b in report["branches"]
     )
 
-    failure_rows = "".join(
-        f"<tr><td><a href=\"{esc(f['url'])}\">{esc(f['workflow'])}</a></td>"
-        f"<td>{esc(f['branch'] or '—')}</td>"
-        f"<td>{esc(f['conclusion'])}</td>"
-        f"<td class=n>{esc(f['started'][:16].replace('T', ' '))}</td></tr>"
-        for f in report["judgement"]["failures"][:20]
-    ) or "<tr><td colspan=4>None.</td></tr>"
+    failure_rows = (
+        "".join(
+            f'<tr><td><a href="{esc(f["url"])}">{esc(f["workflow"])}</a></td>'
+            f"<td>{esc(f['branch'] or '—')}</td>"
+            f"<td>{esc(f['conclusion'])}</td>"
+            f"<td class=n>{esc(f['started'][:16].replace('T', ' '))}</td></tr>"
+            for f in report["judgement"]["failures"][:20]
+        )
+        or "<tr><td colspan=4>None.</td></tr>"
+    )
 
     context = report["context"]
     fleet_rows = "".join(
@@ -523,7 +517,7 @@ def as_html(report: dict) -> str:
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Fleet report — {esc(report['generated'][:10])}</title>
+<title>Fleet report — {esc(report["generated"][:10])}</title>
 <style>
   :root {{ color-scheme: light dark; --line: color-mix(in srgb, currentColor 18%, transparent); }}
   body {{ font: 15px/1.55 ui-monospace, "DejaVu Sans Mono", monospace;
@@ -546,7 +540,7 @@ def as_html(report: dict) -> str:
 </style>
 
 <h1>Fleet report</h1>
-<p class="sub">{esc(report['window_days'])} days to {esc(report['generated'][:16].replace('T', ' '))} UTC ·
+<p class="sub">{esc(report["window_days"])} days to {esc(report["generated"][:16].replace("T", " "))} UTC ·
   <a href="../">the book</a></p>
 
 <ul class="findings">{findings_html}</ul>
@@ -556,7 +550,7 @@ def as_html(report: dict) -> str:
   <tr><th>agent</th><th class=n>runs</th><th class=n>failed</th>
       <th class=n>median</th><th class=n>turns</th><th class=n>tokens</th>
       <th class=n>cost</th></tr>
-  {''.join(rows) or '<tr><td colspan=7>No agent runs in this window.</td></tr>'}
+  {"".join(rows) or "<tr><td colspan=7>No agent runs in this window.</td></tr>"}
 </table></div>
 
 <h2>Failures</h2>
@@ -568,7 +562,7 @@ def as_html(report: dict) -> str:
 <h2>Branches</h2>
 <div class="wrap"><table>
   <tr><th>branch</th><th>fate</th><th class=n>pr</th></tr>
-  {branch_rows or '<tr><td colspan=3>None.</td></tr>'}
+  {branch_rows or "<tr><td colspan=3>None.</td></tr>"}
 </table></div>
 
 <h2>Roster</h2>
@@ -576,7 +570,7 @@ def as_html(report: dict) -> str:
   <tr><th>agent</th><th>brief</th></tr>
   {fleet_rows}
 </table></div>
-<p class="sub">{esc(len(context['briefs']))} occasions routed by
+<p class="sub">{esc(len(context["briefs"]))} occasions routed by
   <code>tools/fleet_brief.py</code>.
   Generated by <code>tools/fleet_report.py</code>; not part of the book.</p>
 </html>

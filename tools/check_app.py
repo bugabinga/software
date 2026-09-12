@@ -207,7 +207,9 @@ def main() -> int:
             + ". Granting them now costs nothing and saves that trip."
         )
     else:
-        lines.append("**At the ceiling.** Nothing the fleet grows into needs another visit here.")
+        lines.append(
+            "**At the ceiling.** Nothing the fleet grows into needs another visit here."
+        )
 
     report = "\n".join(lines)
     if summary := os.environ.get("GITHUB_STEP_SUMMARY"):

@@ -197,8 +197,12 @@ def self_test() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--trigger", help="which brief to use")
-    parser.add_argument("--changed", default="", help="comma or newline separated paths")
-    parser.add_argument("--agent", help="agent to run, for triggers that do not fix one")
+    parser.add_argument(
+        "--changed", default="", help="comma or newline separated paths"
+    )
+    parser.add_argument(
+        "--agent", help="agent to run, for triggers that do not fix one"
+    )
     parser.add_argument("--target", help="what to work on, for on-demand dispatch")
     parser.add_argument("--pr", help="pull request number, for the review trigger")
     parser.add_argument("--issue", help="issue number, for the issue triggers")

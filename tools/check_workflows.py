@@ -46,12 +46,19 @@ def heredoc_opener(line: str) -> tuple[str, bool] | None:
             double = not double
         elif character == "#" and not single and not double:
             return None  # a comment; nothing after it runs
-        elif character == "<" and not single and not double and line[index + 1 : index + 2] == "<":
+        elif (
+            character == "<"
+            and not single
+            and not double
+            and line[index + 1 : index + 2] == "<"
+        ):
             if match := HEREDOC.match(line[index:]):
                 return match.group(1), line[index : index + 3].startswith("<<-")
             return None
         index += 1
     return None
+
+
 BLOCK_SCALAR = re.compile(r":\s*[|>][-+]?\d*\s*$")
 
 
@@ -120,7 +127,9 @@ def check_yaml(paths: list[Path]) -> list[str]:
     try:
         import yaml  # noqa: PLC0415 - optional
     except ImportError:
-        print("PyYAML not installed; skipping the syntax check (CI parses these anyway)")
+        print(
+            "PyYAML not installed; skipping the syntax check (CI parses these anyway)"
+        )
         return []
 
     # YAML says a duplicate key is an error; every common parser instead
@@ -143,13 +152,14 @@ def check_yaml(paths: list[Path]) -> list[str]:
             if key in seen:
                 mark = key_node.start_mark
                 raise yaml.constructor.ConstructorError(
-                    None, None,
-                    f"duplicate key {key!r}", mark)
+                    None, None, f"duplicate key {key!r}", mark
+                )
             seen.add(key)
         return yaml.SafeLoader.construct_mapping(loader, node, deep)
 
     StrictLoader.add_constructor(
-        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_duplicates)
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_duplicates
+    )
 
     problems = []
     for path in paths:
@@ -207,14 +217,14 @@ def check_tools() -> list[str]:
         try:
             compile(source, str(path), "exec")
         except SyntaxError as error:
-            problems.append(
-                f"{path.relative_to(ROOT)}:{error.lineno}: {error.msg}"
-            )
+            problems.append(f"{path.relative_to(ROOT)}:{error.lineno}: {error.msg}")
     return problems
 
 
 def main() -> None:
-    paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted((ROOT / ".github").rglob("*.yaml"))
+    paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted(
+        (ROOT / ".github").rglob("*.yaml")
+    )
     if not paths:
         sys.exit("no workflow files found under .github/")
 
@@ -223,16 +233,24 @@ def main() -> None:
     for path in paths:
         problems += check_heredocs(path)
         if "\t" in path.read_text(encoding="utf-8"):
-            problems.append(f"{path.relative_to(ROOT)}: contains a tab; YAML forbids them for indentation")
+            problems.append(
+                f"{path.relative_to(ROOT)}: contains a tab; YAML forbids them for indentation"
+            )
 
     for problem in problems:
         print(problem, file=sys.stderr)
     if problems:
         sys.exit(f"{len(problems)} problem(s) in the workflow definitions")
     tools = len(list((ROOT / "tools").glob("*.py")))
-    pins = sum(1 for p in paths for line in p.read_text(encoding="utf-8").splitlines()
-               if (m := USES_RE.match(line)) and not m.group("ref").startswith("./"))
-    print(f"workflows: {len(paths)} files, {tools} tools, {pins} pinned actions, no problems")
+    pins = sum(
+        1
+        for p in paths
+        for line in p.read_text(encoding="utf-8").splitlines()
+        if (m := USES_RE.match(line)) and not m.group("ref").startswith("./")
+    )
+    print(
+        f"workflows: {len(paths)} files, {tools} tools, {pins} pinned actions, no problems"
+    )
 
 
 if __name__ == "__main__":

@@ -39,8 +39,22 @@ typos = "1.36.0"
 # The GitHub CLI, used by the fleet's workflows and by `tools/*.py`.
 gh = "2.63.2"
 
-# Formatter for `.typ`. Checked, not applied, in CI: `typstyle --check book/`.
+# One formatter per language the repository writes by hand, and no language
+# without one. Formatting is a gate here, not a preference: a diff that mixes
+# a change with a reflow costs the reader the ability to see the change, and
+# on a phone it costs them the diff entirely.
+#
+# `.typ`.
 typstyle = "0.15.1"
+
+# `.py`. Only the formatter is used -- `ruff check` is a linter and would be
+# a second opinion about the code, which is `pr-reviewer`'s job.
+ruff = "0.15.8"
+
+# `.js`, `.mjs`, `.json`, `.jsonc`. A single binary, which is the whole
+# reason it is this and not prettier: `README.md` promises no package
+# manager, lockfile or `node_modules`, and prettier is all three.
+biome = "2.5.13"
 
 # Only ever run in `worker-deploy.yml`. Recorded here so the version lives
 # with the others rather than in a workflow's `env:` block.
@@ -144,12 +158,23 @@ description = "Every brief routes to an agent, and the review builder's arithmet
 run = ["python3 tools/fleet_brief.py --self-test"]
 
 [tasks.check-format]
-description = "Typst source is formatted"
-run = "typstyle --check book/"
+description = "Every hand-written file is formatted the one way"
+# `git ls-files` rather than a directory list: a `.typ` added outside `book/`
+# was already unformatted and nothing said so. The gate should find files by
+# what they are, not by where somebody remembered to look.
+run = [
+  "git ls-files -z '*.typ' | xargs -0 typstyle --check",
+  "ruff format --check tools/",
+  "biome format worker/ site/",
+]
 
 [tasks.format]
-description = "Format the Typst source in place"
-run = "typstyle --inplace book/"
+description = "Format everything in place"
+run = [
+  "git ls-files -z '*.typ' | xargs -0 typstyle --inplace",
+  "ruff format tools/",
+  "biome format --write worker/ site/",
+]
 
 [tasks.check-skill]
 description = "The skill generator's page builds a zip both node and Python read"

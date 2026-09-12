@@ -37,8 +37,10 @@ def main(argv: list[str]) -> int:
     if len(argv) != 1:
         sys.exit(__doc__)
     if argv[0] not in found:
-        sys.exit(f"{argv[0]} is not pinned in {MANIFEST.name}; known: "
-                 + ", ".join(sorted(found)))
+        sys.exit(
+            f"{argv[0]} is not pinned in {MANIFEST.name}; known: "
+            + ", ".join(sorted(found))
+        )
     print(found[argv[0]])
     return 0
 

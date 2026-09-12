@@ -79,7 +79,9 @@ def check(path: Path) -> list[str]:
         if not opf_path:
             return problems + [f"{path}: container.xml names no package document"]
         if opf_path not in names:
-            return problems + [f"{path}: package document {opf_path} is not in the archive"]
+            return problems + [
+                f"{path}: package document {opf_path} is not in the archive"
+            ]
 
         try:
             package = ElementTree.fromstring(archive.read(opf_path))
@@ -100,11 +102,15 @@ def check(path: Path) -> list[str]:
             if "://" in href:
                 continue
             if f"{base}{href}" not in names:
-                problems.append(f"{path}: manifest lists {href}, which is not in the archive")
+                problems.append(
+                    f"{path}: manifest lists {href}, which is not in the archive"
+                )
 
         spine = package.findall(f".//{{{OPF}}}spine/{{{OPF}}}itemref")
         if not spine:
-            problems.append(f"{path}: the spine is empty, so the book has no reading order")
+            problems.append(
+                f"{path}: the spine is empty, so the book has no reading order"
+            )
         for ref in spine:
             if ref.get("idref") not in manifest:
                 problems.append(
@@ -112,11 +118,18 @@ def check(path: Path) -> list[str]:
                     "which is not in the manifest"
                 )
 
-        if not any("nav" in (i.get("properties") or "").split() for i in manifest.values()):
-            problems.append(f"{path}: no navigation document (an item with properties=\"nav\")")
+        if not any(
+            "nav" in (i.get("properties") or "").split() for i in manifest.values()
+        ):
+            problems.append(
+                f'{path}: no navigation document (an item with properties="nav")'
+            )
 
-        for tag, what in (("title", "a title"), ("language", "a language"),
-                          ("identifier", "an identifier")):
+        for tag, what in (
+            ("title", "a title"),
+            ("language", "a language"),
+            ("identifier", "an identifier"),
+        ):
             if package.find(f".//{{{DC}}}{tag}") is None:
                 problems.append(f"{path}: the package declares no {what}")
 
@@ -136,8 +149,12 @@ def main(argv: list[str]) -> int:
         path = Path(name)
         problems = check(path)
         for problem in problems:
-            print(f"::error::{problem}" if "GITHUB_ACTIONS" in __import__("os").environ
-                  else problem, file=sys.stderr)
+            print(
+                f"::error::{problem}"
+                if "GITHUB_ACTIONS" in __import__("os").environ
+                else problem,
+                file=sys.stderr,
+            )
         if problems:
             failed += 1
         else:
