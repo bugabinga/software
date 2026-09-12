@@ -1,0 +1,35 @@
+name: Ask the fleet for something
+description: Draft a chapter, review the prose, fix the pipeline. Applying the label is what dispatches it.
+title: "Fleet: "
+labels: ["fleet:task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The agent runs in CI, pushes a branch, and links its pull request back
+        here. It works from its own brief in `.claude/agents/`; what you write
+        below narrows that brief and cannot widen it.
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Which agent
+      options:
+        - chapter-drafter — write prose for a chapter, from the notes
+        - notes-cartographer — the book's structure, from the notes
+        - prose-editor — copyedit and consistency across chapters
+        - pipeline-gardener — the build, CI, links, dependencies
+    validations:
+      required: true
+  - type: textarea
+    id: target
+    attributes:
+      label: What exactly
+      description: Name the chapter, the note, the failure. A vague target comes back as a question rather than as work.
+      placeholder: Draft `09-the-practices`, testing section only, from the testing note.
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Anything it must or must not do
+      placeholder: Do not restructure anything else. Keep it under 800 words.

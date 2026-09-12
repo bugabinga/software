@@ -1,0 +1,42 @@
+# The repository's labels, as data.
+#
+# Synced by .github/workflows/labels.yml, because several workflows already
+# depend on labels existing -- `maintenance.yml` files its link-rot issue with
+# `chore`, `agent-branches.yml` refuses to merge anything carrying `hold` --
+# and a label that only exists because somebody typed it once into the web UI
+# is a dependency nobody can see.
+#
+# The sync creates and updates. It never deletes, so labels added by hand
+# survive.
+
+- name: "fleet:material"
+  color: "0e8a16"
+  description: New material for notes/. The fleet ingests it and reads it.
+
+- name: "fleet:task"
+  color: "1d76db"
+  description: Work asked of the fleet. Applying this label dispatches an agent.
+
+- name: "fleet:running"
+  color: "fbca04"
+  description: An agent is working on this. Added by the fleet, not by hand.
+
+- name: "fleet:blocked"
+  color: "d93f0b"
+  description: The fleet tried and could not finish. It says why in a comment.
+
+- name: hold
+  color: "b60205"
+  description: Do not merge automatically, however green. The escape hatch.
+
+- name: chore
+  color: "cfd3d7"
+  description: Mechanical work. Merges itself when green.
+
+- name: book
+  color: "5319e7"
+  description: Touches the book's text or structure.
+
+- name: pipeline
+  color: "006b75"
+  description: Touches the build, the checks or the workflows.
