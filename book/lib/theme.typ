@@ -7,9 +7,15 @@
 // Only families that actually resolve belong here: Typst warns about every
 // unknown family in the list, and `make check` treats warnings as failures.
 // Typst embeds Libertinus Serif, New Computer Modern (+ Math) and DejaVu Sans
-// Mono; drop extra `.ttf`/`.otf` files in `book/fonts/` to use anything else.
-#let serif = "Libertinus Serif"
-#let mono = "DejaVu Sans Mono"
+// Mono; `book/fonts/` adds the rest, and every build passes `--font-path
+// book/fonts` so they resolve.
+//
+// Emoji are a fallback rather than a choice: Typst's own fonts have no emoji
+// glyphs and a missing glyph is not a warning, so before this list existed
+// they came out as empty boxes in the PDF while rendering fine on the web.
+#let emoji = "Noto Color Emoji"
+#let serif = ("Libertinus Serif", emoji)
+#let mono = ("DejaVu Sans Mono", emoji)
 #let math-font = "New Computer Modern Math"
 
 #let ink = rgb("#16181d")
