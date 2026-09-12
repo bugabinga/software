@@ -144,7 +144,8 @@ Three things make it worth reading rather than a dashboard nobody opens:
   pruned the runs it was derived from.
 
 The page is at `<site>/fleet/`. It is reachable and `noindex`, and it is not
-part of the book: not in the navigation, the sitemap or the search index.
+part of the book: not in the book's navigation, the sitemap or the search
+index, and linked only from the foot of the front page.
 `publish.yml` folds it in from the `fleet-log` branch, so it survives the
 force-push that replaces the site.
 
@@ -206,9 +207,14 @@ limit stops the next deploy. Both fail quietly.
 
 ## Standalone pages
 
-Reachable on the site, and deliberately not part of the book: no navigation,
-no sitemap entry, no search index, `noindex` in their own head. A reader who
-wandered into one from a chapter would be right to be confused.
+Reachable on the site, and deliberately not part of the book: not in the
+book's navigation, not in the sitemap, not in the search index, `noindex` in
+their own head. A reader who wandered into one from a chapter would be right
+to be confused.
+
+They are linked once, from the foot of the front page, under "Also here".
+Before that they were not reachable at all -- `<site>/skill/` served for a day
+and the only way to find it was to know the URL.
 
 | Page            | What it is                                                                                                                                                                                                                                                     |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -216,8 +222,10 @@ wandered into one from a chapter would be right to be confused.
 | `<site>/fleet/` | The weekly fleet report, folded in by `publish.yml` from the `fleet-log` branch.                                                                                                                                                                               |
 
 Anything under `site/` that is not `assets` or `templates` is copied to the
-site root by `tools/build.py`, so a new standalone page is a directory and
-nothing else.
+site root by `tools/build.py`, so a new standalone page is a directory --
+plus an entry in that file's `STANDALONE`, giving it a name and a blurb.
+`check_standalone` fails the build on a directory that has neither, because a
+page linked from nowhere is the fault this list was added to fix.
 
 `tools/check_skill_page.py` runs the generator's own script under node and
 opens the zip it produces with Python's `zipfile`. Two runtimes have to agree

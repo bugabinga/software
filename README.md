@@ -43,7 +43,7 @@ and the [fleet report](https://bugabinga.github.io/software/fleet/).
 **Every chapter of the book is a stub.** Each carries its title, one
 paragraph of what it will argue, and a comment naming the lines of the
 author's notes it came from. The prelude reference is the exception -- it is
-documentation, not a chapter, and 187 of the badge's words are its. None of
+documentation, not a chapter, and the badge's word count includes it. None of
 the book itself is written yet.
 
 ---

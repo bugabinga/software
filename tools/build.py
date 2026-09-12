@@ -555,15 +555,22 @@ def head_meta_html(book: Book, title: str, description: str, path: str) -> str:
     return "\n".join(parts)
 
 
-# Reachable on the site and deliberately not part of the book: no navigation,
-# no search index, no place in the contents. They were also, until this, not
-# linked from anywhere at all -- `dist/skill/` had been serving for a day and
-# the only way to find it was to know the URL, which is not "reachable".
+# Reachable on the site and deliberately not part of the book: not in the
+# book's navigation, not in the sitemap, not in the search index, not in the
+# contents. Linked once, from the foot of the front page, because until that
+# existed they were not reachable at all -- `dist/skill/` served for a day and
+# the only way to find it was to know the URL.
 #
-# `when` is what a reader sees if they follow the link before the thing
-# exists. The fleet report is written by Monday's run and pulled onto the site
-# by the next publish, so it 404s until then and saying so is kinder than a
-# dead link with no explanation.
+# `when` is the note beside the link: what a reader gets if they follow it
+# before the thing exists. The fleet report is written by Monday's run and
+# pulled onto the site by the next publish; until then the link reaches the
+# placeholder `write_fleet_placeholder` writes, which says exactly that.
+#
+# A list rather than a scan of `site/`, because a blurb cannot be derived from
+# a directory name and a page nobody can describe is not worth linking. The
+# cost of a list is that it drifts, which `prune_stale_pages` says of its own
+# set further down -- so `check_standalone` below makes drift a build failure
+# instead of a promise.
 STANDALONE = [
     {
         "url": "skill/",
@@ -580,8 +587,37 @@ STANDALONE = [
 ]
 
 
+def check_standalone() -> None:
+    """Every standalone directory in `site/` is listed, and every listing real.
+
+    `docs/FLEET.md` promises that adding a standalone page is "a directory and
+    nothing else". Without this that became false the moment the list arrived:
+    the directory would still be copied and still survive the pruner, and be
+    linked from nowhere -- the exact fault the list exists to fix, waiting for
+    the next page.
+
+    `fleet/` is listed and is not a directory in `site/`: it is written by
+    `write_fleet_placeholder` and replaced by `publish.yml`. So the check runs
+    one way for directories and the other only against what a build produces.
+    """
+    on_disk = {
+        f"{entry.name}/"
+        for entry in SITE_DIR.iterdir()
+        if entry.is_dir() and entry.name not in {"assets", "templates"}
+    }
+    listed = {page["url"] for page in STANDALONE}
+    missing = on_disk - listed
+    if missing:
+        raise SystemExit(
+            "site/ has standalone page(s) nothing links to: "
+            f"{', '.join(sorted(missing))}. Add them to STANDALONE in "
+            "tools/build.py, with a blurb."
+        )
+
+
 def standalone_html() -> str:
     """The not-the-book pages, for the landing page's footer."""
+    check_standalone()
     items = []
     for page in STANDALONE:
         when = (
