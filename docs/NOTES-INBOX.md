@@ -28,8 +28,8 @@ is enough to rewrite the book.
 A GitHub token cannot be scoped to "may only file a note". A Worker can. The
 note-taker holds a bearer token that reaches one endpoint; the GitHub
 credential lives in Cloudflare and never leaves it. That is the same principle
-as the GitHub App in `docs/IDENTITY.md` — *able to do the job and nothing
-else* — applied to a session nobody is supervising.
+as the GitHub App in `docs/IDENTITY.md` — _able to do the job and nothing
+else_ — applied to a session nobody is supervising.
 
 Three layers of containment, none of which trusts the caller:
 
@@ -79,18 +79,18 @@ which is how to check the URL is right before wiring anything to it.
 
 ## The credentials
 
-| Secret | Where | What it is |
-| --- | --- | --- |
-| `NOTES_INTAKE_TOKEN` | repository secret, and a Worker secret set from it | what the note-taker sends. Any long random string. |
-| `NOTES_GITHUB_TOKEN` | repository secret, and a Worker secret set from it | a **fine-grained** PAT: this repository only, **Contents: write**, nothing else |
-| `CLOUDFLARE_API_TOKEN` | `Cloudflare` environment, `main` only | deploys the Worker |
-| `CLOUDFLARE_ACCOUNT_ID` | `Cloudflare` environment | which account |
+| Secret                  | Where                                              | What it is                                                                      |
+| ----------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `NOTES_INTAKE_TOKEN`    | repository secret, and a Worker secret set from it | what the note-taker sends. Any long random string.                              |
+| `NOTES_GITHUB_TOKEN`    | repository secret, and a Worker secret set from it | a **fine-grained** PAT: this repository only, **Contents: write**, nothing else |
+| `CLOUDFLARE_API_TOKEN`  | `Cloudflare` environment, `main` only              | deploys the Worker                                                              |
+| `CLOUDFLARE_ACCOUNT_ID` | `Cloudflare` environment                           | which account                                                                   |
 
 `worker-deploy.yml` sets the two Worker secrets from the repository secrets on
 every deploy, so what is in GitHub is what is in Cloudflare rather than
 something set by hand once and forgotten.
 
-The PAT is deliberately *not* the GitHub App. The App holds eight write
+The PAT is deliberately _not_ the GitHub App. The App holds eight write
 permissions; the inbox needs one. A narrower credential in a second place
 beats copying the App's key into Cloudflare, where a compromise of that
 account would hand over something that can merge to `main`.

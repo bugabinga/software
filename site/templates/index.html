@@ -11,7 +11,7 @@
   try {
     var saved = localStorage.getItem("book-theme");
     if (saved) document.documentElement.dataset.theme = saved;
-  } catch (e) {}
+  } catch (_e) {}
 </script>
 </head>
 <body class="landing" data-prefix="{{prefix}}">
@@ -20,9 +20,9 @@
 <header class="topbar">
   <a class="topbar-title" href="{{prefix}}">{{book_title}}</a>
   <div class="topbar-actions">
-    <button class="search-open" aria-label="Search (press /)">Search <kbd>/</kbd></button>
+    <button type="button" class="search-open" aria-label="Search (press /)">Search <kbd>/</kbd></button>
     <a class="pdf-link" href="{{prefix}}book.pdf">PDF</a>
-    <button class="icon-button theme-toggle" aria-label="Switch theme">◐</button>
+    <button type="button" class="icon-button theme-toggle" aria-label="Switch theme">◐</button>
   </div>
 </header>
 
@@ -52,7 +52,7 @@
 <dialog class="search-dialog">
   <form class="search-form" method="dialog">
     <input class="search-input" type="search" placeholder="Search the book" aria-label="Search the book" autocomplete="off">
-    <button class="search-close" aria-label="Close">esc</button>
+    <button type="button" class="search-close" aria-label="Close">esc</button>
   </form>
   <div class="search-results" role="listbox" aria-label="Search results"></div>
 </dialog>

@@ -184,27 +184,52 @@ def usage_for(repo: str, run_id: int, cache: Path | None) -> dict | None:
 
     target = (cache or Path("/tmp")) / f"fleet-run-{run_id}.zip"
     target.parent.mkdir(parents=True, exist_ok=True)
-    blob = gh(
-        "api",
-        f"repos/{repo}/actions/artifacts/{listing['id']}/zip",
-        "--method",
-        "GET",
-    )
-    if not blob:
+    # Binary, so it cannot go through `gh()`, which captures text and decodes
+    # as UTF-8. The first artifact this ever met died on
+    # `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xb8`, and the
+    # latin-1 round-trip that was supposed to save it corrupts the zip
+    # instead. Straight to a file.
+    #
+    # This is why every usage record read as absent for eight runs, which is
+    # how `pr-reviewer` ran on the wrong model unnoticed. A report that fails
+    # open is worse than one that fails loudly.
+    binary = shutil.which("gh") or str(ROOT / ".tools" / "gh" / "gh")
+    with target.open("wb") as handle:
+        done = subprocess.run(  # noqa: PLW1510 - returncode is read below
+            [binary, "api", f"repos/{repo}/actions/artifacts/{listing['id']}/zip"],
+            stdout=handle,
+            stderr=subprocess.DEVNULL,
+            timeout=120,
+        )
+    if done.returncode != 0 or target.stat().st_size == 0:
+        target.unlink(missing_ok=True)
         return None
-    target.write_bytes(blob.encode("latin-1", errors="ignore"))
     try:
         with zipfile.ZipFile(target) as bundle:
-            name = next((n for n in bundle.namelist() if n.endswith(".json")), None)
-            if not name:
-                return None
-            payload = json.loads(bundle.read(name))
+            names = bundle.namelist()
+            payload = {}
+            execution = next(
+                (n for n in names if n.endswith(".json") and "provenance" not in n),
+                None,
+            )
+            if execution:
+                payload = json.loads(bundle.read(execution))
+            # What the run was for, written by `tools/fleet_record.py`. Absent
+            # on every run made before that step existed, which is why nothing
+            # here requires it.
+            provenance = next((n for n in names if n.endswith("provenance.json")), None)
+            recorded = json.loads(bundle.read(provenance)) if provenance else {}
     except (zipfile.BadZipFile, json.JSONDecodeError, KeyError):
         return None
     finally:
         target.unlink(missing_ok=True)
 
-    return summarise_execution(payload)
+    # A run with provenance and no execution output is still worth keeping:
+    # it says an agent was dispatched and what for, which is exactly the case
+    # a run that died before calling the model produces.
+    summary = summarise_execution(payload) or {}
+    summary["provenance"] = recorded
+    return summary or None
 
 
 def summarise_execution(payload: object) -> dict | None:
@@ -315,8 +340,18 @@ def fleet_context() -> dict:
 # --------------------------------------------------------------------------- #
 
 
-def agent_of(run: dict) -> str:
-    """Which agent a run stands for, from the workflow that ran it."""
+def agent_of(run: dict, usage: dict[int, dict] | None = None) -> str:
+    """Which agent a run stands for.
+
+    From what the run wrote down, when it wrote anything: `fleet.yml`
+    dispatches six different agents and the workflow name cannot tell them
+    apart, so before `tools/fleet_record.py` existed every one of them was a
+    row called "dispatched". The workflow map is the fallback, and stays for
+    the runs made before that.
+    """
+    recorded = ((usage or {}).get(run["id"]) or {}).get("provenance") or {}
+    if isinstance(recorded.get("agent"), str) and recorded["agent"]:
+        return recorded["agent"]
     return {
         "Fleet review": "pr-reviewer",
         "Fleet respond": "review-responder",
@@ -329,7 +364,7 @@ def judge(runs: list[dict], usage: dict[int, dict]) -> dict:
 
     by_agent: dict[str, list[dict]] = defaultdict(list)
     for run in agent_runs:
-        by_agent[agent_of(run)].append(run)
+        by_agent[agent_of(run, usage)].append(run)
 
     def tally(group: list[dict]) -> dict:
         done = [r for r in group if r["conclusion"]]
@@ -643,6 +678,60 @@ def build_report(days: int, cache: Path | None) -> dict:
     return report
 
 
+def append_runs(report: dict, path: Path) -> int:
+    """One line per agent run, appended, deduplicated by run id.
+
+    `history.jsonl` is one line per week: it answers "is the fleet getting
+    better". It cannot answer "what did run 34702912546 do", because by the
+    time anyone asks, the artifact holding the answer has expired -- 90 days,
+    and the API's own run listing is 90 days too. This is the record that
+    outlives both, and it is the whole of the fleet's traceability: trigger,
+    agent, model asked for, model served, what it cost, and what it produced.
+    """
+    seen = set()
+    if path.is_file():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                seen.add(json.loads(line).get("run_id"))
+            except json.JSONDecodeError:
+                continue
+
+    added = 0
+    with path.open("a", encoding="utf-8") as handle:
+        for run in report["runs"]:
+            if run["id"] in seen or run["workflow"] not in AGENT_WORKFLOWS:
+                continue
+            found = report["usage"].get(run["id"]) or {}
+            recorded = found.get("provenance") or {}
+            handle.write(
+                json.dumps(
+                    {
+                        "run_id": run["id"],
+                        "url": run.get("url"),
+                        "workflow": run["workflow"],
+                        "started": run.get("started"),
+                        "conclusion": run.get("conclusion"),
+                        "branch": recorded.get("branch") or run.get("branch"),
+                        "trigger": recorded.get("trigger"),
+                        "agent": recorded.get("agent"),
+                        "event": recorded.get("event") or run.get("event"),
+                        "base_sha": recorded.get("base_sha"),
+                        "brief_sha256": recorded.get("brief_sha256"),
+                        "pr": recorded.get("pr"),
+                        "model_requested": recorded.get("model_requested"),
+                        "model_served": found.get("model"),
+                        "turns": found.get("turns"),
+                        "seconds": found.get("seconds"),
+                        "cost_usd": found.get("cost_usd"),
+                    },
+                    sort_keys=True,
+                )
+                + "\n"
+            )
+            added += 1
+    return added
+
+
 def append_history(report: dict, path: Path) -> None:
     """One line per report, so trends outlive the API's 90-day window."""
     overall = report["judgement"]["overall"]
@@ -709,6 +798,74 @@ def self_test() -> int:
     ]:
         if served_model(result) != want:
             problems.append(f"served_model({result!r}) -> {served_model(result)!r}")
+    # The runs log is the fleet's traceability, and appending is the one
+    # operation that can silently lose or duplicate history.
+    import tempfile  # noqa: PLC0415 - the self-test's own dependency
+
+    fake = {
+        "runs": [
+            {
+                "id": 1,
+                "workflow": "Fleet",
+                "url": "u1",
+                "started": "s",
+                "conclusion": "success",
+                "event": "schedule",
+            },
+            {"id": 2, "workflow": "CI", "url": "u2", "started": "s", "conclusion": "x"},
+            {
+                "id": 3,
+                "workflow": "Fleet review",
+                "url": "u3",
+                "started": "s",
+                "conclusion": "failure",
+            },
+        ],
+        "usage": {
+            1: {
+                "model": "claude-sonnet-5",
+                "turns": 9,
+                "cost_usd": 0.4,
+                "seconds": 30,
+                "provenance": {
+                    "agent": "pipeline-gardener",
+                    "trigger": "weekly-garden",
+                    "branch": "agent/garden",
+                },
+            }
+        },
+    }
+    with tempfile.TemporaryDirectory() as directory:
+        log = Path(directory) / "runs.jsonl"
+        first = append_runs(fake, log)
+        again = append_runs(fake, log)
+        rows = [
+            json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()
+        ]
+        if first != 2:
+            problems.append(f"first append wrote {first} rows, wanted 2 agent runs")
+        if again != 0:
+            problems.append(f"appending the same report again wrote {again} rows")
+        if len(rows) != 2:
+            problems.append(f"the log holds {len(rows)} rows after two appends")
+        if any(r["workflow"] == "CI" for r in rows):
+            problems.append("plumbing runs are in the agent log")
+        traced = next((r for r in rows if r["run_id"] == 1), {})
+        if traced.get("agent") != "pipeline-gardener":
+            problems.append(f"provenance did not reach the log: {traced!r}")
+        # A run with no provenance still gets a row: it is the record that an
+        # agent ran at all, and dropping it hides exactly the failures worth
+        # seeing.
+        if not any(r["run_id"] == 3 for r in rows):
+            problems.append("a run without provenance was dropped")
+
+    # `agent_of` prefers what the run recorded over the workflow's name.
+    if agent_of({"id": 1, "workflow": "Fleet"}, fake["usage"]) != "pipeline-gardener":
+        problems.append("agent_of ignored the recorded agent")
+    if agent_of({"id": 9, "workflow": "Fleet"}, {}) != "dispatched":
+        problems.append("agent_of invented an agent for a run with no record")
+    if agent_of({"id": 9, "workflow": "Fleet review"}, {}) != "pr-reviewer":
+        problems.append("agent_of lost the workflow fallback")
 
     # `number` and `seconds` render the table; both are handed None routinely,
     # because a run that never started has no duration.
@@ -730,6 +887,9 @@ def main() -> int:
     parser.add_argument("--days", type=int, default=7)
     parser.add_argument("--html", type=Path, help="write the page here")
     parser.add_argument("--history", type=Path, help="JSONL to append a line to")
+    parser.add_argument(
+        "--runs-log", type=Path, help="JSONL to append one line per agent run to"
+    )
     parser.add_argument("--json", action="store_true", help="dump everything")
     parser.add_argument(
         "--cache", type=Path, default=ROOT / "build" / "fleet-artifacts"
@@ -753,6 +913,10 @@ def main() -> int:
 
     if arguments.history:
         append_history(report, arguments.history)
+
+    if arguments.runs_log:
+        added = append_runs(report, arguments.runs_log)
+        print(f"{added} run(s) appended to {arguments.runs_log}", file=sys.stderr)
 
     return 0
 

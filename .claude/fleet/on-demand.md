@@ -1,5 +1,5 @@
 ---
-agent: {{agent}}
+agent: "{{agent}}"
 branch: agent/{{agent}}-{{stamp}}
 why: Dispatched by hand, with a target.
 ---

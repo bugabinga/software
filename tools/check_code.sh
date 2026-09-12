@@ -18,7 +18,7 @@ checked=0
 # `--emit=metadata` type-checks without producing artifacts.
 rust_files=$(find code -name '*.rs' -type f 2>/dev/null | sort)
 if [ -n "$rust_files" ]; then
-  if command -v rustc > /dev/null 2>&1; then
+  if command -v rustc >/dev/null 2>&1; then
     output=$(mktemp -d)
     trap 'rm -rf "$output"' EXIT
     for file in $rust_files; do

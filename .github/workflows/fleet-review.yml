@@ -156,9 +156,9 @@ jobs:
           # Bots must be allow-listed or the action refuses to run at all:
           # "Workflow initiated by non-human actor". That is what killed the
           # first three dispatches, and it would have made this whole design
-          # impossible -- Copilot is a bot, so a Copilot review could never
-          # have woken the responder, and neither could a label applied
-          # through the API.
+          # impossible -- the fleet's own reviewer is a bot, so its review
+          # could never have woken the responder, and neither could a label
+          # applied through the API.
           #
           # `*` is acceptable here because the triggers already gate access,
           # not the actor list: labelling an issue and pushing to main need
@@ -180,12 +180,32 @@ jobs:
       # fleet cost and how hard it worked; without it the weekly report can
       # only count runs. `always()` because a run that failed is exactly the
       # one worth having a record of.
+      # What this run was for, next to what it cost. The execution output
+      # says turns and dollars; without this the report cannot say which
+      # agent, which trigger, or what it was pointed at -- `fleet.yml`
+      # dispatches six agents and the workflow name tells them apart not at
+      # all. `always()` because a run that died is the one worth tracing.
+      - name: Record what this run was
+        if: always()
+        env:
+          FLEET_BRANCH: ${{ github.event.pull_request.head.ref }}
+          FLEET_PR: ${{ github.event.pull_request.number }}
+        run: |
+          python3 tools/fleet_record.py \
+            --out "${{ runner.temp }}/fleet" \
+            --trigger pull-request \
+            --agent "pr-reviewer" \
+            --model "${{ steps.brief.outputs.model }}" \
+            --brief /tmp/brief.md
+
       - name: Keep the run's record
         if: always() && steps.key.outputs.present == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: fleet-run-${{ github.run_id }}
-          path: ${{ runner.temp }}/claude-execution-output.json
+          path: |
+            ${{ runner.temp }}/claude-execution-output.json
+            ${{ runner.temp }}/fleet/provenance.json
           if-no-files-found: ignore
           retention-days: 90
 

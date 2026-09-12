@@ -109,10 +109,7 @@ export default {
 // GitHub
 // --------------------------------------------------------------------------
 
-async function fileNote(
-	env,
-	{ branch, path, title, source, body, digest, day },
-) {
+async function fileNote(env, { branch, path, title, source, body, digest }) {
 	const repo = env.GITHUB_REPOSITORY; // "owner/name"
 	const api = (route) => `https://api.github.com/repos/${repo}/${route}`;
 	const gh = async (route, init = {}) => {
@@ -157,7 +154,7 @@ async function fileNote(
 		body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: head.object.sha }),
 	});
 
-	const content = noteFile({ title, source, body, digest, day });
+	const content = noteFile({ title, source, body, digest });
 	const commit = await gh(`contents/${path}`, {
 		method: "PUT",
 		body: JSON.stringify({
@@ -180,7 +177,7 @@ async function fileNote(
 // The same frontmatter `tools/ingest_notes.py` writes, so a note that arrives
 // this way is indistinguishable from one ingested by hand -- and the reindex
 // that runs on the branch can read it without a special case.
-function noteFile({ title, source, body, digest, day }) {
+function noteFile({ title, source, body, digest }) {
 	const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
 	const words = body.trim().split(/\s+/).filter(Boolean).length;
 	const front = [
@@ -194,7 +191,7 @@ function noteFile({ title, source, body, digest, day }) {
 		"---",
 		"",
 	].join("\n");
-	return front + body.replace(/\s*$/, "") + "\n";
+	return `${front + body.replace(/\s*$/, "")}\n`;
 }
 
 // --------------------------------------------------------------------------
@@ -243,7 +240,7 @@ function base64(text) {
 }
 
 function json(payload, status) {
-	return new Response(JSON.stringify(payload, null, 2) + "\n", {
+	return new Response(`${JSON.stringify(payload, null, 2)}\n`, {
 		status,
 		headers: { "Content-Type": "application/json; charset=utf-8" },
 	});

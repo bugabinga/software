@@ -15,7 +15,7 @@ set -eu
 repo=${REPO:-bugabinga/software}
 gh=${GH:-gh}
 
-if ! command -v "$gh" > /dev/null 2>&1; then
+if ! command -v "$gh" >/dev/null 2>&1; then
   echo "gh is not installed. tools/bootstrap-mise.sh installs the pinned" >&2
   echo "toolchain, or set GH=/path/to/gh." >&2
   exit 1
@@ -29,10 +29,10 @@ echo
 # privileged; deploying to it afterwards is not, which is why every push to
 # main can publish unattended once this exists.
 printf '1. GitHub Pages, building from Actions ... '
-if "$gh" api "repos/$repo/pages" > /dev/null 2>&1; then
+if "$gh" api "repos/$repo/pages" >/dev/null 2>&1; then
   echo "already enabled"
 else
-  if "$gh" api -X POST "repos/$repo/pages" -f build_type=workflow > /dev/null 2>&1; then
+  if "$gh" api -X POST "repos/$repo/pages" -f build_type=workflow >/dev/null 2>&1; then
     echo "enabled"
   else
     echo "FAILED"
@@ -54,8 +54,8 @@ else
   # The existing default is passed back deliberately: every workflow here
   # declares the permissions it needs, so widening the default is not wanted.
   if "$gh" api -X PUT "repos/$repo/actions/permissions/workflow" \
-      -f "default_workflow_permissions=$current" \
-      -F can_approve_pull_requests=true > /dev/null 2>&1; then
+    -f "default_workflow_permissions=$current" \
+    -F can_approve_pull_requests=true >/dev/null 2>&1; then
     echo "done (default permissions left at '$current')"
   else
     echo "FAILED"
@@ -70,10 +70,10 @@ fi
 # repository full of small automated pull requests readable.
 printf '3. Merge hygiene (squash titles, delete merged branches) ... '
 if "$gh" api -X PATCH "repos/$repo" \
-    -F delete_branch_on_merge=true \
-    -F allow_update_branch=true \
-    -f squash_merge_commit_title=PR_TITLE \
-    -f squash_merge_commit_message=PR_BODY > /dev/null 2>&1; then
+  -F delete_branch_on_merge=true \
+  -F allow_update_branch=true \
+  -f squash_merge_commit_title=PR_TITLE \
+  -f squash_merge_commit_message=PR_BODY >/dev/null 2>&1; then
   echo "done"
 else
   echo "FAILED (harmless; everything works without it)"

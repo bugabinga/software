@@ -136,7 +136,12 @@ def load(trigger: str) -> tuple[dict[str, str], str]:
     for line in match.group(1).splitlines():
         if ":" in line:
             key, value = line.split(":", 1)
-            header[key.strip()] = value.strip()
+            # Unquote. `agent: {{agent}}` is a YAML flow mapping, not a
+            # string, so the markdown formatter reflows it to
+            # `{ { agent } }` and the brief stops routing. Quoting it is the
+            # correct YAML; stripping the quotes here is what makes the
+            # correct spelling work.
+            header[key.strip()] = value.strip().strip('"')
     for required in ("agent", "branch", "why"):
         if required not in header:
             raise BriefError(f"{path.relative_to(ROOT)} is missing `{required}:`")

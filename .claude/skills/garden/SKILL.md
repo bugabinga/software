@@ -21,8 +21,8 @@ request with red CI is more urgent than anything below it).
    Never commit to `main` directly.
 
 2. **Open pull requests.** For each one: is CI green? Is it mergeable? Red or
-   conflicted is work now -- fix it. Green chore pull requests (see *Merge
-   policy*) get merged. Anything touching `book/chapters/` or `book/book.toml`
+   conflicted is work now -- fix it. Green chore pull requests (see _Merge
+   policy_) get merged. Anything touching `book/chapters/` or `book/book.toml`
    waits for the author, however green.
 
 3. **The gates, locally.** `mise run check`. If it fails on a clean checkout of
@@ -52,7 +52,7 @@ request with red CI is more urgent than anything below it).
 
 Scheduled sessions are fired without MCP tools, so GitHub is reached through
 `gh`, which the SessionStart hook installs (`mise install`, pinned in
-`mise.toml`). Reads are unrestricted; a *mutating* command may still be
+`mise.toml`). Reads are unrestricted; a _mutating_ command may still be
 refused by the local permission layer. If one is, do not improvise a way
 around it -- use the GitHub MCP tools if this session has them, and otherwise
 stop and report what was refused and what it was for. A sweep that reports
@@ -61,7 +61,7 @@ being unable to act is useful. One that finds another route is not.
 ## Merge policy
 
 The author's standing decision: everything arrives as a pull request; green
-*chores* may merge themselves.
+_chores_ may merge themselves.
 
 A chore is a change that touches none of `book/chapters/`, `book/book.toml`,
 `book/lib/`, `site/`, `.github/`, `.claude/` -- so: dependency and Typst

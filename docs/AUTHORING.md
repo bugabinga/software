@@ -68,14 +68,14 @@ chapter number and do not advance the numbering of the rest.
 Plain Typst, plus the prelude. `book/chapters/99-prelude-reference.typ` is a
 live example of every helper -- read it rendered, and copy from its source.
 
-| Helper | What it does |
-| --- | --- |
-| `#note[..]` `#tip[..]` `#warning[..]` `#caution[..]` | Callouts. Optional `title:`; `title: ""` for no heading. |
-| `#term[..]` | Marks where the book defines a word (`<dfn>` on the web). |
-| `#snippet(path, tag: .., lang: ..)` | Quotes a region of a real file under `code/`. |
-| `#xref("slug", anchor: ..)[..]` | Links to another chapter. |
-| `#web-only[..]` `#print-only[..]` | Content for one output only. |
-| `#slug-of(path)` | The URL a chapter file is published under. |
+| Helper                                               | What it does                                              |
+| ---------------------------------------------------- | --------------------------------------------------------- |
+| `#note[..]` `#tip[..]` `#warning[..]` `#caution[..]` | Callouts. Optional `title:`; `title: ""` for no heading.  |
+| `#term[..]`                                          | Marks where the book defines a word (`<dfn>` on the web). |
+| `#snippet(path, tag: .., lang: ..)`                  | Quotes a region of a real file under `code/`.             |
+| `#xref("slug", anchor: ..)[..]`                      | Links to another chapter.                                 |
+| `#web-only[..]` `#print-only[..]`                    | Content for one output only.                              |
+| `#slug-of(path)`                                     | The URL a chapter file is published under.                |
 
 Anything else is ordinary Typst: `#figure`, `#table`, `#image`, `#footnote`,
 lists, math, `@labels`. The
