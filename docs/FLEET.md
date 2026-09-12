@@ -230,6 +230,30 @@ one rather than filing duplicates:
 
 It does not open an issue to say it looked and found nothing.
 
+## Two channels for two kinds of finding
+
+A fault in a chapter is either decidable or it is judgement, and they should
+not share an artefact.
+
+**Decidable** — a cross-reference to no chapter, a note cited at a line it does
+not have, a marker left in the prose. `tools/prose_scan.py` finds these and
+emits SARIF, which GitHub takes from any tool: the finding lands as an
+annotation on the line, with a rule id, a severity, a dismissal flow and
+history in the Security tab. `make check` runs it too. The test for a rule
+belonging here is whether two people would agree on every result without
+discussing it.
+
+**Judgement** — invention, a citation that does not support its claim, an
+agent outside its brief. That is `pr-reviewer`'s, delivered as review threads.
+
+Until this split, the reviewer wrote prose about faults a program could have
+pinned to a line, which wastes a model and produces the worse artefact.
+
+`book/terms.toml` exists and is deliberately empty: the `term-drift` rule
+is inactive until somebody writes down what this book's vocabulary is. A
+rule that invented its own terminology would be enforcing a program's
+opinion.
+
 ## Reviews: how the loop runs
 
 `pr-reviewer` posts a **real GitHub review**, not a comment: findings become
