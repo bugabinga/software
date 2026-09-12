@@ -52,6 +52,8 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  # To start CI on the branch the agent pushed. See "Say where it went".
+  actions: write
   # claude-code-action exchanges an OIDC token to authenticate, and asks
   # for this by name: without it the run fails with "Could not fetch an OIDC
   # token" after the credential has already resolved, which reads like a bad
@@ -320,15 +322,35 @@ jobs:
           gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$ISSUE/comments" \
             -F body=@/tmp/picked-up.md > /dev/null
 
-      - name: Say where it went
+      - name: Say where it went, and get it checked
         if: steps.key.outputs.present == 'true'
         env:
           BRANCH: ${{ steps.brief.outputs.branch }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
-            echo "::notice::the agent pushed $BRANCH; agent-branches.yml takes it from here"
-          else
+          if ! git ls-remote --exit-code --heads origin "$BRANCH" > /dev/null 2>&1; then
             echo "::notice::the agent pushed nothing, which is a valid outcome"
+            exit 0
+          fi
+
+          # The agent pushes with the workflow token, and a push made with
+          # GITHUB_TOKEN triggers nothing: "with the exception of
+          # workflow_dispatch and repository_dispatch, other GITHUB_TOKEN
+          # triggered events do not create workflow runs at all". So the
+          # fleet's own branches arrived with no CI on them, which meant
+          # agent-branches.yml -- which waits for CI to complete before
+          # deciding anything -- never woke up for them. The fleet's first
+          # real delivery sat unchecked and unmergeable for exactly this
+          # reason.
+          #
+          # workflow_dispatch is one of the two exceptions, so asking for the
+          # run explicitly is the way through. Nothing else about the design
+          # changes: CI runs, its completion fires agent-branches.yml, and
+          # the merge decision is still made by rules in the repository.
+          if gh workflow run ci.yml --ref "$BRANCH" 2>/tmp/dispatch-error; then
+            echo "::notice::the agent pushed $BRANCH; CI dispatched, agent-branches.yml takes it from there"
+          else
+            cat /tmp/dispatch-error >&2
+            echo "::warning::$BRANCH is pushed but CI could not be started on it, so nothing downstream will pick it up. Start it by hand from the Actions tab, or re-run this step."
           fi

@@ -167,9 +167,37 @@ jobs:
 
           # Green means every check on this exact commit concluded well, not
           # that the run which triggered this workflow happened to pass.
-          states=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" \
-            --jq '.check_runs[] | select(.name != "Merge green chores" and .name != "Open the pull request") | "\(.name):\(.status):\(.conclusion // "pending")"')
+          #
+          # And "every check" has to mean at least one. Asking whether any
+          # check is not green answers yes for a commit that has no checks at
+          # all, which is not a theoretical case: a branch pushed by an agent
+          # using the workflow token gets no runs whatsoever, because
+          # GITHUB_TOKEN pushes do not trigger workflows. The first branch the
+          # fleet ever delivered, `agent/typst-0.15.1`, had exactly zero check
+          # runs on it. Nothing merged it only because it fell foul of a later
+          # rule -- which is luck, not a safeguard.
+          #
+          # So `Build` -- CI's own job, the one that compiles the book -- must
+          # be present and successful. It is polled rather than read once:
+          # this job starts the instant CI reports completion, and the check
+          # runs are not always visible by then. Sixty seconds of asking, then
+          # the branch is left alone and said so.
+          states=""
+          for attempt in $(seq 1 12); do
+            states=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" \
+              --jq '.check_runs[] | select(.name != "Merge green chores" and .name != "Open the pull request") | "\(.name):\(.status):\(.conclusion // "pending")"')
+            if echo "$states" | grep -q '^Build:completed:'; then
+              break
+            fi
+            echo "waiting for checks on $HEAD_SHA (attempt $attempt)"
+            sleep 5
+          done
+
           echo "checks on $HEAD_SHA:"; echo "$states" | sed 's/^/  /'
+          if ! echo "$states" | grep -q '^Build:completed:success$'; then
+            echo "::notice::$BRANCH has no successful Build check on $HEAD_SHA, so there is nothing to call green; leaving it"
+            exit 0
+          fi
           if echo "$states" | grep -vE ':completed:(success|neutral|skipped)$' | grep -q .; then
             echo "::notice::$BRANCH has checks that are not green; leaving it"
             exit 0
