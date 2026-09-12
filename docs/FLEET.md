@@ -327,6 +327,25 @@ at 07:00.
 Label a pull request `hold` to stop it merging automatically, whatever it
 touches.
 
+## Who has to approve what
+
+`.github/CODEOWNERS` names the author as the owner of `.github/` and
+`.claude/`, and the `Main` ruleset requires an owner's approval. Everything
+else in the tree has no owner, which is the point: the author controls the
+book by controlling the fleet, not by reviewing what it writes.
+
+This duplicates a rule `agent-branches.yml` already applies -- it refuses to
+auto-merge anything under those paths -- and the duplication is deliberate.
+That rule is the automation policing itself, in a file the automation can
+write to. It holds only because editing that file is itself a `.github/`
+change, which is an argument rather than a mechanism. CODEOWNERS is the
+mechanism, and the fleet cannot reach the setting that enforces it.
+
+**The one way it bites:** a pull request the author opens themselves touching
+those paths cannot be approved by them, and there is no second owner. The
+fleet's own pull requests are authored by `claude[bot]`, so those are fine.
+For the rare hand-written one, the bypass toggle is what it is for.
+
 ## Boundaries that hold for every worker
 
 - `main` is never committed to directly. Everything is a branch and a pull
