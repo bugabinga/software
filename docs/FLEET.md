@@ -133,6 +133,37 @@ the protected set, and it is what makes the delegation above safe to give.
 To take a decision back, do not review harder: change the agent's brief, or
 label a pull request `hold`.
 
+### What branch protection did to this
+
+`main` carries an active ruleset. Measured against it, the fleet currently
+**cannot land anything**:
+
+| The fleet tries | Result |
+| --- | --- |
+| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit |
+| opening a pull request | refused — Actions is not permitted to create pull requests |
+| `PUT /pulls/N/merge` | would be blocked — one approving review is required and Actions has no bypass |
+
+The owner can still merge, so nothing is stuck permanently; it just all
+routes through a human, which is the opposite of the delegation above.
+
+Two settings restore it, and they are the same two either way:
+
+1. **Settings → Actions → General → Workflow permissions →** allow GitHub
+   Actions to create and approve pull requests.
+2. **The `Main` ruleset → Bypass list →** add the GitHub Actions app.
+
+With both, the fleet pushes a branch, the workflow opens a pull request, CI
+runs, and a green one squash-merges — linear history intact, and every rule
+still enforced against everyone else.
+
+Worth fixing while there: the ruleset requires only the **Spelling** check.
+`Build` and `Outbound links` are not required, so the gate that matters least
+is the only one that is enforced.
+
+Until then, a green branch the fleet may not merge becomes one issue saying
+so, rather than a red run every time.
+
 ### How it is actually enforced
 
 Not by trust, and not by repository auto-merge. Agents **push a branch and

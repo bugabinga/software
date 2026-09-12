@@ -68,7 +68,12 @@ Three parties, and confusing them is the operator's characteristic failure.
 - **Delete the two interim Routines** (daily sweep, monthly prose) as soon as
   an `ANTHROPIC_API_KEY` secret exists, or the scheduled work runs twice: once
   from `fleet.yml`, once from a fired session. See `docs/FLEET.md`.
-- **Pages** is still not enabled, and no workflow can enable it.
+- **Pages is live** at <https://bugabinga.github.io/software/>, serving the
+  `gh-pages` branch. Verified: index, a chapter, the PDF and the single-file
+  build all return 200.
+- **The `Main` ruleset blocks every fleet merge.** Until Actions may create
+  pull requests and has a bypass actor on the ruleset, the fleet's work waits
+  for an owner merge. See `docs/FLEET.md`.
 
 ## Failures this repository has already seen
 
