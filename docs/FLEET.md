@@ -112,6 +112,60 @@ major versions, so every bump Dependabot opens is a major-version bump --
 exactly the kind that changes behaviour and deserves a reading. They show up
 in the daily sweep's report rather than being merged by it.
 
+## Issues: how the fleet is asked for things
+
+Issues are the control surface. They are how work is requested from a phone,
+and they are where the fleet reports what it could not do.
+
+**Asking.** `.github/ISSUE_TEMPLATE/` has three forms, and blank issues are
+off, because a form that names the agent and the target dispatches by itself
+while free text needs somebody to interpret it.
+
+| Form | Label it applies | What happens |
+| --- | --- | --- |
+| Material for the book | `fleet:material` | `notes-cartographer` saves the body to `notes/` verbatim, then reads it against the book and changes the shape if it must |
+| Ask the fleet for something | `fleet:task` | the agent named in the form's dropdown runs, with the form's fields as its target |
+| Something is wrong | `bug` | nothing automatic; it is a message to a person |
+
+The **label is the trigger**, not the form: `fleet.yml` fires on
+`issues: [labeled]`. So a label added later to an old issue dispatches it too,
+which is the re-run mechanism, and a label removed and re-added is a retry.
+
+Every dispatched agent puts `Closes #N` in its commit message, so the issue
+closes when the work merges. The fleet adds `fleet:running` when it starts
+and comments a link to the run.
+
+**Reporting.** The fleet opens an issue in exactly two situations, and updates
+one rather than filing duplicates:
+
+- a branch it was entitled to merge that it could not (`Green and unmerged`);
+- outbound links that have died, once a week, as a standing issue.
+
+It does not open an issue to say it looked and found nothing.
+
+## Reviews: Copilot, and answering it
+
+The ruleset turns on Copilot's automated review. A review nobody answers is
+worse than no review — the comments pile up, stop being read, and
+`required_review_thread_resolution` means an unanswered thread blocks the
+merge outright.
+
+`fleet-respond.yml` wakes `review-responder` on any review or review comment
+that is not the fleet's own. Its brief is explicit about what Copilot is good
+and bad at here: reliable on shell quoting, unhandled errors, off-by-ones;
+unreliable on prose, on Typst, and on anything whose correctness depends on
+why the code exists. So it verifies before acting, fixes what is right, and
+replies on the thread naming what a wrong comment missed. Every comment ends
+in a fix or an answer.
+
+Three workflows, three verbs, so it is clear which to look at:
+
+| Workflow | Verb | Writes |
+| --- | --- | --- |
+| `fleet.yml` | do the work | a new branch |
+| `fleet-review.yml` | judge it | a check, and a comment |
+| `fleet-respond.yml` | answer feedback | the pull request's own branch |
+
 ## The merge policy
 
 The author's standing decision: **everything arrives as a pull request, and

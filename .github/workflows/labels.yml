@@ -1,0 +1,79 @@
+name: Labels
+
+# Keeps the repository's labels in step with `.github/labels.yml`.
+#
+# Not cosmetics: `maintenance.yml` files its link-rot issue with `chore` and
+# `agent-branches.yml` refuses to merge anything carrying `hold`, so a missing
+# label is a workflow that fails at the moment it is needed. Neither existed
+# in this repository until this file did.
+#
+# Creates and updates only. Deleting a label deletes it from every issue that
+# carries it, which is not something a sync should do behind anyone's back.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/labels.yml"
+      - ".github/workflows/labels.yml"
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  sync:
+    name: Sync labels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create or update each label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # PyYAML is not on the runner by default and this is the only thing
+          # in the repository that needs it, so the file is read with the
+          # standard library instead: a flat list of three-field records does
+          # not justify a dependency.
+          python3 - <<'PARSE' > /tmp/labels.tsv
+          import pathlib, re
+
+          name = color = description = None
+          rows = []
+          for line in pathlib.Path(".github/labels.yml").read_text().splitlines():
+              line = line.split(" #")[0].rstrip()
+              if match := re.match(r'^- name: "?([^"]+)"?$', line.strip()):
+                  if name:
+                      rows.append((name, color, description))
+                  name, color, description = match.group(1), "", ""
+              elif match := re.match(r'^color: "?([^"]+)"?$', line.strip()):
+                  color = match.group(1)
+              elif match := re.match(r"^description: (.+)$", line.strip()):
+                  description = match.group(1).strip('"')
+          if name:
+              rows.append((name, color, description))
+
+          for row in rows:
+              print("\t".join(row))
+          PARSE
+
+          count=0
+          while IFS=$'\t' read -r name color description; do
+            [ -n "$name" ] || continue
+            if gh api "repos/$REPO/labels/$(printf '%s' "$name" | sed 's/ /%20/g; s/:/%3A/g')" > /dev/null 2>&1; then
+              gh api -X PATCH "repos/$REPO/labels/$(printf '%s' "$name" | sed 's/ /%20/g; s/:/%3A/g')" \
+                -f new_name="$name" -f color="$color" -f description="$description" > /dev/null
+              echo "updated $name"
+            else
+              gh api -X POST "repos/$REPO/labels" \
+                -f name="$name" -f color="$color" -f description="$description" > /dev/null
+              echo "created $name"
+            fi
+            count=$((count + 1))
+          done < /tmp/labels.tsv
+
+          echo "::notice::synced $count label(s)"

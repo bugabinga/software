@@ -1,0 +1,28 @@
+name: Something is wrong
+description: The book says something false, the site is broken, a build fails.
+title: "Wrong: "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - The book — a chapter says something wrong
+        - The website — rendering, navigation, search
+        - The PDF
+        - The pipeline — a build, a check, a workflow
+        - The fleet — an agent behaved badly
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw. A URL or a chapter name is usually enough.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened

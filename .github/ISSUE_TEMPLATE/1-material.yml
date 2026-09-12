@@ -1,0 +1,39 @@
+name: Material for the book
+description: A braindump, a transcript, a reference. Saved to notes/ verbatim, then read by the fleet.
+title: "Material: "
+labels: ["fleet:material"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Everything here is saved to `notes/` **exactly as written** and never
+        edited afterwards — misspellings, contradictions, half-thoughts and
+        all. That is what makes it usable later: it is the record of what you
+        thought, not a tidied version of it.
+
+        The fleet reads it critically. It may disagree with you, and it may
+        conclude the book's shape has to change.
+  - type: textarea
+    id: material
+    attributes:
+      label: The material
+      description: Paste it. Length is not a problem; structure is not required.
+      placeholder: |
+        - machines and programs are the same thing at the level that matters
+        - the split survives for two reasons only: economics and culture
+        - [DECIDED] this is its own article
+    validations:
+      required: true
+  - type: input
+    id: origin
+    attributes:
+      label: Where it came from
+      description: A session, a date, a conversation. Recorded so a future reader can tell.
+      placeholder: claude content session, 2026-09-14
+  - type: checkboxes
+    id: shape
+    attributes:
+      label: Does this change the book's shape?
+      options:
+        - label: I think this needs a new chapter, a split, or a reordering
+        - label: Just file it — the fleet can decide

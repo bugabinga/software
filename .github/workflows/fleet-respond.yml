@@ -1,0 +1,92 @@
+name: Fleet respond
+
+# Answering review feedback on an open pull request.
+#
+# The repository's ruleset turns on Copilot's automated review, and a review
+# nobody answers is worse than no review: the comments accumulate, the signal
+# in them stops being read, and `required_review_thread_resolution` means an
+# unanswered thread blocks the merge outright. So every comment ends in a fix
+# or in a reply saying why not, and `review-responder` is the agent that does
+# it.
+#
+# Three workflows, three verbs, so it stays clear which one to look at:
+#
+#   fleet.yml          -- do work on the book. Pushes a branch.
+#   fleet-review.yml   -- judge a pull request. Read-only, gates the merge.
+#   fleet-respond.yml  -- answer feedback. Pushes to the pull request's branch.
+
+on:
+  pull_request_review:
+    types: [submitted]
+  pull_request_review_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  # Per pull request, and never cancelled: a half-applied set of review fixes
+  # is worse than a slow one.
+  group: fleet-respond-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  respond:
+    name: Fleet respond
+    # Not on the fleet's own words. `pr-reviewer` posts its verdict as a
+    # comment and `review-responder` replies on threads; reacting to those
+    # would be two agents talking to each other at the author's expense.
+    # A human's review and Copilot's both qualify.
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.actor != 'github-actions[bot]' &&
+      (github.event.review.state != 'approved' || github.event.review.body != '')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The pull request's own branch, because that is where the fixes go.
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Is there a key to respond with
+        id: key
+        env:
+          CLAUDE_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "${CLAUDE_KEY:-}" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No API key, so the review feedback on this pull request is unanswered. Nothing is lost -- the comments are still on the thread -- but nobody is acting on them."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build the responder's brief
+        if: steps.key.outputs.present == 'true'
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          python3 tools/fleet_brief.py --trigger review-feedback --pr "$PR" > /tmp/brief.md
+          {
+            echo "BRIEF<<BRIEF_EOF"
+            cat /tmp/brief.md
+            echo "BRIEF_EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Install the toolchain
+        if: steps.key.outputs.present == 'true'
+        run: |
+          tools/install-typst.sh
+          tools/install-gh.sh
+
+      - name: Respond
+        if: steps.key.outputs.present == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: ${{ env.BRIEF }}
+          claude_args: >-
+            --max-turns 50
+            --allowedTools "Bash,Read,Edit,Write,Grep,Glob"

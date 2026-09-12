@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read the book
+    url: https://bugabinga.github.io/software/
+    about: The published site, rebuilt on every push to main.
+  - name: How the fleet works
+    url: https://github.com/bugabinga/software/blob/main/docs/FLEET.md
+    about: Which agents exist, what wakes them, and what they may merge on their own.

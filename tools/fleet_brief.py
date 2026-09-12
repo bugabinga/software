@@ -41,6 +41,45 @@ class BriefError(RuntimeError):
     pass
 
 
+def issue_section(body: str, heading: str) -> str:
+    """The text under one heading of a GitHub issue form.
+
+    A form renders as `### Field label` followed by the answer, so a field is
+    addressable by its label. Returns "" when the field is absent or was left
+    empty, which for an optional field is the normal case.
+    """
+    lines = body.replace("\r\n", "\n").splitlines()
+    wanted = heading.strip().lower()
+    collected: list[str] = []
+    inside = False
+    for line in lines:
+        if line.startswith("### "):
+            if inside:
+                break
+            inside = line[4:].strip().lower() == wanted
+            continue
+        if inside:
+            collected.append(line)
+    text = "\n".join(collected).strip()
+    # GitHub writes this into a field the author left blank.
+    return "" if text == "_No response_" else text
+
+
+def agent_from_issue(body: str, known: set[str]) -> str | None:
+    """Which agent the issue form's dropdown named.
+
+    The option text is `name — what it does`, so the first token is the agent.
+    Checked against the definitions that exist rather than trusted, because a
+    dropdown edited in the form but not in `.claude/agents/` would otherwise
+    dispatch a name nothing implements.
+    """
+    chosen = issue_section(body, "Which agent")
+    if not chosen:
+        return None
+    candidate = chosen.split()[0].strip("`*_")
+    return candidate if candidate in known else None
+
+
 def load(trigger: str) -> tuple[dict[str, str], str]:
     path = BRIEFS / f"{trigger}.md"
     if not path.is_file():
@@ -92,6 +131,7 @@ def build(
     agent: str | None,
     target: str | None,
     pr: str | None = None,
+    issue: str | None = None,
 ) -> tuple[str, str, str]:
     header, body = load(trigger)
 
@@ -101,6 +141,7 @@ def build(
         "target": target or "",
         "agent": agent or "",
         "pr": pr or "",
+        "issue": issue or "",
     }
     # The header may itself name the agent, in which case it wins over the
     # command line -- a trigger's brief decides whose beat it is.
@@ -124,6 +165,7 @@ def self_test() -> None:
         "agent": "prose-editor",
         "target": "chapter 3",
         "pr": "42",
+        "issue": "7",
     }
     for path in sorted(BRIEFS.glob("*.md")):
         trigger = path.stem
@@ -134,6 +176,7 @@ def self_test() -> None:
                 samples["agent"],
                 samples["target"],
                 samples["pr"],
+                samples["issue"],
             )
             if PLACEHOLDER.search(body) or PLACEHOLDER.search(branch):
                 failures.append(f"{trigger}: placeholder survived filling")
@@ -158,6 +201,12 @@ def main() -> None:
     parser.add_argument("--agent", help="agent to run, for triggers that do not fix one")
     parser.add_argument("--target", help="what to work on, for on-demand dispatch")
     parser.add_argument("--pr", help="pull request number, for the review trigger")
+    parser.add_argument("--issue", help="issue number, for the issue triggers")
+    parser.add_argument(
+        "--issue-body-file",
+        type=Path,
+        help="file holding an issue body; the agent and target are read from its form fields",
+    )
     parser.add_argument("--list", action="store_true", help="list the triggers")
     parser.add_argument("--self-test", action="store_true", help="check every brief")
     arguments = parser.parse_args()
@@ -174,9 +223,29 @@ def main() -> None:
         parser.error("--trigger is required")
 
     changed = [p.strip() for p in re.split(r"[,\n]", arguments.changed) if p.strip()]
+
+    if arguments.issue_body_file:
+        body = arguments.issue_body_file.read_text(encoding="utf-8")
+        known = {path.stem for path in AGENTS.glob("*.md")}
+        if not arguments.agent:
+            arguments.agent = agent_from_issue(body, known)
+        if not arguments.target:
+            arguments.target = (
+                issue_section(body, "What exactly")
+                or issue_section(body, "What happened")
+                or body.strip()
+            )
+            extra = issue_section(body, "Anything it must or must not do")
+            if extra:
+                arguments.target += "\n\nConstraints given:\n" + extra
     try:
         agent, branch, body = build(
-            arguments.trigger, changed, arguments.agent, arguments.target, arguments.pr
+            arguments.trigger,
+            changed,
+            arguments.agent,
+            arguments.target,
+            arguments.pr,
+            arguments.issue,
         )
     except BriefError as error:
         sys.exit(str(error))
