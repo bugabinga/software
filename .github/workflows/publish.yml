@@ -43,6 +43,28 @@ jobs:
         with:
           base-url: https://bugabinga.github.io/software/
 
+      # The weekly fleet report, if one has been generated. It lives on its
+      # own branch because it is not built from the book and must survive the
+      # force-push below; copying it in here keeps one deployment path rather
+      # than two things writing to gh-pages.
+      - name: Fold in the fleet report
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          if ! git ls-remote --exit-code --heads origin fleet-log > /dev/null 2>&1; then
+            echo "::notice::no fleet-log branch yet, so no fleet report to publish"
+            exit 0
+          fi
+          git fetch -q --depth=1 origin fleet-log
+          mkdir -p dist/fleet
+          if git show FETCH_HEAD:report.html > dist/fleet/index.html 2>/dev/null; then
+            echo "::notice::published the fleet report at /fleet/"
+          else
+            rmdir dist/fleet 2>/dev/null || true
+            echo "::notice::fleet-log exists but carries no report.html"
+          fi
+
       # A fresh orphan commit each time: this branch is generated output, so
       # its history carries no information worth keeping, and force-pushing
       # one commit keeps the repository from growing a copy of the book per

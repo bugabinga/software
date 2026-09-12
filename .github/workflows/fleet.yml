@@ -293,6 +293,19 @@ jobs:
             --max-turns 60
             --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
 
+      # The evidence, kept. `tools/fleet_report.py` reads this to say what the
+      # fleet cost and how hard it worked; without it the weekly report can
+      # only count runs. `always()` because a run that failed is exactly the
+      # one worth having a record of.
+      - name: Keep the run's record
+        if: always() && steps.key.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleet-run-${{ github.run_id }}
+          path: ${{ runner.temp }}/claude-execution-output.json
+          if-no-files-found: ignore
+          retention-days: 90
+
       # The agent pushes a branch and stops, exactly as it would from a
       # session. agent-branches.yml then opens the pull request and decides
       # about merging, so both routes land in the same place.

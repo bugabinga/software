@@ -149,6 +149,12 @@ Foundations chapters, five Craft chapters, and four appendices. Each is a stub
 -- a source comment naming the note lines it came from, the title, and one
 paragraph of what the chapter will argue. None of them is written yet.
 
+The **title is a placeholder**. `A Book Written in Types` was invented by the
+pipeline so that something could be rendered; the author has not chosen one.
+It lives in `book/book.toml` and, as a heading, in `README.md` -- nothing else
+hardcodes it. Propose a title when the notes support one; do not treat the
+current string as a decision anybody made.
+
 `99-prelude-reference.typ` is not a stub and not part of that outline: it is
 living documentation of the prelude, and it stays until the same material
 lands in `docs/AUTHORING.md`.
