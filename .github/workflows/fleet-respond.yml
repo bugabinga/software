@@ -132,22 +132,35 @@ jobs:
           # every call is an anonymous one against a repository it cannot see.
           GH_TOKEN: ${{ github.token }}
         with:
-          # Either credential works. The OAuth token is a Claude subscription;
-          # the API key bills separately. Whichever is set in the environment
-          # is the one the action uses.
-          # The tidied values, not the raw secrets: see the credential step.
+          # Either credential works: the OAuth token is a Claude
+          # subscription, the API key bills separately, and whichever is set
+          # is the one the action uses. Both are the tidied values rather
+          # than the raw secrets -- see the credential step above.
           claude_code_oauth_token: ${{ env.CLAUDE_OAUTH }}
           anthropic_api_key: ${{ env.CLAUDE_API_KEY }}
           prompt: ${{ env.BRIEF }}
-          # The action hides the agent's output "for security" and reports
-          # only `is_error: true`. Two live dispatches died in 38ms having
-          # called no model, and no amount of reading the log said why --
-          # `--debug` in claude_args is not the lever, this input is.
+          # What the run is answerable for afterwards.
           #
-          # This repository is public, so what the agent prints is public
-          # with it. Actions masks the secrets; the rest is repository
-          # content the agent could read anyway. Turn it off again once the
-          # fleet is known to work.
+          # `display_report` writes the Claude Code Report into the job
+          # summary: which tools were called, how many turns, how long, what
+          # it cost. That is the audit artefact, and it outlives nothing --
+          # a job summary goes when the run's logs are pruned -- so it is the
+          # first half of the answer, not the whole of it. The durable half
+          # is the branch and the pull request the agent leaves behind.
+          #
+          # It replaces `show_full_output`, which was on to diagnose four
+          # dispatches that died in 38ms having called no model and said
+          # nothing about why. It did its job -- the answer was a newline in
+          # the credential -- and raw JSON in a public repository is not a
+          # thing to leave switched on once the question is answered.
+          display_report: true
+          # Not `use_commit_signing`: it commits through GitHub's API rather
+          # than the git CLI, which the action's own security document says
+          # "cannot perform complex git operations". Every agent here works
+          # by making a branch with git and pushing it, so that input would
+          # take the CLI out from under the design in exchange for a Verified
+          # badge. `ssh_signing_key` signs without touching git, and needs a
+          # signing key on the author's account to exist first.
           # Bots must be allow-listed or the action refuses to run at all:
           # "Workflow initiated by non-human actor". That is what killed the
           # first three dispatches, and it would have made this whole design
@@ -161,7 +174,19 @@ jobs:
           # environment secret, and the action's own rule about non-write
           # human actors is untouched by this.
           allowed_bots: "*"
-          show_full_output: true
           claude_args: >-
             --max-turns 50
             --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
+
+      # The evidence, kept. `tools/fleet_report.py` reads this to say what the
+      # fleet cost and how hard it worked; without it the weekly report can
+      # only count runs. `always()` because a run that failed is exactly the
+      # one worth having a record of.
+      - name: Keep the run's record
+        if: always() && steps.key.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleet-run-${{ github.run_id }}
+          path: ${{ runner.temp }}/claude-execution-output.json
+          if-no-files-found: ignore
+          retention-days: 90

@@ -1,0 +1,96 @@
+name: Check the app
+description: >-
+  Authenticate as the GitHub App and report what it was granted on this
+  repository, against what the fleet needs. Read-only.
+
+inputs:
+  app-id:
+    description: The app's numeric ID
+    required: false
+  private-key:
+    description: The app's PEM private key
+    required: false
+  where:
+    description: Human-readable name of where the key was looked for
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Is the key here
+      id: have
+      shell: bash
+      env:
+        APP_ID: ${{ inputs.app-id }}
+        KEY: ${{ inputs.private-key }}
+        WHERE: ${{ inputs.where }}
+      run: |
+        set -uo pipefail
+        if [ -n "${KEY:-}" ] && [ -n "${APP_ID:-}" ]; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "found=false" >> "$GITHUB_OUTPUT"
+          missing="both the app id and the private key"
+          [ -n "${KEY:-}" ] && missing="the app id"
+          [ -n "${APP_ID:-}" ] && missing="the private key"
+          echo "::notice::Nothing to check from $WHERE: $missing is not visible here."
+          echo "Not in **$WHERE**: $missing is not visible from this job." \
+            >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - name: Ask GitHub what the app may do
+      if: steps.have.outputs.found == 'true'
+      shell: bash
+      env:
+        APP_ID: ${{ inputs.app-id }}
+        KEY: ${{ inputs.private-key }}
+        WHERE: ${{ inputs.where }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+
+        # A JWT signed with the app's key is the only credential that can read
+        # an installation's grants. Built with openssl rather than a library
+        # so this needs nothing installed: base64url is plain base64 with two
+        # characters swapped and the padding dropped.
+        printf '%s' "$KEY" > /tmp/app.pem
+        chmod 600 /tmp/app.pem
+
+        b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+
+        now=$(date +%s)
+        header=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
+        # Backdated by a minute against clock skew; GitHub allows ten.
+        payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' \
+          "$((now - 60))" "$((now + 480))" "$APP_ID" | b64url)
+        signature=$(printf '%s.%s' "$header" "$payload" \
+          | openssl dgst -sha256 -sign /tmp/app.pem -binary | b64url)
+        jwt="$header.$payload.$signature"
+        rm -f /tmp/app.pem
+        echo "::add-mask::$jwt"
+
+        get() {
+          curl -sS --fail-with-body \
+            -H "Authorization: Bearer $jwt" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/$1"
+        }
+
+        if ! get app > /tmp/app.json; then
+          echo "::error::Could not authenticate as the app. Either the app id does not match the key, or the key is not the full PEM. What is stored in $WHERE cannot act as the app."
+          cat /tmp/app.json >&2 || true
+          exit 1
+        fi
+
+        if ! get "repos/$REPO/installation" > /tmp/install.json; then
+          echo "::error::The app authenticated, but it is not installed on $REPO. Install it: the app's page -> Install App -> this repository."
+          cat /tmp/install.json >&2 || true
+          exit 1
+        fi
+
+        python3 tools/check_app.py \
+          --app /tmp/app.json \
+          --installation /tmp/install.json \
+          --where "$WHERE" \
+          --repository "$REPO"

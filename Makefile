@@ -4,12 +4,13 @@
 # Run `make` for the list.
 
 OUT ?= dist
+DAYS ?= 7
 PYTHON ?= python3
 
 .DEFAULT_GOAL := help
 .PHONY: help setup build build-strict html pdf serve watch check check-links \
         check-external-links check-spelling check-code check-workflows check-fleet \
-        notes \
+        notes fleet-report \
         reindex-notes clean
 
 help: ## Show this list
@@ -44,6 +45,9 @@ build-strict: ## Build with warnings treated as failures
 
 check-links: ## Check internal links and anchors in $(OUT)
 	$(PYTHON) tools/check_links.py $(OUT)
+
+fleet-report: ## Judge the fleet: runs, cost, branches, what is stuck
+	$(PYTHON) tools/fleet_report.py --days $(DAYS) --html build/fleet-report.html
 
 check-external-links: ## Check outbound links with lychee, if installed
 	@if command -v lychee > /dev/null; then \

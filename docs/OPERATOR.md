@@ -78,9 +78,11 @@ Three parties, and confusing them is the operator's characteristic failure.
   `docs/FLEET.md`, and do not let `Fleet review` become required before the
   key exists.
 
-- **Turn `show_full_output` back off** in the three fleet workflows once the
-  fleet is known to work. It is on to diagnose a failure that reported no
-  reason, and this repository is public.
+- **`show_full_output` is off again.** It was on to diagnose four dispatches
+  that died in 38ms having called no model; the answer was a line break
+  inside `CLAUDE_CODE_OAUTH_TOKEN`, which the workflows now strip. What
+  replaces it is `display_report: true` -- the Claude Code Report in the job
+  summary, which is the readable account of a run rather than its raw JSON.
 
 ## Failures this repository has already seen
 
