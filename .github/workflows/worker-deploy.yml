@@ -1,0 +1,131 @@
+name: Worker deploy
+
+# Deploys the notes inbox to Cloudflare.
+#
+# The inbox is how the author's note-taking agent hands material to the book:
+# it POSTs a note, the Worker writes it to a branch, and the fleet takes it
+# from there. See `worker/notes-intake/src/index.js` for why a Worker rather
+# than giving that agent a GitHub token.
+#
+# ## The npm in the room
+#
+# This repository has no package manager -- the tools are Python's standard
+# library and pinned binaries -- and `npx wrangler` is the first exception.
+# It is confined to this file: nothing a contributor runs needs node, `make
+# check` does not, and the Worker itself is one file of plain JavaScript with
+# no dependencies. Hand-rolling the script-upload API instead would have kept
+# npm out entirely, at the cost of writing an untestable multipart request
+# against an API this session cannot reach. Wrangler is the supported path and
+# it is pinned exactly, which is the same bargain as `.typst-version`.
+#
+# ## Sequencing
+#
+# Deploys only from `main`, and only when the Worker changes. The Worker's own
+# secrets are set on every deploy from repository secrets, because
+# `wrangler secret put` is itself a deployment and doing it here means the
+# secret in GitHub is the one in Cloudflare rather than something somebody set
+# by hand once.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - ".github/workflows/worker-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-deploy
+  cancel-in-progress: false
+
+env:
+  # Pinned, like every other tool here. Dependabot does not watch this one --
+  # there is no manifest for it to read -- so `maintenance.yml` reports it
+  # alongside the other pinned binaries.
+  WRANGLER_VERSION: "4.131.1"
+
+jobs:
+  deploy:
+    name: Deploy the notes inbox
+    # The Cloudflare credential is an environment secret, and this environment
+    # is restricted to `main`. A deploy from a branch would be a stranger's
+    # Worker on the author's account.
+    environment: Cloudflare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # The Worker is testable without Cloudflare, without wrangler and
+      # without a credential, so there is no excuse for deploying it
+      # untested. Twenty-two cases, including the ones that matter: a wrong
+      # token, a traversal in the title, and a retry.
+      - name: Test the worker
+        run: node worker/notes-intake/test.mjs
+
+      - name: Is there a credential to deploy with
+        id: key
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -uo pipefail
+          if [ -n "${TOKEN:-}" ] && [ -n "${ACCOUNT:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No Cloudflare credential, so nothing was deployed. The worker is tested and unchanged in Cloudflare. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID to the Cloudflare environment to arm it."
+          fi
+
+      - name: Check what would be deployed
+        if: steps.key.outputs.present == 'true'
+        working-directory: worker/notes-intake
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@"$WRANGLER_VERSION" deploy --dry-run
+
+      - name: Deploy
+        if: steps.key.outputs.present == 'true'
+        working-directory: worker/notes-intake
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@"$WRANGLER_VERSION" deploy
+
+      # Piped on stdin, never as an argument: an argument is in the process
+      # table and in the log of anything that traces the runner.
+      - name: Set the worker's secrets
+        if: steps.key.outputs.present == 'true'
+        working-directory: worker/notes-intake
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          INTAKE_TOKEN: ${{ secrets.NOTES_INTAKE_TOKEN }}
+          NOTES_GITHUB_TOKEN: ${{ secrets.NOTES_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -n "${INTAKE_TOKEN:-}" ] || missing="$missing NOTES_INTAKE_TOKEN"
+          [ -n "${NOTES_GITHUB_TOKEN:-}" ] || missing="$missing NOTES_GITHUB_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::warning::Deployed, but these secrets are not set, so the inbox will refuse every note:$missing"
+            exit 0
+          fi
+          printf '%s' "$INTAKE_TOKEN" \
+            | npx --yes wrangler@"$WRANGLER_VERSION" secret put INTAKE_TOKEN
+          printf '%s' "$NOTES_GITHUB_TOKEN" \
+            | npx --yes wrangler@"$WRANGLER_VERSION" secret put GITHUB_TOKEN
+          echo "::notice::secrets set from repository secrets"
+
+      - name: Say where it is
+        if: steps.key.outputs.present == 'true'
+        run: |
+          {
+            echo "### Notes inbox deployed"
+            echo
+            echo 'The note-taker POSTs to `/note` on the workers.dev URL in the'
+            echo 'deploy output above. See `docs/NOTES-INBOX.md`.'
+          } >> "$GITHUB_STEP_SUMMARY"

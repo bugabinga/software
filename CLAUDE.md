@@ -139,6 +139,59 @@ Two kinds of session work in this repository, and they have different jobs.
   6. **A fleet rule is not shipped until it has been checked against the
      situations that actually exist in the repository.**
 
+## How the fleet writes
+
+Every worker here, the operator included. This is a house style, not a
+preference, because the author reads all of it on a phone.
+
+**Terse.** The diff is the record. A commit body that narrates the diff makes
+the reader read the change twice. Say what the diff cannot: why, what you
+verified, what you left alone. Three lines is usually enough and five is
+usually too many.
+
+**Link, do not restate.** `docs/FLEET.md`, `notes/2026-09-11-session-01.md:140`,
+a run URL, a pull request number. A pointer to the source of truth outlives a
+paraphrase of it and cannot drift from it. If you find yourself explaining
+what a file says, link the file.
+
+**The exception is code comments.** A comment explaining why something is the
+way it is earns its length, because the next reader has no other way to
+recover the reasoning and the alternative is rediscovering it. That is the
+opposite case from a report, which the reader is holding the artefact for
+already. Long comments, short reports.
+
+**A report is three things**: what changed, what you checked, what you
+deliberately did not do. Nothing else. No preamble, no restatement of the
+task, no summary of your summary, no "I have now".
+
+**One claim per sentence, and no adjectives you cannot defend.** "Comprehensive"
+and "robust" are how a report sounds when it has nothing to say.
+
+### Three registers, because there are three readers
+
+A commit message, a pull request and a comment are not one text at three
+lengths. Different readers, at different moments, holding different things.
+Writing one and pasting it into the others is the characteristic failure, and
+it happens because it feels efficient.
+
+**Commit — what and why, technical.** The reader is in `git log` or `git
+blame`, months from now, with the diff already in front of them, asking why
+this line is like this. Never narrate the diff. Say what it cannot: the
+constraint you hit, the alternative you rejected and why, the fact that will
+have been forgotten. Unsentimental, no audience. One commit, one concern.
+
+**Pull request — the story, high level.** The reader is deciding whether to
+accept this, now, with no context. What hurt, what you did about it, what is
+different afterwards. Written for someone who has not read the commits and may
+not. **Never a copy of the commit body** — if the two are the same text, one
+of them is wrong. Link the commits; that is what they are for.
+
+**Comment — terse, context-aware.** The reader is in a conversation already in
+progress and has the thread. No preamble, no restating what is above, no
+summarising the exchange. Contribute the next thing and stop. This is the only
+one of the three *addressed to someone*, so it may be short in a way the
+others may not: a sentence is often the whole comment.
+
 ## The fleet
 
 `docs/FLEET.md` is the roster: which workflows run when, which agents exist
