@@ -7,14 +7,30 @@ version: 2
 # version in a file. Dependabot understands none of those, so it covers the
 # GitHub Actions and `maintenance.yml` covers the pinned binaries. Between
 # them nothing in the scaffolding goes unwatched.
+#
+# Every action is pinned to a commit rather than a tag, so what Dependabot
+# proposes is a new commit and the version in the trailing comment. A tag is
+# mutable: `v2` can be moved onto a different commit by whoever owns the
+# action, and this repository runs those actions with a token that can write
+# to it.
 
 updates:
-  # Every `uses:` in .github/workflows/ and in the composite action under
-  # .github/actions/. Weekly rather than monthly: a workflow is the one thing
-  # here that can break without anyone touching the book, and the bumps are
-  # small enough to read.
+  # Every `uses:`, in the workflows and in the composite actions.
+  #
+  # Two directories, and the second is not optional: `/` covers
+  # `.github/workflows/` and an `action.yml` in the repository root -- not one
+  # nested under `.github/actions/`. Nothing said so, and the evidence was
+  # sitting in the tree: the composite action was still on `actions/cache@v4`
+  # while every workflow had been moved to v6, because Dependabot had never
+  # once looked at it.
+  #
+  # Weekly rather than monthly: a workflow is the one thing here that can
+  # break without anyone touching the book, and the bumps are small enough to
+  # read.
   - package-ecosystem: github-actions
-    directory: /
+    directories:
+      - /
+      - /.github/actions/*
     schedule:
       interval: weekly
       day: monday
