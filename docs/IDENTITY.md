@@ -128,8 +128,8 @@ is silence until the one call that needed the thing that went away.
 
 It fails on a missing essential, notes anything below the ceiling with what it
 would cost, and fails on anything in the *never grant* list. That last one is
-the check worth having: it is the only thing standing between a mis-click and
-a fleet that can rewrite its own rules.
+the check worth having: it is the only thing standing between a slip on that
+settings page and a fleet that can rewrite its own rules.
 
 ---
 
