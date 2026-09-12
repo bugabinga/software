@@ -1,3 +1,7 @@
+// Not from notes: living documentation of the prelude, not part of the
+// outline the author's notes fixed. It stays until the same material
+// lands in docs/AUTHORING.md. See CLAUDE.md.
+
 #import "/book/lib/prelude.typ": *
 
 = Prelude reference
