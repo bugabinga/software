@@ -66,6 +66,13 @@ check-spelling: ## Check spelling with typos, if installed
 check-code: ## Type-check the example code under code/
 	tools/check_code.sh
 
+check-worker: ## Test the notes inbox worker, if node is installed
+	@if command -v node > /dev/null; then \
+		node worker/notes-intake/test.mjs; \
+	else \
+		echo "node not installed; CI tests the worker on every pull request"; \
+	fi
+
 check-workflows: ## Check the GitHub Actions definitions
 	$(PYTHON) tools/check_workflows.py
 

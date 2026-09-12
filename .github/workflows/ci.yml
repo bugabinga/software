@@ -47,6 +47,12 @@ jobs:
       - name: Check the fleet's briefs
         run: python3 tools/fleet_brief.py --self-test
 
+      # The notes inbox uses only web-standard APIs, so plain node tests it --
+      # no wrangler, no Cloudflare, no credential. There is no excuse for an
+      # untested worker when the test costs a second.
+      - name: Test the notes inbox worker
+        run: node worker/notes-intake/test.mjs
+
       - name: Upload the built book
         id: upload
         uses: actions/upload-artifact@v7
