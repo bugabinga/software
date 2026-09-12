@@ -150,7 +150,7 @@ def check(root: Path) -> list[str]:
 def main() -> None:
     root = Path(sys.argv[1] if len(sys.argv) > 1 else "dist").resolve()
     if not root.is_dir():
-        sys.exit(f"{root} does not exist -- run `make build` first")
+        sys.exit(f"{root} does not exist -- run `mise run build` first")
 
     problems = check(root)
     for problem in problems:

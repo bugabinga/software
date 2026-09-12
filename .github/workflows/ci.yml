@@ -52,30 +52,20 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
 
       - name: Build the book
         uses: ./.github/actions/build-book
 
-      - name: Type-check the example code
-        run: tools/check_code.sh
-
-      - name: Check the workflow definitions
-        run: python3 tools/check_workflows.py
-
-      # The EPUB is generated rather than exported, so nothing else would
-      # notice if a change to the page shell made a chapter stop parsing as
-      # XML -- and a reader finding out is a reader who cannot open the book.
-      - name: Check the EPUB
-        run: python3 tools/check_epub.py dist/book.epub
-
-      - name: Check the fleet's briefs
-        run: python3 tools/fleet_brief.py --self-test
-
-      # The notes inbox uses only web-standard APIs, so plain node tests it --
-      # no wrangler, no Cloudflare, no credential. There is no excuse for an
-      # untested worker when the test costs a second.
-      - name: Test the notes inbox worker
-        run: node worker/notes-intake/test.mjs
+      # One line, and it is the same line a contributor runs. The gates live
+      # in mise.toml; CI restating each command in its own `run:` block is
+      # how the two definitions drifted apart before.
+      #
+      # `build-strict` runs inside it, so the build above is the artifact
+      # build and this is the checking build. They are cheap enough -- two
+      # seconds each -- that sharing one would cost more in indirection.
+      - name: Check
+        run: mise run check
 
       - name: Upload the built book
         id: upload
@@ -105,7 +95,7 @@ jobs:
               `Built from ${context.sha.slice(0, 7)}.`,
               "",
               `**[Download the built site](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}#artifacts)**`,
-              " — unzip and open `index.html`, or run `make serve` locally.",
+              " — unzip and open `index.html`, or run `mise run serve` locally.",
               "",
               summary,
             ].join("\n");
@@ -137,21 +127,12 @@ jobs:
   spelling:
     name: Spelling
     runs-on: ubuntu-latest
-    env:
-      TYPOS_VERSION: 1.36.0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Install typos
-        run: |
-          set -euo pipefail
-          archive="typos-v${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz"
-          url="https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/${archive}"
-          curl --fail --location --silent --show-error "$url" | tar -xz ./typos
-          sudo install -m 755 typos /usr/local/bin/typos
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
 
       - name: Check spelling
-        run: typos
+        run: mise run check-spelling
 
   external-links:
     name: Outbound links
@@ -159,6 +140,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
 
       - name: Download the built book
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8

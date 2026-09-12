@@ -56,8 +56,7 @@
       grid(
         columns: (1fr, auto),
         align: (left, right),
-        emph(current.body),
-        meta.title,
+        emph(current.body), meta.title,
       )
       v(-6pt)
       line(length: 100%, stroke: 0.4pt + theme.rule)
@@ -76,7 +75,12 @@
       if it.numbering != none {
         block(
           below: 6pt,
-          text(size: 11pt, weight: "regular", fill: theme.muted, [Chapter #counter(heading).display("1")]),
+          text(
+            size: 11pt,
+            weight: "regular",
+            fill: theme.muted,
+            [Chapter #counter(heading).display("1")],
+          ),
         )
       }
       it.body

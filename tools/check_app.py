@@ -15,7 +15,7 @@ Lives here rather than inside the composite action that calls it because a
 Python program indented inside a YAML block scalar inside a shell heredoc is
 three layers of quoting deep, and the fleet's own reviewer read it as broken.
 It was not, but being unreadable enough to look broken is its own defect: here
-it is syntax-checked by `make check` and can be run against a fixture.
+it is syntax-checked by `mise run check` and can be run against a fixture.
 
 Usage:
     tools/check_app.py --app app.json --installation installation.json \

@@ -77,7 +77,9 @@
     .filter(line => line.trim() != "")
     .map(line => line.len() - line.trim(at: start).len())
   let indent = if widths.len() == 0 { 0 } else { calc.min(..widths) }
-  lines.map(line => if line.len() >= indent { line.slice(indent) } else { line })
+  lines.map(line => if line.len() >= indent { line.slice(indent) } else {
+    line
+  })
 }
 
 /// A code listing read from a real file under `code/`, so that what the book

@@ -23,4 +23,4 @@ sees those sooner and in smaller pieces.
 If the book has fewer than three chapters with real prose in them, there is
 nothing a consistency pass can find. Say so and stop.
 
-`make check`, then push to the branch named above and stop.
+`mise run check`, then push to the branch named above and stop.

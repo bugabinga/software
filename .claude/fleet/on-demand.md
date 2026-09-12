@@ -17,4 +17,4 @@ do not improvise a nearby task. Say what you would need and stop — a dispatch
 that comes back with a question costs less than one that comes back with the
 wrong work.
 
-`make check` before pushing. Push to the branch named above and stop.
+`mise run check` before pushing. Push to the branch named above and stop.

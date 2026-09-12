@@ -21,19 +21,19 @@ and runs on every commit.
 ## Quick start
 
 ```sh
-make setup    # install the pinned Typst into .tools/ (one-off)
-make serve    # build, serve on http://127.0.0.1:8000, reload on save
+mise install       # the pinned toolchain, once per machine
+mise run serve     # build, serve on http://127.0.0.1:8000, reload on save
 ```
 
 Then edit anything under `book/` and the browser refreshes itself.
 
 ```sh
-make          # list every target
-make build    # website + PDF into dist/
-make check    # everything CI checks: build, links, spelling, example code
+mise tasks         # list everything
+mise run build     # website + PDF into dist/
+mise run check     # everything CI checks
 ```
 
-The only tools required are Python 3.11+ and the Typst binary `make setup`
+The only tools required are Python 3.11+ and the Typst binary `mise install`
 installs. There is no package manager, lockfile or `node_modules`.
 
 ## Writing
@@ -49,7 +49,7 @@ New chapter, in three steps:
    ```
 
 2. Add `"chapters/07-my-chapter.typ"` to a part in `book/book.toml`.
-3. `make serve`.
+3. `mise run serve`.
 
 The numeric prefix orders the file on disk; it is stripped from the URL, so
 the chapter above is published at `/my-chapter/`. Reordering chapters does not

@@ -5,7 +5,7 @@ One parser, so the shell scripts, the build and the maintenance sweep all read
 the same file the same way. `mise.toml` is the manifest whether or not mise is
 installed -- that is the point of routing everything through here rather than
 through `mise` itself. A contributor with mise runs `mise install`; a
-contributor without runs `make setup` and gets the same versions.
+contributor without runs `mise install` and gets the same versions.
 
 Usage:
     tools/pinned.py typst

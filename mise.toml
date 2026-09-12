@@ -45,3 +45,125 @@ typstyle = "0.15.1"
 # Only ever run in `worker-deploy.yml`. Recorded here so the version lives
 # with the others rather than in a workflow's `env:` block.
 wrangler = "4.131.1"
+
+# Outbound link checking. The task used to begin "if lychee is installed";
+# now it is, so the branch is gone.
+lychee = "0.24.2"
+
+# For the notes inbox's tests and the skill generator's zip check, both of
+# which are plain web-standard JavaScript with no dependencies.
+node = "26.8.2"
+
+# Python is deliberately absent. Every tool in `tools/` is standard library
+# only, so mise-managing an interpreter would mean installing one on every
+# runner to run scripts that need nothing from it. `python3` is a
+# prerequisite here in the way `sh` and `git` are.
+
+[env]
+# Overridable: `OUT=out mise run build`.
+OUT = "dist"
+DAYS = "7"
+
+# --------------------------------------------------------------------------
+# Tasks. `mise tasks` lists them; `mise run check` is what CI runs.
+#
+# One definition per task, and CI calls it rather than restating the command
+# in a `run:` block. That was the real duplication: `make check-workflows` and
+# ci.yml's "Check the workflow definitions" were the same line written twice,
+# free to drift apart, and nothing would have noticed.
+# --------------------------------------------------------------------------
+
+[tasks.setup]
+description = "Install the pinned toolchain"
+run = "mise install"
+
+[tasks.build]
+description = "Build the website and the PDF"
+run = "python3 tools/build.py --out $OUT"
+
+[tasks.html]
+description = "Build the website only, skipping the PDF"
+run = "python3 tools/build.py --out $OUT --no-pdf"
+
+[tasks.pdf]
+description = "Build the PDF only"
+run = "python3 tools/build.py --out $OUT --pdf-only"
+
+[tasks.serve]
+description = "Build, serve on :8000, rebuild and reload on every save"
+run = "python3 tools/build.py --out $OUT --serve"
+
+[tasks.watch]
+description = "Rebuild on every save, without serving"
+run = "python3 tools/build.py --out $OUT --watch"
+
+[tasks.build-strict]
+description = "Build with warnings treated as failures"
+run = "python3 tools/build.py --out $OUT --strict"
+
+[tasks.check-links]
+description = "Internal links and anchors in the built site"
+run = "python3 tools/check_links.py $OUT"
+
+[tasks.check-external-links]
+description = "Outbound links, with lychee"
+run = "lychee --config lychee.toml $OUT"
+
+[tasks.check-spelling]
+description = "Spelling, over the whole repository"
+run = "typos"
+
+[tasks.check-code]
+description = "Type-check the example code under code/"
+run = "tools/check_code.sh"
+
+[tasks.check-epub]
+description = "The EPUB is a well-formed EPUB 3 container"
+run = "python3 tools/check_epub.py $OUT/book.epub"
+
+[tasks.check-worker]
+description = "The notes inbox worker"
+run = "node worker/notes-intake/test.mjs"
+
+[tasks.check-workflows]
+description = "The Actions definitions, and that every tool compiles"
+run = "python3 tools/check_workflows.py"
+
+[tasks.check-fleet]
+description = "Every brief routes to an agent, and the review builder's arithmetic"
+run = ["python3 tools/fleet_brief.py --self-test"]
+
+[tasks.check-format]
+description = "Typst source is formatted"
+run = "typstyle --check book/"
+
+[tasks.format]
+description = "Format the Typst source in place"
+run = "typstyle --inplace book/"
+
+[tasks.check]
+description = "Every gate CI runs"
+# The three pull requests still open each add a gate -- check-prose (#66),
+# check-skill (#60) and the review builder's self-test (#61). They add a
+# Makefile target today; whichever merges after this one adds a task instead.
+depends = [
+  "build-strict", "check-links", "check-epub", "check-worker", "check-code",
+  "check-workflows", "check-fleet", "check-format", "check-spelling",
+]
+run = "echo 'all checks passed'"
+
+[tasks.notes]
+description = "Download a source into notes/ (mise run notes -- URL)"
+run = "python3 tools/ingest_notes.py"
+
+[tasks.reindex-notes]
+description = "Rebuild notes/index.md"
+run = "python3 tools/ingest_notes.py --reindex"
+
+[tasks.fleet-report]
+description = "Judge the fleet: runs, cost, branches, what is stuck"
+run = "python3 tools/fleet_report.py --days $DAYS --html build/fleet-report.html"
+
+[tasks.clean]
+description = "Remove build output"
+run = "rm -rf $OUT build"

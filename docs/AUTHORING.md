@@ -6,7 +6,7 @@ pipeline has opinions.
 ## The loop
 
 ```sh
-make serve
+mise run serve
 ```
 
 Builds the site, serves it on <http://127.0.0.1:8000>, and rebuilds on every
@@ -26,7 +26,7 @@ substring, which is why chapter files carry a numeric prefix.
 Before opening a pull request:
 
 ```sh
-make check
+mise run check
 ```
 
 which is exactly what CI runs.
@@ -98,7 +98,7 @@ fn main() {}
 ````
 
 Anything you want a compiler to keep honest goes in `code/` and is quoted with
-`#snippet` -- see [code/README.md](../code/README.md). `make check-code`
+`#snippet` -- see [code/README.md](../code/README.md). `mise run check-code`
 type-checks those files, so a listing cannot rot silently.
 
 ### Tables
@@ -148,7 +148,7 @@ on the next build.
 
 ## What the pipeline rejects
 
-`make check` (and CI) fails on:
+`mise run check` (and CI) fails on:
 
 - a Typst error, and on any Typst warning that is not the known
   "html export is under active development" notice;
@@ -188,7 +188,7 @@ Math, DejaVu Sans Mono) and builds with `--ignore-system-fonts`, so it renders
 identically on every machine. To use another font, put the file in
 `book/fonts/`, add `--font-path book/fonts` to the Typst calls in
 `tools/build.py`, and name it in `book/lib/theme.typ`. List only families that
-actually resolve: Typst warns about unknown families, and `make check` treats
+actually resolve: Typst warns about unknown families, and `mise run check` treats
 warnings as failures.
 
 The website uses system font stacks, so it loads no webfonts at all.

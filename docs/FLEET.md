@@ -64,7 +64,7 @@ generic instruction:
 
 The briefs live in `.claude/fleet/*.md`, not in the workflow, so changing what
 an agent is told on a given occasion is a readable diff. `tools/fleet_brief.py`
-routes the occasion to a brief and fills it in; `make check` runs its
+routes the occasion to a brief and fills it in; `mise run check` runs its
 self-test, because a broken brief is a fleet outage that would otherwise only
 show itself at 07:00 on a Monday.
 
