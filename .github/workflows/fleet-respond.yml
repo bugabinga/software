@@ -24,6 +24,11 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  # claude-code-action exchanges an OIDC token to authenticate, and asks
+  # for this by name: without it the run fails with "Could not fetch an OIDC
+  # token" after the credential has already resolved, which reads like a bad
+  # secret and is not.
+  id-token: write
 
 concurrency:
   # Per pull request, and never cancelled: a half-applied set of review fixes

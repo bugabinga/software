@@ -52,6 +52,11 @@ permissions:
   contents: write
   pull-requests: write
   issues: write
+  # claude-code-action exchanges an OIDC token to authenticate, and asks
+  # for this by name: without it the run fails with "Could not fetch an OIDC
+  # token" after the credential has already resolved, which reads like a bad
+  # secret and is not.
+  id-token: write
 
 # One agent at a time. Two agents pushing branches from the same base and
 # reading each other's half-finished work is not a race worth having.
