@@ -31,11 +31,15 @@ concurrency:
 jobs:
   deploy:
     name: Preview
-    # Only pull requests, and only ones that built. A red CI has nothing worth
-    # previewing, and a push to `main` is what `publish.yml` is for.
+    # Only pull requests from this repository, and only ones that built. A
+    # red CI has nothing worth previewing, and a push to `main` is what
+    # `publish.yml` is for. `workflow_run` is privileged -- secrets and a
+    # write token, in `main`'s context -- for a fork's pull request as much
+    # as for a branch's, so the head repository is checked, not assumed.
     if: >-
       github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'success'
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     environment: Cloudflare
     runs-on: ubuntu-latest
     permissions:
