@@ -118,7 +118,7 @@ jobs:
             --assets dist \
             --compatibility-date 2026-09-12 | tee /tmp/deploy.log
 
-          url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' /tmp/deploy.log | head -1)
+          url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' /tmp/deploy.log | head -1 || true)
           if [ -z "$url" ]; then
             echo "::warning::deployed, but wrangler printed no URL to link"
             exit 0
