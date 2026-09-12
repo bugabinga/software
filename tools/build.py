@@ -42,6 +42,12 @@ if sys.version_info < (3, 11):
 
 import tomllib
 
+# A sibling module, so the directory this file lives in has to be importable
+# when the script is run by path from anywhere.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from epub import build_epub  # noqa: E402 - after the path is set up
+
 ROOT = Path(__file__).resolve().parent.parent
 BOOK_DIR = ROOT / "book"
 SITE_DIR = ROOT / "site"
@@ -876,6 +882,33 @@ def write_site_files(book: Book, out_dir: Path, pdf: bool) -> None:
     (out_dir / "build-info.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
 
 
+def prune_stale_pages(book: Book, out_dir: Path) -> list[str]:
+    """Delete chapter directories for chapters that no longer exist.
+
+    Nothing removed a page when its chapter was renamed or dropped, so a local
+    `dist/` accumulated them -- `the-pipeline/` outlived the scaffolding it
+    came from by every chapter the book has had since. CI never noticed,
+    because it builds into an empty checkout, and that is exactly the shape of
+    fault worth removing: a gate that passes locally and means something
+    different there.
+
+    Conservative on purpose. A directory goes only if it holds nothing but an
+    `index.html`, sits directly under the output, and is neither a current
+    chapter nor somewhere another part of the pipeline writes.
+    """
+    keep = {chapter.slug for chapter in book.chapters} | {"assets", "badges", "fleet"}
+    removed = []
+    for entry in sorted(out_dir.iterdir()):
+        if not entry.is_dir() or entry.name in keep:
+            continue
+        if {child.name for child in entry.iterdir()} != {"index.html"}:
+            continue
+        (entry / "index.html").unlink()
+        entry.rmdir()
+        removed.append(entry.name)
+    return removed
+
+
 def write_badges(book: Book, out_dir: Path) -> None:
     """Shields endpoints for the README, generated rather than typed.
 
@@ -997,6 +1030,9 @@ def build(args: argparse.Namespace, binary: str) -> Book:
     single = build_single_page(book, out_dir)
     write_search_index(book, out_dir)
     copy_assets(out_dir)
+    for stale in prune_stale_pages(book, out_dir):
+        print(f"  removed stale page: {stale}/")
+    epub = build_epub(book, out_dir, cover=out_dir / "social-card.png")
     write_badges(book, out_dir)
     write_site_files(book, out_dir, pdf=not args.no_pdf)
     elapsed = time.perf_counter() - started
@@ -1009,6 +1045,10 @@ def build(args: argparse.Namespace, binary: str) -> Book:
     print(
         f"  single file: {single.relative_to(ROOT)} "
         f"({single.stat().st_size / 1024:.0f} KB)"
+    )
+    print(
+        f"  epub:        {epub.relative_to(ROOT)} "
+        f"({epub.stat().st_size / 1024:.0f} KB)"
     )
     print(
         f"built {len(book.chapters)} chapters, {words:,} words "

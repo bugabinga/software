@@ -1,7 +1,16 @@
 name: Release
 
-# Tagging `v*` publishes a release with the PDF and a zip of the website, so
-# every edition of the book is downloadable and archived.
+# Tagging `v*` publishes an edition: the same book in every shape it has.
+#
+# The website is always current and always changing; a release is the opposite
+# and that is its job. It is the version somebody can cite, hand to a reader
+# with no network, or come back to in five years and find unchanged. So the
+# formats attached here are the ones that survive on their own -- a PDF, an
+# EPUB, one self-contained HTML file, and the site as a zip -- and none of
+# them needs this repository or a running server to be read.
+#
+# What is deliberately not attached: the fleet's reports and any other
+# machinery. A release is the book.
 
 on:
   push:
@@ -20,7 +29,7 @@ jobs:
     name: Attach the book to the release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ inputs.tag || github.ref }}
 
@@ -32,14 +41,51 @@ jobs:
         run: |
           set -euo pipefail
           tag="${{ inputs.tag || github.ref_name }}"
-          slug=$(python3 -c "import json;print(json.load(open('dist/build-info.json'))['title'].lower().replace(' ','-'))")
+
+          # Named from the title in book.toml, so the download says what the
+          # book is called rather than what the repository is called. The
+          # title is still a placeholder, and this is one of the places that
+          # will quietly start being right when it stops being one.
+          slug=$(python3 - <<'SLUG'
+          import json, re
+          title = json.load(open("dist/build-info.json"))["title"]
+          print(re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-"))
+          SLUG
+          )
+
           mkdir -p release
-          cp dist/book.pdf "release/${slug}-${tag}.pdf"
+          cp dist/book.pdf   "release/${slug}-${tag}.pdf"
+          cp dist/book.epub  "release/${slug}-${tag}.epub"
+          cp dist/book.html  "release/${slug}-${tag}.html"
           (cd dist && zip -qr "../release/${slug}-${tag}-site.zip" .)
+
+          # A reader who downloads a file years from now should be able to
+          # tell whether it is the file that was published.
+          (cd release && sha256sum ./* > SHA256SUMS.txt)
+
+          {
+            echo "### ${slug} ${tag}"
+            echo
+            echo "| file | size |"
+            echo "| --- | --- |"
+            for f in release/*; do
+              printf '| `%s` | %s |\n' "$(basename "$f")" "$(du -h "$f" | cut -f1)"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
+      # A malformed EPUB opens in one reader and not another, and the reader
+      # who finds out is not the one who can fix it. The build already refuses
+      # to write a container whose documents are not well-formed; this checks
+      # the artefact that is actually being published.
+      - name: Check the EPUB before publishing it
+        run: |
+          set -euo pipefail
+          python3 tools/check_epub.py "release/"*.epub
+
       - name: Publish the release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3
         with:
           tag_name: ${{ steps.assets.outputs.tag }}
           generate_release_notes: true
