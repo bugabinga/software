@@ -40,7 +40,7 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 2
 
@@ -123,10 +123,19 @@ jobs:
             if ! gh api "repos/$REPO/git/ref/heads/$branch" > /dev/null 2>&1; then
               reason="\`$branch\` no longer exists."
             else
-              merged=$(gh api "repos/$REPO/pulls?head=${REPO%%/*}:$branch&state=all" \
-                --jq '[.[] | select(.merged_at != null)][0].number // empty')
+              pulls=$(gh api "repos/$REPO/pulls?head=${REPO%%/*}:$branch&state=all")
+              merged=$(echo "$pulls" | jq -r '[.[] | select(.merged_at != null)][0].number // empty')
+              opened=$(echo "$pulls" | jq -r '[.[] | select(.state == "open")][0].number // empty')
               if [ -n "$merged" ]; then
                 reason="\`$branch\` was merged in #$merged."
+              elif [ -n "$opened" ]; then
+                # A notice is filed when no pull request exists, and says so.
+                # Once one does, the notice is answering a question nobody is
+                # asking any more and the pull request is where the branch is
+                # discussed. Without this the notice outlives the thing it
+                # was about: #53 was still open for `agent/epub` after its
+                # pull request had been reviewed.
+                reason="#$opened now tracks \`$branch\`, which is where it is reviewed."
               fi
             fi
             [ -n "$reason" ] || continue
