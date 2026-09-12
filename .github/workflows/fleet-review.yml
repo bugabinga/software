@@ -37,22 +37,32 @@ jobs:
   review:
     name: Fleet review
     if: github.event.pull_request.draft == false
+    # The credential is an environment secret, so the job has to name the
+    # environment to see it at all. If this name is wrong the secret is
+    # simply absent and the run says so rather than failing obscurely.
+    environment: Fleet
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - name: Is there a key to review with
+      - name: Is there a credential to run with
         id: key
         env:
-          CLAUDE_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          if [ -z "${CLAUDE_KEY:-}" ]; then
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No API key, so no review happened. This check passes so that adding it to the ruleset before the fleet is armed cannot lock the repository -- but it is not a review, and it should not be a required check until a key exists."
-          else
+          set -uo pipefail
+          if [ -n "${OAUTH:-}" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::running with CLAUDE_CODE_OAUTH_TOKEN"
+          elif [ -n "${API_KEY:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::running with ANTHROPIC_API_KEY"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No credential, so no review happened. This check passes so that requiring it before the fleet is armed cannot lock the repository -- but it is not a review."
           fi
 
       - name: Build the reviewer's brief
@@ -76,6 +86,10 @@ jobs:
         if: steps.key.outputs.present == 'true'
         uses: anthropics/claude-code-action@v1
         with:
+          # Either credential works. The OAuth token is a Claude subscription;
+          # the API key bills separately. Whichever is set in the environment
+          # is the one the action uses.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: ${{ env.BRIEF }}
           claude_args: >-

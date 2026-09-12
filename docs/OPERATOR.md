@@ -65,9 +65,10 @@ Three parties, and confusing them is the operator's characteristic failure.
 
 ## Owed
 
-- **Delete the two interim Routines** (daily sweep, monthly prose) as soon as
-  an `ANTHROPIC_API_KEY` secret exists, or the scheduled work runs twice: once
-  from `fleet.yml`, once from a fired session. See `docs/FLEET.md`.
+- **The fleet is armed**: `CLAUDE_CODE_OAUTH_TOKEN` on the `Fleet`
+  environment. The two interim Routines were deleted when it landed, because
+  the weekly and monthly work would otherwise have run twice -- once from
+  `fleet.yml`, once from a fired session.
 - **Pages is live** at <https://bugabinga.github.io/software/>, serving the
   `gh-pages` branch. Verified: index, a chapter, the PDF and the single-file
   build all return 200.

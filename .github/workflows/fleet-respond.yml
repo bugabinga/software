@@ -42,6 +42,10 @@ jobs:
       github.event.pull_request.draft == false &&
       github.actor != 'github-actions[bot]' &&
       (github.event.review.state != 'approved' || github.event.review.body != '')
+    # The credential is an environment secret, so the job has to name the
+    # environment to see it at all. If this name is wrong the secret is
+    # simply absent and the run says so rather than failing obscurely.
+    environment: Fleet
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -50,16 +54,22 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - name: Is there a key to respond with
+      - name: Is there a credential to run with
         id: key
         env:
-          CLAUDE_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          if [ -z "${CLAUDE_KEY:-}" ]; then
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No API key, so the review feedback on this pull request is unanswered. Nothing is lost -- the comments are still on the thread -- but nobody is acting on them."
-          else
+          set -uo pipefail
+          if [ -n "${OAUTH:-}" ]; then
             echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::running with CLAUDE_CODE_OAUTH_TOKEN"
+          elif [ -n "${API_KEY:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::running with ANTHROPIC_API_KEY"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No credential, so the review feedback on this pull request is unanswered. The comments are still on the thread, but nobody is acting on them."
           fi
 
       - name: Build the responder's brief
@@ -85,6 +95,10 @@ jobs:
         if: steps.key.outputs.present == 'true'
         uses: anthropics/claude-code-action@v1
         with:
+          # Either credential works. The OAuth token is a Claude subscription;
+          # the API key bills separately. Whichever is set in the environment
+          # is the one the action uses.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: ${{ env.BRIEF }}
           claude_args: >-
