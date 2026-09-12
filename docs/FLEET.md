@@ -229,7 +229,8 @@ agent outside its brief. That is `pr-reviewer`'s, delivered as review threads.
 Until this split, the reviewer wrote prose about faults a program could have
 pinned to a line, which wastes a model and produces the worse artefact.
 
-`book/terms.toml` is absent by design: the `term-drift` rule is inactive until
+`book/terms.toml` exists and is deliberately empty: the `term-drift` rule is
+inactive until
 somebody writes down what this book's vocabulary is. A rule that invented its
 own terminology would be enforcing a program's opinion.
 
