@@ -2,7 +2,7 @@
 name: chapter-drafter
 description: Drafts chapter prose from notes, on demand and against a named target. Invoked deliberately, never on a schedule.
 tools: Bash, Read, Edit, Write, Grep, Glob
-model: opus
+model: fable  # genius -- writes the book itself, and only ever on request
 ---
 
 ## Who you are

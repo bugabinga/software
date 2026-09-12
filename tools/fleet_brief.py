@@ -16,8 +16,8 @@ Usage:
     tools/fleet_brief.py --list
     tools/fleet_brief.py --self-test
 
-Prints the filled-in brief on stdout, and `agent=` / `branch=` lines to the
-path in $GITHUB_OUTPUT when that is set.
+Prints the filled-in brief on stdout, and `agent=` / `branch=` / `model=`
+lines to the path in $GITHUB_OUTPUT when that is set.
 """
 
 from __future__ import annotations
@@ -78,6 +78,48 @@ def agent_from_issue(body: str, known: set[str]) -> str | None:
         return None
     candidate = chosen.split()[0].strip("`*_")
     return candidate if candidate in known else None
+
+
+# Three tiers, and the words are the author's: workhorse, smart, genius.
+#
+# The tier is the decision -- how much thinking this job is worth -- and the
+# model id is an implementation of it that will change. Keeping them apart
+# means a new model is one line here rather than six agent definitions.
+#
+#   workhorse  often, and mechanical
+#   smart      everything else, which is most judgement
+#   genius     important and rare: the two agents that touch the book itself
+MODELS = {
+    "sonnet": "claude-sonnet-5",
+    "opus": "claude-opus-5",
+    "fable": "claude-fable-5-1",
+}
+DEFAULT_MODEL = "opus"
+
+
+def model_of(agent: str) -> str:
+    """The model id an agent's definition asks for.
+
+    The `model:` line was decorative until now: these definitions are briefs
+    the agent is told to read, not Claude Code subagents, so nothing was
+    reading their frontmatter. The workflow passes `--model` with whatever
+    this returns, which makes the declaration load-bearing.
+    """
+    path = AGENTS / f"{agent}.md"
+    alias = DEFAULT_MODEL
+    if path.is_file():
+        match = FRONTMATTER.match(path.read_text(encoding="utf-8"))
+        if match:
+            for line in match.group(1).splitlines():
+                if line.startswith("model:"):
+                    alias = line.split(":", 1)[1].split("#")[0].strip() or DEFAULT_MODEL
+                    break
+    if alias not in MODELS:
+        raise BriefError(
+            f".claude/agents/{agent}.md asks for model {alias!r}; "
+            f"known tiers: {', '.join(sorted(MODELS))}"
+        )
+    return MODELS[alias]
 
 
 def load(trigger: str) -> tuple[dict[str, str], str]:
@@ -191,6 +233,22 @@ def self_test() -> None:
         print(failure, file=sys.stderr)
     if failures:
         sys.exit(f"{len(failures)} brief(s) broken")
+
+    # Every agent resolves to a real model. A typo in a `model:` line would
+    # otherwise surface as a workflow failing at the moment it was needed.
+    for definition in sorted(AGENTS.glob("*.md")):
+        try:
+            resolved = model_of(definition.stem)
+        except BriefError as error:
+            failures.append(str(error))
+            continue
+        print(f"{definition.stem:<20} -> {resolved}")
+
+    for failure in failures:
+        print(failure, file=sys.stderr)
+    if failures:
+        sys.exit(f"{len(failures)} agent(s) ask for a model that does not exist")
+
     print(f"\n{len(list(BRIEFS.glob('*.md')))} briefs, all route to a defined agent")
 
 
@@ -257,7 +315,7 @@ def main() -> None:
 
     if output := os.environ.get("GITHUB_OUTPUT"):
         with Path(output).open("a", encoding="utf-8") as handle:
-            handle.write(f"agent={agent}\nbranch={branch}\n")
+            handle.write(f"agent={agent}\nbranch={branch}\nmodel={model_of(agent)}\n")
     print(body)
 
 

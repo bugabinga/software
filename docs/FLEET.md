@@ -324,6 +324,37 @@ Three workflows, three verbs, so it is clear which to look at:
 | `fleet-review.yml` | judge it | a check, and a comment |
 | `fleet-respond.yml` | answer feedback | the pull request's own branch |
 
+## Which model runs which agent
+
+Three tiers, and the words are the author's.
+
+| Tier | Model | For |
+| --- | --- | --- |
+| workhorse | `claude-sonnet-5` | often, and mechanical |
+| smart | `claude-opus-5` | everything else, which is most judgement |
+| genius | `claude-fable-5-1` | important and rare |
+
+| Agent | Tier | Why |
+| --- | --- | --- |
+| `chapter-drafter` | genius | writes the book itself, and only on request |
+| `notes-cartographer` | genius | decides the book's shape, once a note arrives |
+| `pr-reviewer` | smart | the gate; a careless pass is worse than no review |
+| `review-responder` | smart | must resist deference, which is judgement |
+| `prose-editor` | smart | what is left after the scanner is judgement |
+| `pipeline-gardener` | workhorse | weekly and on every CI failure; mechanical |
+
+The tier lives in the agent's own `model:` frontmatter and the mapping lives
+in `tools/fleet_brief.py`, which resolves one to the other and writes `model=`
+for the workflow to pass as `--model`. It was decorative before that: these
+definitions are briefs an agent is told to read, not Claude Code subagents, so
+nothing read their frontmatter and every agent ran on the action's default --
+which is how `pr-reviewer` gated eight merges on Haiku without anyone
+noticing.
+
+What the tier asks for and what actually served are different facts. The
+weekly report records the second, per agent, because a fallback under load
+changes it and nothing else in the repository would say so.
+
 ## The merge policy
 
 The author's standing decision: **everything arrives as a pull request, and
