@@ -23,6 +23,17 @@ Deterministic work that a script does better than a model.
 
 ## 2. Agents (judgement, on a schedule or on demand)
 
+Each definition in `.claude/agents/` opens with **who that agent is** — its
+voice, the one thing it protects, what it refuses, and its characteristic
+failure. They are deliberately unalike, and some of them disagree: the
+cartographer keeps moving the book, the prose editor needs it to stand still;
+the reviewer's job is *no*, the responder's is to end the exchange. Those
+tensions are load-bearing. Do not smooth them out.
+
+House style for every worker is in `CLAUDE.md` — terse, link rather than
+restate, long code comments and short reports.
+
+
 Defined in `.claude/agents/`, so a scheduled session, an interactive session
 and the GitHub-side bot all run the same agent rather than improvising.
 
