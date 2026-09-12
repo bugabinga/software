@@ -99,7 +99,11 @@ jobs:
       #
       # `--fail-on never` because the gate is the ruleset's, not this step's:
       # a warning should annotate and not redden a build.
+      - name: Check the prose scanner
+        run: python3 tools/prose_scan.py --self-test
+
       - name: Scan the prose
+        run: python3 tools/prose_scan.py --sarif build/prose.sarif --fail-on never
         run: python3 tools/prose_scan.py --sarif build/prose.sarif --fail-on never
 
       - name: Upload what it found
