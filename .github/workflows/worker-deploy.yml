@@ -13,7 +13,8 @@ name: Worker deploy
 # library and pinned binaries, and wrangler is one of them: `mise.toml`.
 # Two workflows run it, this one and `preview.yml`, and nothing else:
 # nothing a contributor runs needs node, `mise run check` does not, and the
-# Worker itself is one file of plain JavaScript with no dependencies. Hand-rolling the script-upload API instead would have kept
+# Worker itself is one file of plain JavaScript with no dependencies.
+# Hand-rolling the script-upload API instead would have kept
 # npm out entirely, at the cost of writing an untestable multipart request
 # against an API this session cannot reach. Wrangler is the supported path and
 # it is pinned exactly, which is the same bargain as `.typst-version`.
@@ -55,7 +56,13 @@ jobs:
       # to be `npx --yes wrangler@$WRANGLER_VERSION` against a version pinned
       # in this file's `env:` -- a second pin of a version the manifest
       # already held, free to drift from it, and the last `npx` in the tree.
+      # `install_args: wrangler` because the default is `mise install` over
+      # the whole manifest -- typst, node, lychee, biome, ty, actionlint --
+      # to run one tool once. `ci.yml` already refuses a second mise-action
+      # step for the same reason; this is the same money.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install_args: wrangler
 
       # The Worker is testable without Cloudflare, without wrangler and
       # without a credential, so there is no excuse for deploying it

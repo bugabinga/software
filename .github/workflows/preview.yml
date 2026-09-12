@@ -56,7 +56,13 @@ jobs:
       # comes from `main`; only `dist/` comes from the pull request, and it
       # is data.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # `install_args: wrangler` because the default is `mise install` over
+      # the whole manifest -- typst, node, lychee, biome, ty, actionlint --
+      # to run one tool once. `ci.yml` already refuses a second mise-action
+      # step for the same reason; this is the same money.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install_args: wrangler
 
       # `workflow_run` carries the commit, not the pull request: the payload's
       # `pull_requests` array is empty for anything but a same-repo branch,
@@ -169,8 +175,9 @@ jobs:
       # `Cloudflare` environment anyway, which is restricted to `main`. The
       # cost of putting it here is that a closed pull request's Worker
       # survives until some other pull request pushes and passes CI; the
-      # comment posted above says so rather than promising otherwise. The account's Worker limit is what a leak of
-      # dead previews eventually costs, and it costs it silently.
+      # comment posted above says so rather than promising otherwise. The
+      # account's Worker limit is what a leak of dead previews eventually
+      # costs, and it costs it silently.
       - name: Delete the previews whose pull requests have closed
         if: steps.key.outputs.present == 'true'
         env:

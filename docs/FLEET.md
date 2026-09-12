@@ -163,9 +163,11 @@ archive.
 
 ## Previews
 
-Every pull request gets a URL, posted as a comment and replaced on each push.
-`preview.yml` deploys the site CI already built as an assets-only Cloudflare
-Worker named `book-pr-<number>`.
+Every pull request from this repository gets a URL once CI is green, posted
+as a comment and replaced on each push. `preview.yml` deploys the site CI
+already built as an assets-only Cloudflare Worker named `book-pr-<number>`.
+A fork's gets none: `workflow_run` would hand it the credential, so the head
+repository is checked rather than assumed.
 
 It runs on `workflow_run` rather than as a step in `ci.yml`, and that is the
 whole design. The Cloudflare credential is an environment secret and the
@@ -175,13 +177,17 @@ job executes in `main`'s context, so it satisfies that restriction instead of
 loosening it, and needs no second token. The cost is one extra job per push,
 which is one billed minute.
 
-Previews delete themselves. Each run reaps the Workers whose pull requests
-have closed, because it is already awake and already holding the credential;
-a schedule or a `pull_request: closed` trigger would be another run. The
-naming and the matching live together in `tools/preview.py` and are tested
-against each other: a reaper that matches loosely deletes somebody else's
-Worker on the same account, and one that matches too tightly leaks previews
-until the account's limit stops the next deploy. Both fail quietly.
+Previews delete themselves, but not when the pull request closes: the reaper
+runs inside the next `Preview` job, and that job needs an open pull request
+of its own to have pushed and passed CI. Close the last one and its Worker
+survives until another is built. It rides along there because that run is
+already awake and already holding the credential; a schedule or a
+`pull_request: closed` trigger would each be another run, and `pull_request`
+cannot reach the `Cloudflare` environment anyway. The naming and the matching
+live together in `tools/preview.py` and are tested against each other: a
+reaper that matches loosely deletes somebody else's Worker on the same
+account, and one that matches too tightly leaks previews until the account's
+limit stops the next deploy. Both fail quietly.
 
 ## Standalone pages
 
