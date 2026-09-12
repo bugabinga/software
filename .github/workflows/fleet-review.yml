@@ -162,6 +162,19 @@ jobs:
             --max-turns 40
             --allowedTools "Bash,Read,Grep,Glob"
 
+      # The evidence, kept. `tools/fleet_report.py` reads this to say what the
+      # fleet cost and how hard it worked; without it the weekly report can
+      # only count runs. `always()` because a run that failed is exactly the
+      # one worth having a record of.
+      - name: Keep the run's record
+        if: always() && steps.key.outputs.present == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fleet-run-${{ github.run_id }}
+          path: ${{ runner.temp }}/claude-execution-output.json
+          if-no-files-found: ignore
+          retention-days: 90
+
       # The verdict is a file, not a mood. A reviewer that fell over, ran out
       # of turns, or decided to say nothing leaves no file, and that counts as
       # a failure: silence must never read as approval.
