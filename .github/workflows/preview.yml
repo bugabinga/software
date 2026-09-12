@@ -71,7 +71,7 @@ jobs:
       # `node` is named as well as `wrangler`, and must be: wrangler is an
       # npm-backed tool, so mise refuses it with "requires configured install
       # dependency 'node@26.8.2', but its selected version is not installed".
-      # Naming only wrangler is what broke run 34716781035 on the merge that
+      # Naming only wrangler is what broke run 34717175289 on the merge that
       # introduced this line.
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:

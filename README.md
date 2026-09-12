@@ -8,8 +8,8 @@
 
 [![The book's cover card](https://bugabinga.github.io/software/social-card.png)](https://bugabinga.github.io/software/)
 
-> **The title is a placeholder.** `A Book Written in Types` was invented by
-> the build so that something could be rendered. It has not been chosen.
+> **The title is a placeholder.** The one above was invented by the build so
+> that something could be rendered. It has not been chosen.
 
 One programmer's thoughts about software. There is no overarching thesis, and
 [the preface](book/chapters/00-preface.typ) says that is a decision rather
@@ -40,10 +40,11 @@ Two pages on the site are not the book, and are listed at the foot of its
 front page: the [skill generator](https://bugabinga.github.io/software/skill/)
 and the [fleet report](https://bugabinga.github.io/software/fleet/).
 
-**Every chapter is a stub.** Each carries its title, one paragraph of what it
-will argue, and a comment naming the lines of the author's notes it came from.
-The word count in the badge is those paragraphs; none of the book is written
-yet.
+**Every chapter of the book is a stub.** Each carries its title, one
+paragraph of what it will argue, and a comment naming the lines of the
+author's notes it came from. The prelude reference is the exception -- it is
+documentation, not a chapter, and 187 of the badge's words are its. None of
+the book itself is written yet.
 
 ---
 
