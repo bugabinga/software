@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "mise install"
+            "command": "tools/bootstrap-mise.sh"
           },
           {
             "type": "command",

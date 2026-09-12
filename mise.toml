@@ -132,7 +132,12 @@ run = "node worker/notes-intake/test.mjs"
 
 [tasks.check-workflows]
 description = "The Actions definitions, and that every tool compiles"
-run = ["actionlint", "python3 tools/check_workflows.py"]
+# `-S warning` because bare actionlint surfaces shellcheck `info` and
+# `style` too, and four of the six it found here are `gh api --jq '..'`
+# expressions where the `$` is jq's and single quotes are the only
+# correct spelling. A gate whose findings you must not act on teaches
+# people to skip it.
+run = ["SHELLCHECK_OPTS='-S warning' actionlint", "python3 tools/check_workflows.py"]
 
 [tasks.check-fleet]
 description = "Every brief routes to an agent, and the review builder's arithmetic"

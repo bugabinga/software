@@ -51,7 +51,7 @@ request with red CI is more urgent than anything below it).
 ## Tools
 
 Scheduled sessions are fired without MCP tools, so GitHub is reached through
-`gh`, which the SessionStart hook installs (`tools/install-gh.sh`, pinned in
+`gh`, which the SessionStart hook installs (`mise install`, pinned in
 `mise.toml`). Reads are unrestricted; a *mutating* command may still be
 refused by the local permission layer. If one is, do not improvise a way
 around it -- use the GitHub MCP tools if this session has them, and otherwise

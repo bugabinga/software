@@ -63,8 +63,15 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
 
+      # No `mise-action` step here on purpose. `build-book` runs one as its
+      # own first step, and every later step in this job uses the toolchain
+      # it leaves behind. A second one before it was a whole extra setup and
+      # cache restore on the job that runs for every push and every pull
+      # request, to install what the next step installs anyway.
+      #
+      # `maintenance.yml` still needs its own, because it reads the pins
+      # before it builds anything.
       - name: Build the book
         uses: ./.github/actions/build-book
 

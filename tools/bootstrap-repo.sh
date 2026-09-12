@@ -16,8 +16,8 @@ repo=${REPO:-bugabinga/software}
 gh=${GH:-gh}
 
 if ! command -v "$gh" > /dev/null 2>&1; then
-  echo "gh is not installed. tools/install-gh.sh puts it in .tools/gh/gh," >&2
-  echo "or set GH=/path/to/gh." >&2
+  echo "gh is not installed. tools/bootstrap-mise.sh installs the pinned" >&2
+  echo "toolchain, or set GH=/path/to/gh." >&2
   exit 1
 fi
 
