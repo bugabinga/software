@@ -945,15 +945,19 @@ def write_site_files(book: Book, out_dir: Path, pdf: bool) -> None:
 def write_fleet_placeholder(book: Book, out_dir: Path) -> None:
     """A page at `fleet/` before there is a report to put there.
 
-    `publish.yml` writes the real one over this, from `report.html` on the
-    `fleet-log` branch. Until Monday's first run there is nothing to write,
-    and the landing page links here regardless -- so without this the link
-    check fails the build, and removing the link instead would hide the page
-    from the only place it is advertised.
+    `publish.yml` builds first and folds the report in afterwards, so this
+    always writes and is always overwritten when there is a report. Until
+    Monday's first run there is nothing to overwrite it with, and the landing
+    page links here regardless -- so without this the link check fails the
+    build, and removing the link instead would hide the page from the only
+    place it is advertised.
+
+    Written unconditionally on purpose. An `if target.exists(): return` here
+    looks protective and is not: nothing writes this file before the build,
+    and the only thing it changes is that a stale placeholder in a reused
+    local `dist/` becomes permanent.
     """
     target = out_dir / "fleet" / "index.html"
-    if target.exists():
-        return
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
         render(
