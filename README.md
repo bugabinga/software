@@ -114,8 +114,9 @@ tools/
   bootstrap-mise.sh  installs mise and the pinned toolchain
   summary.py      the Markdown summary CI posts
 .github/
-  actions/build-book/   one build definition, shared by all three workflows
-  workflows/            ci.yml, publish.yml, release.yml
+  actions/build-book/   one build definition, used by the four workflows
+                        that need a built book
+  workflows/            fifteen, listed in docs/FLEET.md
 ```
 
 ## How the build works

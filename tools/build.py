@@ -590,11 +590,11 @@ STANDALONE = [
 def check_standalone() -> None:
     """Every standalone directory in `site/` is listed, and every listing real.
 
-    `docs/FLEET.md` promises that adding a standalone page is "a directory and
-    nothing else". Without this that became false the moment the list arrived:
-    the directory would still be copied and still survive the pruner, and be
-    linked from nowhere -- the exact fault the list exists to fix, waiting for
-    the next page.
+    `docs/FLEET.md` says a standalone page is a directory plus an entry in
+    `STANDALONE`, and names this check as what enforces it. Without it that
+    sentence would be a promise rather than a rule: the directory would still
+    be copied and still survive the pruner, and be linked from nowhere -- the
+    exact fault the list exists to fix, waiting for the next page.
 
     `fleet/` is listed and is not a directory in `site/`: it is written by
     `write_fleet_placeholder` and replaced by `publish.yml`. So the check runs
