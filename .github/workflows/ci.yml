@@ -17,9 +17,27 @@ permissions:
   contents: read
 
 concurrency:
-  # Keyed on the branch rather than the ref, so a push and a pull request for
-  # the same head do not both run.
-  group: ci-${{ github.event.pull_request.head.ref || github.ref_name }}
+  # Keyed on the event as well as the branch, which reads like waste and is
+  # not.
+  #
+  # The group used to be the branch alone, so that a push and a pull request
+  # for the same head did not both run. What actually happened is that one
+  # cancelled the other, and both produce check runs named `Build`,
+  # `Outbound links` and `Spelling` -- the names the ruleset requires. A
+  # required check that reads *Canceled* is not a check that passed, and on
+  # #59 the pull request showed `CI / Build (push)` as `Required · Canceled
+  # after 2s` beside a successful `CI / Build (pull_request)` for the same
+  # commit.
+  #
+  # It did not block that merge, because the successful run was the later
+  # one. That is a race, not a design: the day a pull request run finishes
+  # first, the cancelled push run is the most recent check of that name and
+  # the merge is stuck with no way to satisfy it. Two runs cost a minute;
+  # this costs an afternoon.
+  #
+  # Superseding still works where it matters -- pushing twice to a branch
+  # cancels the first run, because those share both event and branch.
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.head.ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
