@@ -157,6 +157,28 @@ be scoped to "may only file a note", so without it that session would hold
 repository, verbatim and never edited. Cloudflare is the inbox, not the
 archive.
 
+## Previews
+
+Every pull request gets a URL, posted as a comment and replaced on each push.
+`preview.yml` deploys the site CI already built as an assets-only Cloudflare
+Worker named `book-pr-<number>`.
+
+It runs on `workflow_run` rather than as a step in `ci.yml`, and that is the
+whole design. The Cloudflare credential is an environment secret and the
+`Cloudflare` environment is restricted to `main` on purpose -- a deploy from a
+branch would be a stranger's Worker on the author's account. A `workflow_run`
+job executes in `main`'s context, so it satisfies that restriction instead of
+loosening it, and needs no second token. The cost is one extra job per push,
+which is one billed minute.
+
+Previews delete themselves. Each run reaps the Workers whose pull requests
+have closed, because it is already awake and already holding the credential;
+a schedule or a `pull_request: closed` trigger would be another run. The
+naming and the matching live together in `tools/preview.py` and are tested
+against each other: a reaper that matches loosely deletes somebody else's
+Worker on the same account, and one that matches too tightly leaks previews
+until the account's limit stops the next deploy. Both fail quietly.
+
 ## Standalone pages
 
 Reachable on the site, and deliberately not part of the book: no navigation,
