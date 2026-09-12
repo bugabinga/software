@@ -14,11 +14,11 @@ it as describing your job.
 
 Three parties, and confusing them is the operator's characteristic failure.
 
-| Party | Does |
-| --- | --- |
-| **The author** | Writes the book. Decides what it says, how it is structured, what it is built with. Thinks out loud in the content sessions, which arrive here as `notes/`. |
-| **The fleet** | Does the work on the book: proposes structure from notes, drafts against a named target, copyedits, keeps the pipeline alive. Defined in `.claude/agents/`, run per `docs/FLEET.md`. |
-| **The operator** | Runs the fleet. Tasks it, watches it, reviews what it produces, fixes it when it misbehaves, and improves it so it achieves more without being asked twice. |
+| Party            | Does                                                                                                                                                                                 |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **The author**   | Writes the book. Decides what it says, how it is structured, what it is built with. Thinks out loud in the content sessions, which arrive here as `notes/`.                          |
+| **The fleet**    | Does the work on the book: proposes structure from notes, drafts against a named target, copyedits, keeps the pipeline alive. Defined in `.claude/agents/`, run per `docs/FLEET.md`. |
+| **The operator** | Runs the fleet. Tasks it, watches it, reviews what it produces, fixes it when it misbehaves, and improves it so it achieves more without being asked twice.                          |
 
 ## What is the operator's job
 
@@ -80,7 +80,7 @@ Three parties, and confusing them is the operator's characteristic failure.
   `Fleet review` required.** Not a bypass actor, and not the bypass toggle,
   which is a decision taken once per pull request and remembered by nobody.
 
-  The author *can* approve in the meantime -- the fleet's pull requests are
+  The author _can_ approve in the meantime -- the fleet's pull requests are
   authored by `claude[bot]`, so approving them is not approving their own
   work -- but that is a click per pull request forever, which is the tax this
   whole arrangement exists to remove.

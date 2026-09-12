@@ -26,11 +26,11 @@ ceiling; the second is everything below it.
 
 Three layers, and only the first is on a web page:
 
-| Layer | Where | Who changes it |
-| --- | --- | --- |
-| **Ceiling** — what the app *could* ever do | GitHub App settings | you, once |
-| **Per workflow** — what a given workflow may do | `permissions:` in the workflow | a pull request |
-| **Per token** — what one step may do | `permission-*` inputs on the token action | a pull request |
+| Layer                                           | Where                                     | Who changes it |
+| ----------------------------------------------- | ----------------------------------------- | -------------- |
+| **Ceiling** — what the app _could_ ever do      | GitHub App settings                       | you, once      |
+| **Per workflow** — what a given workflow may do | `permissions:` in the workflow            | a pull request |
+| **Per token** — what one step may do            | `permission-*` inputs on the token action | a pull request |
 
 Nothing the fleet grows into needs the first layer touched again, because the
 ceiling already covers everything a book pipeline can want. Tightening happens
@@ -81,8 +81,8 @@ holding these could quietly widen its own authority, and no review after the
 fact would catch it.
 
 Everything else — Pages, Packages, Projects, Discussions, Security events,
-Dependabot secrets — is neither useful here nor dangerous. Leave it at *No
-access* and do not think about it again.
+Dependabot secrets — is neither useful here nor dangerous. Leave it at _No
+access_ and do not think about it again.
 
 `Workflows: write` is in the grant list and deserves a word, because it is the
 one people leave out. Without it, a token cannot push or merge any change
@@ -100,7 +100,7 @@ fails confusingly instead of stopping deliberately.
 3. **Homepage URL**: the repository's URL.
 4. **Webhook**: untick **Active**.
 5. **Repository permissions**: as above.
-6. **Where can this be installed?** *Only on this account.*
+6. **Where can this be installed?** _Only on this account._
 7. Create it, then note the **App ID**.
 8. **Private keys** → **Generate a private key**. A `.pem` downloads; it is
    shown once and is the whole of the app's authority.
@@ -114,7 +114,7 @@ fails confusingly instead of stopping deliberately.
       secret** → `FLEET_APP_PRIVATE_KEY`, the **entire** `.pem` including the
       `-----BEGIN`/`-----END` lines. Multi-line is correct here; the earlier
       newline problem was a token that had to fit in one HTTP header.
-    - On `Bot`, set **Deployment branches** to *Selected branches* → `main`.
+    - On `Bot`, set **Deployment branches** to _Selected branches_ → `main`.
 
 Then say so. Wiring the workflows is a pull request, not your job.
 
@@ -127,7 +127,7 @@ it, and permissions are edited on a web page months apart, so the failure mode
 is silence until the one call that needed the thing that went away.
 
 It fails on a missing essential, notes anything below the ceiling with what it
-would cost, and fails on anything in the *never grant* list. That last one is
+would cost, and fails on anything in the _never grant_ list. That last one is
 the check worth having: it is the only thing standing between a slip on that
 settings page and a fleet that can rewrite its own rules.
 
@@ -149,7 +149,7 @@ Every agent here works by making a branch with git and pushing it.
 
 1. `ssh-keygen -t ed25519 -f ~/.ssh/fleet_signing -N "" -C "fleet signing"`
 2. <https://github.com/settings/ssh/new> — paste `fleet_signing.pub`, and set
-   **Key type** to **Signing Key**. Not *Authentication Key*: that one signs
+   **Key type** to **Signing Key**. Not _Authentication Key_: that one signs
    nothing and fails silently.
 3. Settings → Environments → `Fleet` → **Add environment secret** →
    `FLEET_SSH_SIGNING_KEY`, the contents of the **private** file
@@ -160,12 +160,12 @@ Every agent here works by making a branch with git and pushing it.
 
 ## Where the credentials live
 
-| Credential | Where | Why there |
-| --- | --- | --- |
-| `CLAUDE_CODE_OAUTH_TOKEN` | `Fleet` environment | Buys model time. Only the three agent workflows need it. |
-| `FLEET_SSH_SIGNING_KEY` | `Fleet` environment | Same consumers, and it grants nothing. |
-| `FLEET_APP_ID` | repository variable | Not a secret. |
-| `FLEET_APP_PRIVATE_KEY` | `Bot` environment, `main` only | Write access to the repository. |
+| Credential                | Where                          | Why there                                                |
+| ------------------------- | ------------------------------ | -------------------------------------------------------- |
+| `CLAUDE_CODE_OAUTH_TOKEN` | `Fleet` environment            | Buys model time. Only the three agent workflows need it. |
+| `FLEET_SSH_SIGNING_KEY`   | `Fleet` environment            | Same consumers, and it grants nothing.                   |
+| `FLEET_APP_ID`            | repository variable            | Not a secret.                                            |
+| `FLEET_APP_PRIVATE_KEY`   | `Bot` environment, `main` only | Write access to the repository.                          |
 
 **Why the App key is not in `Fleet`.** The workflow that needs it,
 `agent-branches.yml`, is plumbing: no model, no judgement, it opens pull
@@ -179,7 +179,7 @@ has gone wrong.
 **Why `Fleet` cannot be locked to `main`.** It looks like obvious hardening and
 it does not work: `Fleet review` runs on `pull_request`, and its deployment
 records carry the pull request's head branch as the ref — `agent/badges`,
-`dependabot/github_actions/…`. A *Selected branches: main* rule would block
+`dependabot/github_actions/…`. A _Selected branches: main_ rule would block
 every review. `Bot` has no such consumer, so it has the rule.
 
 **The exposure that leaves.** `Fleet` is reachable from any branch here, so a

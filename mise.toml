@@ -62,15 +62,12 @@ ty = "0.0.80"
 # `node_modules`, and prettier is all three.
 biome = "2.5.13"
 
-# `.toml` and `.yml`, via two wasm plugins named in `dprint.json`.
-#
-# Markdown is deliberately not among them. dprint pads every table cell to the
-# width of the widest, which turns `docs/FLEET.md`'s workflow table into
-# 300-column lines in a repository whose prose is hard-wrapped at 80 because
-# the author reads it on a phone. A formatter that makes the source worse is
-# not worth the consistency, and this is the one place that trade goes the
-# other way.
+# `.md`, `.toml` and `.yml`, via three wasm plugins named in `dprint.json`.
 dprint = "0.57.4"
+
+# `.sh`. Four scripts and 195 lines, which was the last language here with no
+# formatter at all.
+shfmt = "3.14.1"
 
 # Only ever run in `worker-deploy.yml`. Recorded here so the version lives
 # with the others rather than in a workflow's `env:` block.
@@ -138,6 +135,7 @@ run = "python3 tools/build.py --out $OUT --strict"
 
 [tasks.check-links]
 description = "Internal links and anchors in the built site"
+depends = ["build-strict"]
 run = "python3 tools/check_links.py $OUT"
 
 [tasks.check-external-links]
@@ -154,6 +152,7 @@ run = "tools/check_code.sh"
 
 [tasks.check-epub]
 description = "The EPUB is a well-formed EPUB 3 container"
+depends = ["build-strict"]
 run = "python3 tools/check_epub.py $OUT/book.epub"
 
 [tasks.check-worker]
@@ -208,6 +207,7 @@ run = [
   "ruff format --check tools/",
   "biome format worker/ site/assets/ site/skill/",
   "dprint check",
+  "shfmt --diff $(git ls-files '*.sh')",
 ]
 
 [tasks.format]
@@ -217,6 +217,7 @@ run = [
   "ruff format tools/",
   "biome format --write worker/ site/assets/ site/skill/",
   "dprint fmt",
+  "shfmt --write $(git ls-files '*.sh')",
 ]
 
 [tasks.check-skill]

@@ -1,5 +1,5 @@
 ---
-agent: {{agent}}
+agent: "{{agent}}"
 branch: agent/issue-{{issue}}
 why: Somebody asked the fleet for something, by opening an issue and labelling it.
 ---

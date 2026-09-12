@@ -26,7 +26,7 @@ set -eu
 # not watch it.
 MISE_VERSION="${MISE_VERSION:-v2026.9.5}"
 
-if command -v mise > /dev/null 2>&1; then
+if command -v mise >/dev/null 2>&1; then
   mise install
   exit 0
 fi
@@ -36,7 +36,7 @@ curl -fsSL https://mise.run | MISE_VERSION="$MISE_VERSION" sh
 # The installer writes to ~/.local/bin, which is not necessarily on the PATH
 # of whatever invoked this -- a hook's shell is not a login shell.
 for candidate in mise "$HOME/.local/bin/mise" "$HOME/.mise/bin/mise"; do
-  if command -v "$candidate" > /dev/null 2>&1; then
+  if command -v "$candidate" >/dev/null 2>&1; then
     "$candidate" install
     exit 0
   fi

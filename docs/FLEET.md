@@ -10,16 +10,16 @@ and decreasing order of how often they run.
 
 Deterministic work that a script does better than a model.
 
-| Workflow | When | What |
-| --- | --- | --- |
-| `ci.yml` | every pull request and push to `main` | build, internal links, spelling, outbound links, example code; attaches the built site to the run and comments a preview link |
-| `publish.yml` | pushes to `main` | builds, then force-pushes the site to the `gh-pages` branch as a single orphan commit |
-| `release.yml` | `v*` tags | attaches the PDF and a zip of the site to a release |
-| `agent-branches.yml` | pushes to `agent/**` and `maintenance/**`, and CI completing | opens a pull request for a branch the fleet pushed where the repository permits it, and then merges green chores or reports everything else |
-| `fleet-report.yml` | Mondays 09:00 UTC | judges the fleet -- runs, failures, cost, turns, tokens, what each branch became, what is stuck -- and publishes one page to `<site>/fleet/`, appending a line to `history.jsonl` on the `fleet-log` branch so the record outlives the API's 90-day window |
-| `notes-reindex.yml` | pushes to `agent/note-**` | rebuilds `notes/index.md` after the Cloudflare inbox files a note, since the Worker writes one file and stops |
-| `worker-deploy.yml` | pushes to `main` touching `worker/**` | tests the notes inbox with plain node, then deploys it to Cloudflare and sets its secrets from the repository's |
-| `maintenance.yml` | Mondays 06:17 UTC | compares every pin in `mise.toml` against its upstream, bumps Typst and opens an upgrade pull request *if the book still builds and passes every gate on it*; re-runs the outbound link check and files one standing issue for dead links |
+| Workflow             | When                                                         | What                                                                                                                                                                                                                                                       |
+| -------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`             | every pull request and push to `main`                        | build, internal links, spelling, outbound links, example code; attaches the built site to the run and comments a preview link                                                                                                                              |
+| `publish.yml`        | pushes to `main`                                             | builds, then force-pushes the site to the `gh-pages` branch as a single orphan commit                                                                                                                                                                      |
+| `release.yml`        | `v*` tags                                                    | attaches the PDF and a zip of the site to a release                                                                                                                                                                                                        |
+| `agent-branches.yml` | pushes to `agent/**` and `maintenance/**`, and CI completing | opens a pull request for a branch the fleet pushed where the repository permits it, and then merges green chores or reports everything else                                                                                                                |
+| `fleet-report.yml`   | Mondays 09:00 UTC                                            | judges the fleet -- runs, failures, cost, turns, tokens, what each branch became, what is stuck -- and publishes one page to `<site>/fleet/`, appending a line to `history.jsonl` on the `fleet-log` branch so the record outlives the API's 90-day window |
+| `notes-reindex.yml`  | pushes to `agent/note-**`                                    | rebuilds `notes/index.md` after the Cloudflare inbox files a note, since the Worker writes one file and stops                                                                                                                                              |
+| `worker-deploy.yml`  | pushes to `main` touching `worker/**`                        | tests the notes inbox with plain node, then deploys it to Cloudflare and sets its secrets from the repository's                                                                                                                                            |
+| `maintenance.yml`    | Mondays 06:17 UTC                                            | compares every pin in `mise.toml` against its upstream, bumps Typst and opens an upgrade pull request _if the book still builds and passes every gate on it_; re-runs the outbound link check and files one standing issue for dead links                  |
 
 ### What a push costs
 
@@ -40,22 +40,21 @@ Each definition in `.claude/agents/` opens with **who that agent is** — its
 voice, the one thing it protects, what it refuses, and its characteristic
 failure. They are deliberately unalike, and some of them disagree: the
 cartographer keeps moving the book, the prose editor needs it to stand still;
-the reviewer's job is *no*, the responder's is to end the exchange. Those
+the reviewer's job is _no_, the responder's is to end the exchange. Those
 tensions are load-bearing. Do not smooth them out.
 
 House style for every worker is in `CLAUDE.md` — terse, link rather than
 restate, long code comments and short reports.
 
-
 Defined in `.claude/agents/`, so a scheduled session, an interactive session
 and the GitHub-side bot all run the same agent rather than improvising.
 
-| Agent | Beat | Never |
-| --- | --- | --- |
-| `pipeline-gardener` | Typst upgrades, CI failures, link rot, the tooling | edits prose; touches `notes/` |
-| `notes-cartographer` | reads `notes/`, proposes outline changes and chapter stubs | writes chapter prose; edits `notes/` |
-| `prose-editor` | copyediting, terminology drift, terms used before defined, stale cross-references | rewrites for style; changes what a paragraph claims |
-| `chapter-drafter` | drafts a chapter from notes, against a named target | runs on a schedule; invents citations or uncompiled listings |
+| Agent                | Beat                                                                              | Never                                                        |
+| -------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `pipeline-gardener`  | Typst upgrades, CI failures, link rot, the tooling                                | edits prose; touches `notes/`                                |
+| `notes-cartographer` | reads `notes/`, proposes outline changes and chapter stubs                        | writes chapter prose; edits `notes/`                         |
+| `prose-editor`       | copyediting, terminology drift, terms used before defined, stale cross-references | rewrites for style; changes what a paragraph claims          |
+| `chapter-drafter`    | drafts a chapter from notes, against a named target                               | runs on a schedule; invents citations or uncompiled listings |
 
 Two skills carry the procedures: `.claude/skills/garden` (the maintenance
 sweep, including the merge policy) and `.claude/skills/ingest` (getting
@@ -67,13 +66,13 @@ The fleet runs in CI, through `fleet.yml`. An agent runs on the **occasion**
 that calls for it, and gets a brief written for that occasion rather than one
 generic instruction:
 
-| Trigger | Fires on | Agent | What the brief adds |
-| --- | --- | --- | --- |
-| `notes-arrived` | a push to `main` touching `notes/**` | `notes-cartographer` | names what just landed; asks for tensions to be surfaced now, while the author is still close to the material |
-| `chapters-changed` | a push to `main` touching `book/chapters/**` | `prose-editor` | scopes the review to those chapters and to the cross-references a reworded heading silently breaks |
-| `weekly-garden` | Mondays 07:00 UTC | `pipeline-gardener` | the two things only it covers: the Typst pin against the latest release, and links that died this week |
-| `monthly-prose` | 1st, 08:00 UTC | `prose-editor` | the whole book at once -- terminology drift, terms used before defined, chapters that have drifted together |
-| `on-demand` | `workflow_dispatch`, with an agent and a target | any | the dispatch narrows the agent's brief and may not widen it |
+| Trigger            | Fires on                                        | Agent                | What the brief adds                                                                                           |
+| ------------------ | ----------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `notes-arrived`    | a push to `main` touching `notes/**`            | `notes-cartographer` | names what just landed; asks for tensions to be surfaced now, while the author is still close to the material |
+| `chapters-changed` | a push to `main` touching `book/chapters/**`    | `prose-editor`       | scopes the review to those chapters and to the cross-references a reworded heading silently breaks            |
+| `weekly-garden`    | Mondays 07:00 UTC                               | `pipeline-gardener`  | the two things only it covers: the Typst pin against the latest release, and links that died this week        |
+| `monthly-prose`    | 1st, 08:00 UTC                                  | `prose-editor`       | the whole book at once -- terminology drift, terms used before defined, chapters that have drifted together   |
+| `on-demand`        | `workflow_dispatch`, with an agent and a target | any                  | the dispatch narrows the agent's brief and may not widen it                                                   |
 
 The briefs live in `.claude/fleet/*.md`, not in the workflow, so changing what
 an agent is told on a given occasion is a readable diff. `tools/fleet_brief.py`
@@ -131,7 +130,7 @@ artifact, every `agent/**` branch and whether it merged, and the open issues
 
 Three things make it worth reading rather than a dashboard nobody opens:
 
-- It reports what it does *not* know. A run whose usage was never recorded is
+- It reports what it does _not_ know. A run whose usage was never recorded is
   counted as unmeasured, because "we cannot say what the fleet cost" is a
   finding about the pipeline.
 - It names work that will never land: a branch with no pull request and no
@@ -157,16 +156,17 @@ be scoped to "may only file a note", so without it that session would hold
 `contents: write` on the book. Notes still live in `notes/`, in the
 repository, verbatim and never edited. Cloudflare is the inbox, not the
 archive.
+
 ## Standalone pages
 
 Reachable on the site, and deliberately not part of the book: no navigation,
 no sitemap entry, no search index, `noindex` in their own head. A reader who
 wandered into one from a chapter would be right to be confused.
 
-| Page | What it is |
-| --- | --- |
+| Page            | What it is                                                                                                                                                                                                                                                     |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<site>/skill/` | Builds the note-taker's skill. Two fields in, a zip out. The zip is assembled in the browser, so the intake token never leaves the page -- there is no server behind a static file on Pages, which is the whole reason this is a page rather than an endpoint. |
-| `<site>/fleet/` | The weekly fleet report, folded in by `publish.yml` from the `fleet-log` branch. |
+| `<site>/fleet/` | The weekly fleet report, folded in by `publish.yml` from the `fleet-log` branch.                                                                                                                                                                               |
 
 Anything under `site/` that is not `assets` or `templates` is copied to the
 site root by `tools/build.py`, so a new standalone page is a directory and
@@ -193,11 +193,11 @@ Actions by default. That is a design constraint, not an accident: three
 things a normal pipeline would reach for are unavailable here, and each was
 routed around rather than left as a chore for the author.
 
-| Wanted | Refused because | Done instead |
-| --- | --- | --- |
-| Pages built from Actions | creating the Pages site is privileged; the workflow token gets "Resource not accessible by integration", and the Pages API is unreachable from Claude sessions | `publish.yml` pushes the built site to `gh-pages`, which needs only `contents: write` and which GitHub serves without configuration |
-| Workflows opening pull requests | off by default; "GitHub Actions is not permitted to create or approve pull requests" | tried anyway, in case it is on; when it is not, a green chore is merged with `POST /merges` and anything needing review becomes one issue with a compare link |
-| Repository auto-merge | a repository setting, and the settings API is unreachable from Claude sessions | `agent-branches.yml` merges explicitly, after reading the checks on the exact head commit |
+| Wanted                          | Refused because                                                                                                                                                | Done instead                                                                                                                                                  |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pages built from Actions        | creating the Pages site is privileged; the workflow token gets "Resource not accessible by integration", and the Pages API is unreachable from Claude sessions | `publish.yml` pushes the built site to `gh-pages`, which needs only `contents: write` and which GitHub serves without configuration                           |
+| Workflows opening pull requests | off by default; "GitHub Actions is not permitted to create or approve pull requests"                                                                           | tried anyway, in case it is on; when it is not, a green chore is merged with `POST /merges` and anything needing review becomes one issue with a compare link |
+| Repository auto-merge           | a repository setting, and the settings API is unreachable from Claude sessions                                                                                 | `agent-branches.yml` merges explicitly, after reading the checks on the exact head commit                                                                     |
 
 `tools/bootstrap-repo.sh` grants the first two properly, if you ever have a
 terminal and a token to hand. It is **optional** -- it makes the presentation
@@ -221,11 +221,11 @@ and they are where the fleet reports what it could not do.
 off, because a form that names the agent and the target dispatches by itself
 while free text needs somebody to interpret it.
 
-| Form | Label it applies | What happens |
-| --- | --- | --- |
-| Material for the book | `fleet:material` | `notes-cartographer` saves the body to `notes/` verbatim, then reads it against the book and changes the shape if it must |
-| Ask the fleet for something | `fleet:task` | the agent named in the form's dropdown runs, with the form's fields as its target |
-| Something is wrong | `bug` | nothing automatic; it is a message to a person |
+| Form                        | Label it applies | What happens                                                                                                              |
+| --------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Material for the book       | `fleet:material` | `notes-cartographer` saves the body to `notes/` verbatim, then reads it against the book and changes the shape if it must |
+| Ask the fleet for something | `fleet:task`     | the agent named in the form's dropdown runs, with the form's fields as its target                                         |
+| Something is wrong          | `bug`            | nothing automatic; it is a message to a person                                                                            |
 
 The **label is the trigger**, not the form: `fleet.yml` fires on
 `issues: [labeled]`. So a label added later to an old issue dispatches it too,
@@ -272,7 +272,7 @@ opinion.
 `pr-reviewer` posts a **real GitHub review**, not a comment: findings become
 inline threads on the lines they are about, and where the reviewer knows the
 fix it comes as a `suggestion` block applied with one click. A `fail` is
-submitted as *changes requested*.
+submitted as _changes requested_.
 
 `review-responder` then answers every unresolved thread -- a fix pushed to the
 same branch, or a reply saying what the finding missed -- and **resolves it**.
@@ -320,30 +320,30 @@ Nothing here should assume a third reviewer exists.
 
 Three workflows, three verbs, so it is clear which to look at:
 
-| Workflow | Verb | Writes |
-| --- | --- | --- |
-| `fleet.yml` | do the work | a new branch |
-| `fleet-review.yml` | judge it | a check, and a comment |
+| Workflow            | Verb            | Writes                        |
+| ------------------- | --------------- | ----------------------------- |
+| `fleet.yml`         | do the work     | a new branch                  |
+| `fleet-review.yml`  | judge it        | a check, and a comment        |
 | `fleet-respond.yml` | answer feedback | the pull request's own branch |
 
 ## Which model runs which agent
 
 Three tiers, and the words are the author's.
 
-| Tier | Model | For |
-| --- | --- | --- |
-| workhorse | `claude-sonnet-5` | often, and mechanical |
-| smart | `claude-opus-5` | everything else, which is most judgement |
-| genius | `claude-fable-5-1` | important and rare |
+| Tier      | Model              | For                                      |
+| --------- | ------------------ | ---------------------------------------- |
+| workhorse | `claude-sonnet-5`  | often, and mechanical                    |
+| smart     | `claude-opus-5`    | everything else, which is most judgement |
+| genius    | `claude-fable-5-1` | important and rare                       |
 
-| Agent | Tier | Why |
-| --- | --- | --- |
-| `chapter-drafter` | genius | writes the book itself, and only on request |
-| `notes-cartographer` | genius | decides the book's shape, once a note arrives |
-| `pr-reviewer` | smart | the gate; a careless pass is worse than no review |
-| `review-responder` | smart | must resist deference, which is judgement |
-| `prose-editor` | smart | what is left after the scanner is judgement |
-| `pipeline-gardener` | workhorse | weekly and on every CI failure; mechanical |
+| Agent                | Tier      | Why                                               |
+| -------------------- | --------- | ------------------------------------------------- |
+| `chapter-drafter`    | genius    | writes the book itself, and only on request       |
+| `notes-cartographer` | genius    | decides the book's shape, once a note arrives     |
+| `pr-reviewer`        | smart     | the gate; a careless pass is worse than no review |
+| `review-responder`   | smart     | must resist deference, which is judgement         |
+| `prose-editor`       | smart     | what is left after the scanner is judgement       |
+| `pipeline-gardener`  | workhorse | weekly and on every CI failure; mechanical        |
 
 The tier lives in the agent's own `model:` frontmatter and the mapping lives
 in `tools/fleet_brief.py`, which resolves one to the other and writes `model=`
@@ -356,19 +356,20 @@ noticing.
 What the tier asks for and what actually served are different facts. The
 weekly report records the second, per agent, because a fallback under load
 changes it and nothing else in the repository would say so.
+
 ## What is written down, and where
 
 Three records, and each exists because the one above it expires.
 
-| Record | Granularity | Lives | Written by |
-| --- | --- | --- | --- |
-| `fleet-run-<id>` artifact | one run | 90 days | each dispatching workflow |
-| `runs.jsonl` on `fleet-log` | one run | forever | `fleet_report.py --runs-log` |
-| `history.jsonl` on `fleet-log` | one week | forever | `fleet_report.py --history` |
+| Record                         | Granularity | Lives   | Written by                   |
+| ------------------------------ | ----------- | ------- | ---------------------------- |
+| `fleet-run-<id>` artifact      | one run     | 90 days | each dispatching workflow    |
+| `runs.jsonl` on `fleet-log`    | one run     | forever | `fleet_report.py --runs-log` |
+| `history.jsonl` on `fleet-log` | one week    | forever | `fleet_report.py --history`  |
 
 The artifact holds two files. Claude Code's execution output says how many
 turns a run took, what it cost and which model served it. `provenance.json`,
-written by `tools/fleet_record.py`, says what the run was *for*: the trigger,
+written by `tools/fleet_record.py`, says what the run was _for_: the trigger,
 the agent, the model its definition asked for, a digest of the brief it was
 given, the branch it was pointed at and the commit it started from.
 
@@ -418,11 +419,11 @@ label a pull request `hold`.
 `main` carries an active ruleset. Measured against it, the fleet currently
 **cannot land anything**:
 
-| The fleet tries | Result |
-| --- | --- |
-| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit |
-| opening a pull request | refused — Actions is not permitted to create pull requests |
-| `PUT /pulls/N/merge` | would be blocked — one approving review is required and Actions has no bypass |
+| The fleet tries                  | Result                                                                        |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                   |
+| opening a pull request           | refused — Actions is not permitted to create pull requests                    |
+| `PUT /pulls/N/merge`             | would be blocked — one approving review is required and Actions has no bypass |
 
 The owner can still merge, so nothing is stuck permanently; it just all
 routes through a human, which is the opposite of the delegation above.
@@ -433,7 +434,7 @@ The intention behind the ruleset was not "a human must approve" but "this must
 be reviewed" -- and the reviewer is the fleet. `fleet-review.yml` does that,
 and it is built as a **status check** rather than as an approving review on
 purpose. A check from Actions gates a merge in a way nothing argues with;
-whether a bot's *approval* satisfies a required-reviews rule is a question
+whether a bot's _approval_ satisfies a required-reviews rule is a question
 about GitHub's internals that would have to keep being true.
 
 `pr-reviewer` reads the diff and checks what the automated gates cannot:
