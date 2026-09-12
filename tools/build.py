@@ -966,7 +966,11 @@ def write_fleet_placeholder(book: Book, out_dir: Path) -> None:
                     "The fleet report is written on Mondays and reaches the "
                     "site on the next publish."
                 ),
-                "home": esc(book.base_path),
+                # Relative, unlike the 404's. That one is root-relative
+                # because it can be served from any depth; this page is only
+                # ever at `fleet/`, and a root-relative link here is one the
+                # outbound-link check cannot resolve in a local file.
+                "home": "../",
             },
         ),
         encoding="utf-8",
