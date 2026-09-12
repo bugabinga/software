@@ -243,7 +243,6 @@ def scan_chapter(path: Path, book: Book, terms, root: Path) -> list[Finding]:
                         "term-drift", relative, number,
                         f"`{match.group(0)}` — this book says `{preferred}`.",
                         match.start() + 1, match.end() + 1))
-                        match.start() + 1, match.end() + 1))
 
     if not cited:
         findings.append(Finding(
@@ -326,11 +325,13 @@ def self_test() -> int:
         (root / "book" / "chapters").mkdir(parents=True)
         (root / "notes").mkdir()
         (root / "notes" / "n.md").write_text("one\ntwo\nthree\n", encoding="utf-8")
+        (root / "notes" / "m.md").write_text("\n".join(str(n) for n in range(50)), encoding="utf-8")
         (root / "book" / "book.toml").write_text(
             '[book]\ntitle = "T"\n'
             '[[part]]\ntitle = "P"\nchapters = ["chapters/01-good.typ", '
             '"chapters/02-bad.typ", "chapters/03-bare.typ", '
-            '"chapters/04-plural.typ", "chapters/05-exempt.typ"]\n',
+            '"chapters/04-plural.typ", "chapters/05-exempt.typ", '
+            '"chapters/06-two-notes.typ"]\n',
             encoding="utf-8")
         (root / "book" / "terms.toml").write_text(
             '[[term]]\nname = "substrate"\navoid = ["medium"]\n', encoding="utf-8")
@@ -351,6 +352,13 @@ def self_test() -> int:
         (root / "book" / "chapters" / "05-exempt.typ").write_text(
             "// Not from notes: living documentation of the prelude.\n= Exempt\n",
             encoding="utf-8")
+        # Two notes on one line, both cited correctly. Every range on the line
+        # used to be checked against every note on it, so the short one was
+        # reported as too short for the long one's range -- an `error`, which
+        # is the level that blocks a merge, on prose that is right.
+        (root / "book" / "chapters" / "06-two-notes.typ").write_text(
+            "// Sources: notes/n.md, lines 1-2, notes/m.md, lines 40-50\n"
+            "= Two\n", encoding="utf-8")
 
         global ROOT, CHAPTERS, MANIFEST, TERMS
         saved = (ROOT, MANIFEST, TERMS)
@@ -374,7 +382,7 @@ def self_test() -> int:
             problems.append(f"rules fired: {got}\n            wanted: {want}")
 
         clean = [f for f in findings if f.path.endswith(
-            ("01-good.typ", "04-plural.typ", "05-exempt.typ"))]
+            ("01-good.typ", "04-plural.typ", "05-exempt.typ", "06-two-notes.typ"))]
         if clean:
             problems.append(f"the clean chapter produced {clean}")
 
