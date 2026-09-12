@@ -72,19 +72,25 @@ jobs:
           # narrative is missing rather than dressing the commit body up as
           # one.
           subject=$(git log -1 --format=%s)
+
+          # Asked of the API rather than of git. This job checks out with
+          # `fetch-depth: 2`, so `origin/main` is not in the clone: every
+          # `git log origin/main..HEAD` here would have failed and fallen
+          # through to a one-commit, no-files body without saying so. The
+          # compare endpoint has both, needs no history, and is what the
+          # merge job below already uses.
+          comparison=$(gh api "repos/$REPO/compare/main...$BRANCH")
           {
             echo "Opened for \`$BRANCH\`, which the fleet pushed and cannot open a"
             echo "pull request for itself."
             echo
             echo "**Commits**"
             echo
-            git log --reverse --format='- %s' "origin/main..HEAD" 2>/dev/null \
-              || git log -1 --format='- %s'
+            echo "$comparison" | jq -r '.commits[] | "- " + (.commit.message | split("\n")[0])'
             echo
             echo "**Files**"
             echo
-            git diff --name-only "origin/main...HEAD" 2>/dev/null | sed 's/^/- `/; s/$/`/' \
-              || true
+            echo "$comparison" | jq -r '.files[]? | "- `" + .filename + "`"'
             echo
             echo "The commit messages carry the technical reasoning. Nobody has"
             echo "written the story of this change — what hurt, and what is"
