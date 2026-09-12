@@ -44,18 +44,36 @@ def main() -> int:
 
     granted = install.get("permissions") or {}
 
-    # What each fleet workflow would fail without, and the one call that
-    # would fail. Ranked: `need` is a hard stop, `want` costs a feature.
-    NEED = {
+    # Three lists, and the middle one is the point.
+    #
+    # ESSENTIAL is what the fleet cannot run without: a gap here is a failure.
+    # CEILING is everything a book pipeline could ever want, granted once so
+    # that improving the fleet never means another trip to a settings page --
+    # a gap here is a note, naming what it would cost, not a failure.
+    # FORBIDDEN is the guardrails: repository settings, the credentials
+    # themselves, the environment rules that gate them. An agent holding any
+    # of these could widen its own authority, and no review after the fact
+    # would catch it. A grant here fails, loudly.
+    ESSENTIAL = {
         "contents": ("write", "push branches, read the tree"),
         "pull_requests": ("write", "open, comment on and merge pull requests"),
         "issues": ("write", "the task and tracking issues"),
         "metadata": ("read", "mandatory for everything else"),
     }
-    WANT = {
-        "actions": ("write", "start CI on a pushed branch; read runs for the weekly report"),
-        "checks": ("read", "decide whether a branch is green"),
-        "workflows": ("write", "only if an agent should ever push a change under .github/workflows/"),
+    CEILING = {
+        "actions": ("write", "start CI on a pushed branch; read runs for the report"),
+        "checks": ("write", "decide whether a branch is green; post verdicts"),
+        "statuses": ("write", "report a verdict as a commit status"),
+        "deployments": ("write", "record what went live and when"),
+        "workflows": ("write", "push or merge a change under .github/workflows/"),
+    }
+    FORBIDDEN = {
+        "administration": "repository settings, and deleting the repository",
+        "secrets": "the credentials themselves",
+        "actions_variables": "the variables the workflows read",
+        "environments": "the environment rules that gate every secret",
+        "organization_administration": "the account around the repository",
+        "organization_secrets": "credentials beyond this repository",
     }
     RANK = {"read": 1, "write": 2, "admin": 3}
 
@@ -68,16 +86,24 @@ def main() -> int:
         return "ok", have
 
     rows, blocking, soft = [], [], []
-    for name, (level, why) in {**NEED, **WANT}.items():
+    for name, (level, why) in {**ESSENTIAL, **CEILING}.items():
         state, have = verdict(name, level)
         mark = {"ok": "yes", "too low": "TOO LOW", "missing": "MISSING"}[state]
         rows.append(f"| `{name}` | {level} | {have or '—'} | {mark} | {why} |")
         if state != "ok":
-            (blocking if name in NEED else soft).append(
+            (blocking if name in ESSENTIAL else soft).append(
                 f"{name} ({have or 'not granted'}, needs {level})"
             )
 
-    extra = sorted(set(granted) - set(NEED) - set(WANT))
+    # A permission that should never have been granted is a finding whichever
+    # way the rest of the report goes.
+    overreach = [
+        f"`{name}` ({granted[name]}) -- {why}"
+        for name, why in FORBIDDEN.items()
+        if granted.get(name)
+    ]
+
+    extra = sorted(set(granted) - set(ESSENTIAL) - set(CEILING) - set(FORBIDDEN))
 
     lines = [
         f"### App check — key found in {arguments.where}",
@@ -99,16 +125,31 @@ def main() -> int:
             + ". Harmless, but narrower is better.",
             "",
         ]
+    if overreach:
+        lines += [
+            "**Granted more than it should ever have.** These let the fleet "
+            "change the rules that govern the fleet, which is the one thing "
+            "the app must not be able to do:",
+            "",
+            *(f"- {item}" for item in overreach),
+            "",
+            "Remove them on the app's settings page. Nothing here needs them, "
+            "and no review after the fact would catch their use.",
+            "",
+        ]
+
     if blocking:
         lines.append("**Not enough.** Missing: " + "; ".join(blocking) + ".")
     elif soft:
         lines.append(
-            "**Enough to run.** Not granted, and each costs one thing: "
+            "**Enough for the fleet as it stands.** Below the ceiling, and "
+            "each of these is a change somebody will otherwise have to come "
+            "back for: "
             + "; ".join(soft)
-            + "."
+            + ". Granting them now costs nothing and saves that trip."
         )
     else:
-        lines.append("**Enough.** Every permission the fleet needs is granted.")
+        lines.append("**At the ceiling.** Nothing the fleet grows into needs another visit here.")
 
     report = "\n".join(lines)
     if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
@@ -116,15 +157,16 @@ def main() -> int:
             handle.write(report + "\n")
     print(report)
 
+    for item in overreach:
+        print(f"::error::Granted and should not be: {item}")
     if blocking:
         print(
             "::error::The app is missing a permission the fleet cannot work "
             "without: " + "; ".join(blocking)
         )
-        return 1
     for item in soft:
-        print(f"::warning::Not granted: {item}")
-    return 0
+        print(f"::notice::Below the ceiling: {item}")
+    return 1 if (blocking or overreach) else 0
 
 
 if __name__ == "__main__":
