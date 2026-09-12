@@ -41,22 +41,64 @@ jobs:
 
           latest_of() { gh api "repos/$1/releases/latest" --jq .tag_name | sed 's/^v//'; }
 
-          typst_pinned=$(tr -d ' \n' < .typst-version)
+          # Every pin in mise.toml, against its upstream. Dependabot has no
+          # mise ecosystem -- nor asdf, nor .tool-versions -- so this is the
+          # only thing watching these, and adding a tool to the manifest is
+          # enough to get it watched.
+          # Where each tool's real version comes from. Not always a GitHub
+          # release: wrangler ships from the `workers-sdk` monorepo, whose
+          # tags belong to whichever package was cut, so asking that repo
+          # returns a number that has nothing to do with wrangler. npm is the
+          # authority for it, and mise resolves it as `npm:wrangler` too.
+          declare -A upstream=(
+            [typst]=gh:typst/typst
+            [typos]=gh:crate-ci/typos
+            [gh]=gh:cli/cli
+            [typstyle]=gh:typstyle-rs/typstyle
+            [wrangler]=npm:wrangler
+          )
+
+          latest_from() {
+            case "$1" in
+              gh:*)  latest_of "${1#gh:}" ;;
+              npm:*) npm view "${1#npm:}" version 2>/dev/null ;;
+              *)     return 1 ;;
+            esac
+          }
+
+          behind=0
+          rows=""
+          while IFS=$'\t' read -r tool pinned; do
+            repo="${upstream[$tool]:-}"
+            if [ -z "$repo" ]; then
+              rows+="| \`$tool\` | $pinned | — | not watched: no upstream recorded |"$'\n'
+              continue
+            fi
+            latest=$(latest_from "$repo" 2>/dev/null || echo "?")
+            if [ "$latest" = "?" ]; then
+              rows+="| \`$tool\` | $pinned | ? | could not ask $repo |"$'\n'
+            elif [ "$pinned" = "$latest" ]; then
+              rows+="| \`$tool\` | $pinned | $latest | current |"$'\n'
+            else
+              rows+="| \`$tool\` | $pinned | $latest | **behind** |"$'\n'
+              behind=$((behind + 1))
+            fi
+          done < <(python3 tools/pinned.py --all)
+
+          typst_pinned=$(python3 tools/pinned.py typst)
           typst_latest=$(latest_of typst/typst)
-          gh_pinned=$(tr -d ' \n' < .gh-version)
-          gh_latest=$(latest_of cli/cli)
-          typos_pinned=$(grep -oP 'TYPOS_VERSION:\s*\K[0-9.]+' .github/workflows/ci.yml | head -1)
-          typos_latest=$(latest_of crate-ci/typos)
 
           {
             echo "### Pinned tools"
             echo
-            echo "| Tool | Pinned | Latest |"
-            echo "| --- | --- | --- |"
-            echo "| Typst | $typst_pinned | $typst_latest |"
-            echo "| gh | $gh_pinned | $gh_latest |"
-            echo "| typos | $typos_pinned | $typos_latest |"
+            echo "| Tool | Pinned | Latest | |"
+            echo "| --- | --- | --- | --- |"
+            printf '%s' "$rows"
+            echo
+            echo "$behind behind. Only Typst is bumped automatically, and only"
+            echo "when the book still builds on it; the rest are reported."
           } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice::$behind pinned tool(s) behind upstream"
 
           # gh and typos are checked but not bumped here: nothing the book
           # renders depends on them, so they are reported and left. Typst is
@@ -81,7 +123,13 @@ jobs:
 
       - name: Bump the pin
         if: steps.versions.outputs.behind == 'true'
-        run: echo "${{ steps.versions.outputs.latest }}" > .typst-version
+        run: |
+          python3 - "${{ steps.versions.outputs.latest }}" <<'BUMP'
+          import pathlib, re, sys
+          p = pathlib.Path("mise.toml")
+          p.write_text(re.sub(r'^typst = ".*"$', f'typst = "{sys.argv[1]}"',
+                              p.read_text(), count=1, flags=re.M))
+          BUMP
 
       # If the book does not build and pass every gate on the new version,
       # this fails and no pull request is opened -- which is the point. An

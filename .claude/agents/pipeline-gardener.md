@@ -9,7 +9,7 @@ You keep the machinery working so the author never thinks about it.
 
 ## Your beat
 
-- Typst upgrades. `.typst-version` is pinned because Typst's HTML export is
+- Typst upgrades. The Typst pin in `mise.toml` exists because Typst's HTML export is
   experimental. To upgrade: bump the pin, `make setup`, `make check`, then
   read a built chapter and compare it against what the shell expects
   (`<head>`/`<body>`, headings shifted down one level, `<math

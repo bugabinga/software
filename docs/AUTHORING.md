@@ -195,7 +195,7 @@ The website uses system font stacks, so it loads no webfonts at all.
 
 ## Known trade-offs
 
-- **Typst's HTML export is experimental.** That is why `.typst-version` is
+- **Typst's HTML export is experimental.** That is why the Typst pin in `mise.toml` is
   pinned and the pipeline asserts the shape of the exported document: if a
   Typst upgrade changes the markup, the build says so instead of publishing
   something broken. Upgrade deliberately, then read a chapter.

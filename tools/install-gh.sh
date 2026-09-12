@@ -11,7 +11,7 @@
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-version=${GH_VERSION:-$(tr -d ' \n' < "$root/.gh-version")}
+version=${GH_VERSION:-$(python3 "$root/tools/pinned.py" gh)}
 destination="$root/.tools/gh"
 binary="$destination/gh"
 

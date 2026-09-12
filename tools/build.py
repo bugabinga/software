@@ -47,6 +47,11 @@ import tomllib
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from epub import build_epub  # noqa: E402 - after the path is set up
+from pinned import pins as _pins  # noqa: E402
+
+
+def pinned(tool: str) -> str:
+    return _pins()[tool]
 
 ROOT = Path(__file__).resolve().parent.parent
 BOOK_DIR = ROOT / "book"
@@ -65,8 +70,8 @@ ALLOWED_WARNINGS = ("html export is under active development and incomplete",)
 
 
 def typst_pin() -> str:
-    """The Typst version this tree is pinned to, per `.typst-version`."""
-    return (ROOT / ".typst-version").read_text(encoding="utf-8").strip()
+    """The Typst version this tree is pinned to, per `mise.toml`."""
+    return pinned("typst")
 
 
 def typst_binary() -> str:

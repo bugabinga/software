@@ -17,7 +17,7 @@ Deterministic work that a script does better than a model.
 | `release.yml` | `v*` tags | attaches the PDF and a zip of the site to a release |
 | `agent-branches.yml` | pushes to `agent/**` and `maintenance/**`, and CI completing | opens a pull request for a branch the fleet pushed where the repository permits it, and then merges green chores or reports everything else |
 | `fleet-report.yml` | Mondays 09:00 UTC | judges the fleet -- runs, failures, cost, turns, tokens, what each branch became, what is stuck -- and publishes one page to `<site>/fleet/`, appending a line to `history.jsonl` on the `fleet-log` branch so the record outlives the API's 90-day window |
-| `maintenance.yml` | Mondays 06:17 UTC | compares `.typst-version` against the latest Typst release and opens an upgrade pull request *if the book still builds and passes every gate on it*; re-runs the outbound link check and files one standing issue for dead links |
+| `maintenance.yml` | Mondays 06:17 UTC | compares every pin in `mise.toml` against its upstream, bumps Typst and opens an upgrade pull request *if the book still builds and passes every gate on it*; re-runs the outbound link check and files one standing issue for dead links |
 
 ## 2. Agents (judgement, on a schedule or on demand)
 

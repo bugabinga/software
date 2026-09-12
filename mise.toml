@@ -1,0 +1,47 @@
+# Every tool this repository pins, in one file.
+#
+# They used to be scattered: Typst in `.typst-version`, typos in a `env:` block
+# in `ci.yml`, wrangler in another one in `worker-deploy.yml`, each with its
+# own download script. Adding typstyle would have made a fourth. This is the
+# manifest instead, and `mise install` gets a working machine from it.
+#
+# ## What Dependabot does about this: nothing
+#
+# There is no `mise` ecosystem, and none for asdf or `.tool-versions` either --
+# the supported list is bazel, bun, bundler, cargo, composer, conda, deno,
+# devcontainers, docker, docker-compose, dotnet-sdk, helm, mix, julia, elm,
+# gitsubmodule, github-actions, gomod, gradle, maven, nix, npm, nuget,
+# opentofu, pip, pre-commit and pub.
+#
+# So the fleet does it. `maintenance.yml` reads every pin here on Mondays and
+# compares it against the tool's latest release, which is what it already did
+# for Typst alone. That is not a workaround: Dependabot was never going to
+# cover a downloaded binary, which is why `dependabot.yml` says it covers the
+# Actions and `maintenance.yml` covers the rest.
+#
+# ## Why the versions matter
+#
+# Typst's HTML export is experimental and an unpinned upgrade would change the
+# site's markup underneath the pipeline. The others are pinned for the duller
+# reason: a build that installs "latest" is a build whose output depends on
+# the day it ran.
+
+[tools]
+# The compiler. Bump with `maintenance.yml`, never by hand, and look at a
+# built chapter afterwards -- see CLAUDE.md.
+typst = "0.15.1"
+
+# Spelling, over the whole repository. Configured in `.typos.toml`.
+# 1.50.1 is out; this is what the repository actually runs, and a bump is
+# a decision (a newer typos finds new words) rather than a tidy-up.
+typos = "1.36.0"
+
+# The GitHub CLI, used by the fleet's workflows and by `tools/*.py`.
+gh = "2.63.2"
+
+# Formatter for `.typ`. Checked, not applied, in CI: `typstyle --check book/`.
+typstyle = "0.15.1"
+
+# Only ever run in `worker-deploy.yml`. Recorded here so the version lives
+# with the others rather than in a workflow's `env:` block.
+wrangler = "4.131.1"

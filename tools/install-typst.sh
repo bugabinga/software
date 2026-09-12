@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Install the Typst version pinned in `.typst-version` into `.tools/typst/`.
+# Install the Typst version pinned in `mise.toml` into `.tools/typst/`.
 #
 # The same script runs locally and in CI, so both build with the exact same
 # compiler: Typst's HTML export is still experimental, and an unpinned upgrade
@@ -10,7 +10,7 @@
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-version=${TYPST_VERSION:-$(tr -d ' \n' < "$root/.typst-version")}
+version=${TYPST_VERSION:-$(python3 "$root/tools/pinned.py" typst)}
 destination="$root/.tools/typst"
 binary="$destination/typst"
 
@@ -41,7 +41,7 @@ trap 'rm -rf "$work"' EXIT
 
 if ! curl --fail --location --silent --show-error --output "$work/$archive" "$url"; then
   echo "could not download $url" >&2
-  echo "check that .typst-version names a released version." >&2
+  echo "check that mise.toml pins a released version." >&2
   exit 1
 fi
 

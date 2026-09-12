@@ -44,7 +44,8 @@ already have a working `.tools/typst/typst`.
   helper is fine, generating the page shell from Typst is not.
 - The pipeline asserts the shape of Typst's HTML export (`<head>`/`<body>`,
   headings shifted down one level, `<math display="block">`). Typst's HTML
-  export is experimental, so `.typst-version` is pinned; after upgrading it,
+  export is experimental, so the Typst version is pinned in `mise.toml`;
+  after upgrading it,
   build and look at a chapter before trusting the output.
 
 ## Typst notes worth not rediscovering
@@ -95,9 +96,16 @@ The workflows share one build definition in
   with a compare link. Everything it does uses the workflow token only.
 - `release.yml` -- on a `v*` tag, attaches the PDF and a zip of the site.
 
-Pinned tool versions: Typst in `.typst-version`, typos in `ci.yml`'s
-`TYPOS_VERSION`. Actions are pinned to major versions and updated by
-Dependabot.
+Every pinned tool version lives in `mise.toml` -- Typst, typos, gh,
+typstyle, wrangler -- read by `tools/pinned.py`, so the install scripts, the
+build's version badge and the maintenance sweep all agree. `mise install`
+works from it; nothing requires mise, because the scripts parse the file
+themselves.
+
+Dependabot has no mise ecosystem, so it covers only the Actions, which are
+pinned to commits. `maintenance.yml` reads every pin in `mise.toml` on
+Mondays and reports what is behind -- adding a tool to the manifest is
+enough to get it watched.
 
 ## Who you are
 
