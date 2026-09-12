@@ -123,10 +123,38 @@ def check_yaml(paths: list[Path]) -> list[str]:
         print("PyYAML not installed; skipping the syntax check (CI parses these anyway)")
         return []
 
+    # YAML says a duplicate key is an error; every common parser instead
+    # keeps the last one and says nothing. GitHub Actions does reject it, so
+    # the failure is a red run for a file that parsed cleanly here.
+    #
+    # It is worth a loader of its own because of how it arrives: applying a
+    # review suggestion whose range is a line short of the block it replaces
+    # leaves the tail of the original behind. That happened three times in
+    # one afternoon -- twice from the fleet's suggestions, once from a
+    # hand-written one -- and produced a step with two `uses:` keys, which
+    # this parser read as valid.
+    class StrictLoader(yaml.SafeLoader):
+        pass
+
+    def no_duplicates(loader, node, deep=False):
+        seen = set()
+        for key_node, _ in node.value:
+            key = loader.construct_object(key_node, deep=deep)
+            if key in seen:
+                mark = key_node.start_mark
+                raise yaml.constructor.ConstructorError(
+                    None, None,
+                    f"duplicate key {key!r}", mark)
+            seen.add(key)
+        return yaml.SafeLoader.construct_mapping(loader, node, deep)
+
+    StrictLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, no_duplicates)
+
     problems = []
     for path in paths:
         try:
-            yaml.safe_load(path.read_text(encoding="utf-8"))
+            yaml.load(path.read_text(encoding="utf-8"), Loader=StrictLoader)
         except Exception as error:  # noqa: BLE001 - report whatever it says
             problems.append(f"{path.relative_to(ROOT)}: invalid YAML -- {error}")
     return problems

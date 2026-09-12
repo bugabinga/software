@@ -80,7 +80,6 @@ check-epub: ## Check the EPUB is a well-formed EPUB 3 container
 check-prose: ## Find the mechanical faults in the chapters
 	$(PYTHON) tools/prose_scan.py --self-test
 	$(PYTHON) tools/prose_scan.py
-	$(PYTHON) tools/prose_scan.py
 
 check-workflows: ## Check the GitHub Actions definitions
 	$(PYTHON) tools/check_workflows.py
