@@ -25,11 +25,13 @@ permissions: {}
 concurrency:
   # Per pull request. Cancelling is right here: a superseded preview is a
   # preview of the wrong commit.
-  # Keyed on the event as well as the branch. CI runs twice for a branch with
-  # an open pull request -- once on `push`, once on `pull_request` -- and both
-  # completions wake this workflow. Without the event in the key the push run,
-  # which finds no pull request and skips, cancels the pull_request run
-  # mid-deploy. `ci.yml` was keyed this way after exactly that happened on #59.
+  # Keyed on the event as well as the branch. `ci.yml` runs on `pull_request`
+  # and, for the `agent/**` and `maintenance/**` branches it also watches, on
+  # `push` -- and both completions wake this workflow. The push one is skipped
+  # by the job's `if` below, but a run whose jobs all skip still claims the
+  # group, so without the event in the key it cancels the pull_request run
+  # mid-deploy. `ci.yml` is keyed the same way, after the cancelled required
+  # check on #59.
   group: preview-${{ github.event.workflow_run.event }}-${{ github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 

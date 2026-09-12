@@ -153,7 +153,11 @@ jobs:
           echo "::notice::secrets set from repository secrets"
 
       - name: Say where it is
-        if: steps.key.outputs.present == 'true'
+        # The same condition as the two steps it reports on. Gated on the
+        # credential alone, it wrote "Notes inbox deployed" whenever the
+        # subdomain check had stopped the deploy -- one inaccurate sentence
+        # in place of the red wall, which is not the trade that was wanted.
+        if: steps.subdomain.outputs.present == 'true'
         run: |
           {
             echo "### Notes inbox deployed"
