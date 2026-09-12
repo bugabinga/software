@@ -48,7 +48,7 @@ jobs:
       )
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -72,7 +72,7 @@ jobs:
 
       - name: Run Claude
         if: steps.key.outputs.present == 'true'
-        uses: anthropics/claude-code-action@v1
+        uses: anthropics/claude-code-action@56cf60fde42f7b19c3abfd5c9c48b69a1288461f # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # CLAUDE.md carries the repository's invariants; .claude/agents and

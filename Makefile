@@ -10,7 +10,7 @@ PYTHON ?= python3
 .DEFAULT_GOAL := help
 .PHONY: help setup build build-strict html pdf serve watch check check-links \
         check-external-links check-spelling check-code check-workflows check-fleet \
-        check-skill notes fleet-report \
+        check-epub check-skill notes fleet-report \
         reindex-notes clean
 
 help: ## Show this list
@@ -37,7 +37,7 @@ serve: ## Build, serve on :8000, rebuild and reload on every save
 watch: ## Rebuild on every save, without serving
 	$(PYTHON) tools/build.py --out $(OUT) --watch
 
-check: build-strict check-links check-skill check-code check-workflows check-fleet check-spelling ## Run every gate CI runs
+check: build-strict check-links check-epub check-skill check-code check-workflows check-fleet check-spelling ## Run every gate CI runs
 	@echo "all checks passed"
 
 build-strict: ## Build with warnings treated as failures
@@ -68,6 +68,8 @@ check-code: ## Type-check the example code under code/
 
 check-skill: ## Check the skill generator makes a real zip
 	$(PYTHON) tools/check_skill_page.py
+check-epub: ## Check the EPUB is a well-formed EPUB 3 container
+	$(PYTHON) tools/check_epub.py $(OUT)/book.epub
 
 check-workflows: ## Check the GitHub Actions definitions
 	$(PYTHON) tools/check_workflows.py
