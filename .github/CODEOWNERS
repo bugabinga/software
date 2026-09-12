@@ -1,0 +1,21 @@
+# Who must approve a change, enforced by GitHub rather than by the fleet.
+#
+# `docs/IDENTITY.md` states the principle the whole arrangement rests on: the
+# app may change the work, and may never change the rules that govern the
+# work. Until now that was enforced only by `agent-branches.yml`, which
+# refuses to auto-merge anything under `.github/` or `.claude/` -- a rule the
+# automation applies to itself, in a file the automation can write to.
+#
+# The circle closes because editing that workflow is itself a `.github/`
+# change, so it needs a human too. But it closes by argument, not by
+# mechanism, and an argument is not a gate. This is the gate: GitHub will not
+# merge a change to these paths without the owner's approval, and the fleet
+# cannot reach the setting that says so.
+#
+# Deliberately short. Everything not listed here is the fleet's, which is the
+# point -- the author controls the book by controlling the fleet, not by
+# reviewing its output.
+
+# The automation, and the briefs that tell it what it may do.
+/.github/   @bugabinga
+/.claude/   @bugabinga
