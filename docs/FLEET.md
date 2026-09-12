@@ -301,20 +301,22 @@ GitHub refuses a request for changes on its own pull request are things a
 program is right about every time. Its `--self-test` checks the line
 arithmetic, which is the part that silently misplaces a comment.
 
-## Copilot, and answering it
+## Who reviews, and who answers
 
-The ruleset turns on Copilot's automated review. A review nobody answers is
-worse than no review — the comments pile up, stop being read, and
-`required_review_thread_resolution` means an unanswered thread blocks the
-merge outright.
+Two reviewers, and neither of them is Copilot.
 
-`fleet-respond.yml` wakes `review-responder` on any review or review comment
-that is not the fleet's own. Its brief is explicit about what Copilot is good
-and bad at here: reliable on shell quoting, unhandled errors, off-by-ones;
-unreliable on prose, on Typst, and on anything whose correctness depends on
-why the code exists. So it verifies before acting, fixes what is right, and
-replies on the thread naming what a wrong comment missed. Every comment ends
-in a fix or an answer.
+`pr-reviewer` judges every pull request and gates the merge. The author
+reviews what they choose to. `fleet-respond.yml` wakes `review-responder` on
+either, and every comment ends in a fix or in a reply saying what the finding
+missed -- because `required_review_thread_resolution` means an unanswered
+thread blocks the merge outright.
+
+**Copilot's automated review is off.** It needs a paid Copilot plan, and since
+1 June 2026 each review also bills Actions minutes, which is the budget this
+fleet is built around. The `copilot_code_review` rule was removed from the
+`Main` ruleset on 2026-09-12 rather than paid for; `pr-reviewer` already
+covers the same ground and costs a model call the fleet is paying for anyway.
+Nothing here should assume a third reviewer exists.
 
 Three workflows, three verbs, so it is clear which to look at:
 

@@ -2,12 +2,17 @@ name: Fleet respond
 
 # Answering review feedback on an open pull request.
 #
-# The repository's ruleset turns on Copilot's automated review, and a review
-# nobody answers is worse than no review: the comments accumulate, the signal
-# in them stops being read, and `required_review_thread_resolution` means an
-# unanswered thread blocks the merge outright. So every comment ends in a fix
-# or in a reply saying why not, and `review-responder` is the agent that does
-# it.
+# A review nobody answers is worse than no review: the comments accumulate,
+# the signal in them stops being read, and `required_review_thread_resolution`
+# means an unanswered thread blocks the merge outright. So every comment ends
+# in a fix or in a reply saying why not, and `review-responder` is the agent
+# that does it.
+#
+# The reviews it answers are the author's and the fleet's own. Copilot's
+# automated review is not among them: it needs a paid Copilot plan, and since
+# 1 June 2026 each review also bills Actions minutes, so the `copilot_code_review`
+# rule was removed from the ruleset rather than paid for. `pr-reviewer` covers
+# the same ground.
 #
 # Three workflows, three verbs, so it stays clear which one to look at:
 #
@@ -51,7 +56,7 @@ jobs:
     # `pull_request_review_comment`, so the bot is allowed through only on a
     # `pull_request_review` that requests changes -- never on a comment it
     # wrote itself, and never on a passing review, which needs no answer.
-    # Humans and Copilot come through on either event.
+    # The author comes through on either event.
     #
     # The loop is bounded below, in the job, not here: a condition cannot
     # count.
@@ -221,9 +226,9 @@ jobs:
           # Bots must be allow-listed or the action refuses to run at all:
           # "Workflow initiated by non-human actor". That is what killed the
           # first three dispatches, and it would have made this whole design
-          # impossible -- Copilot is a bot, so a Copilot review could never
-          # have woken the responder, and neither could a label applied
-          # through the API.
+          # impossible -- the fleet's own reviewer is a bot, so its review
+          # could never have woken the responder, and neither could a label
+          # applied through the API.
           #
           # `*` is acceptable here because the triggers already gate access,
           # not the actor list: labelling an issue and pushing to main need

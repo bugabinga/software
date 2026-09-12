@@ -156,9 +156,9 @@ jobs:
           # Bots must be allow-listed or the action refuses to run at all:
           # "Workflow initiated by non-human actor". That is what killed the
           # first three dispatches, and it would have made this whole design
-          # impossible -- Copilot is a bot, so a Copilot review could never
-          # have woken the responder, and neither could a label applied
-          # through the API.
+          # impossible -- the fleet's own reviewer is a bot, so its review
+          # could never have woken the responder, and neither could a label
+          # applied through the API.
           #
           # `*` is acceptable here because the triggers already gate access,
           # not the actor list: labelling an issue and pushing to main need
