@@ -22,7 +22,7 @@ name: Bot check
 # Runs from `main`, because that is the only branch the `Bot` environment
 # lets deploy and the key lives there. Pushing this from a branch was how that
 # was established: the job failed at the gate with "Branch
-# \"agent/bot-check\" is not allowed to deploy to Bot due to environment
+# "agent/bot-check" is not allowed to deploy to Bot due to environment
 # protection rules", which is the policy working rather than a fault.
 #
 # Monthly as well as on demand: an app's permissions are edited on a web page
