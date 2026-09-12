@@ -877,6 +877,34 @@ def copy_assets(out_dir: Path) -> None:
     shutil.copytree(SITE_DIR / "assets", assets)
 
 
+def build_social_card(binary: str, out_dir: Path) -> list[str]:
+    """The repository's social preview image.
+
+    1280x640 is what GitHub asks for, and at 72 PPI one Typst point is one
+    pixel, so `site/social-card.typ`'s page size is literally the output. It
+    is built here rather than drawn by hand so that it cannot go stale: the
+    words on it come from `book.toml`, so a title the fleet changes changes
+    the card too.
+    """
+    return run_typst(
+        binary,
+        [
+            "compile",
+            "--root",
+            ".",
+            "--features",
+            "html",
+            "--ignore-system-fonts",
+            "--font-path",
+            "book/fonts",
+            "--ppi",
+            "72",
+            "site/social-card.typ",
+            str((out_dir / "social-card.png").relative_to(ROOT)),
+        ],
+    )
+
+
 def build_pdf(binary: str, out_dir: Path) -> list[str]:
     return run_typst(
         binary,
@@ -918,6 +946,7 @@ def build(args: argparse.Namespace, binary: str) -> Book:
         return book
 
     warnings = compile_chapters(book, binary, build_dir)
+    warnings += build_social_card(binary, out_dir)
     if not args.no_pdf:
         warnings += build_pdf(binary, out_dir)
 
