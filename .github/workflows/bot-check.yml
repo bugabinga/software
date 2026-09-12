@@ -1,0 +1,86 @@
+name: Bot check
+
+# Ask the GitHub App what it is actually allowed to do, and say whether that
+# is enough.
+#
+# The app's permissions are visible only to its owner, on a settings page.
+# Nothing in a Claude session can read them -- the proxy refuses `/apps` --
+# and the alternative to reading them is finding out three weeks from now,
+# when a Monday run fails at the one call it needed. So this asks GitHub.
+#
+# It authenticates as the app itself, with a JWT signed by the private key,
+# which is the only credential that can see an installation's own grants. Two
+# questions, one answer each:
+#
+#   GET /app                              what the app declares it wants
+#   GET /repos/{owner}/{repo}/installation  what it was actually granted here
+#
+# The second is the one that matters: an app can declare a permission and be
+# installed without it. Read-only throughout -- nothing here writes, opens,
+# merges or comments.
+#
+# Runs from `main`, because that is the only branch the `Bot` environment
+# lets deploy and the key lives there. Pushing this from a branch was how that
+# was established: the job failed at the gate with "Branch
+# "agent/bot-check" is not allowed to deploy to Bot due to environment
+# protection rules", which is the policy working rather than a fault.
+#
+# Monthly as well as on demand: an app's permissions are edited on a web page
+# by a human, months apart, and the failure mode is silent until the one call
+# that needed the permission that went away.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/bot-check.yml"
+      - ".github/actions/check-app/action.yml"
+  schedule:
+    # First of the month, before the fleet's own monthly run at 08:00.
+    - cron: "0 6 1 * *"
+
+permissions: {}
+
+jobs:
+  # The key can sensibly live in three places and only the author knows which
+  # one it went to, so all three are tried. The one holding it reports; the
+  # others say so and stop. A job whose environment refuses the branch fails
+  # at the gate, which is itself the answer to "is the branch policy on".
+  from-bot:
+    name: Key in the Bot environment
+    environment: Bot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: check
+        uses: ./.github/actions/check-app
+        with:
+          app-id: ${{ vars.FLEET_APP_ID || secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          where: the Bot environment
+
+  from-fleet:
+    name: Key in the Fleet environment
+    environment: Fleet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: check
+        uses: ./.github/actions/check-app
+        with:
+          app-id: ${{ vars.FLEET_APP_ID || secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          where: the Fleet environment
+
+  from-repository:
+    name: Key at repository level
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: check
+        uses: ./.github/actions/check-app
+        with:
+          app-id: ${{ vars.FLEET_APP_ID || secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          where: repository secrets
