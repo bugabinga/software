@@ -60,7 +60,14 @@ already have a working `.tools/typst/typst`.
 - Typst warns about every font family it cannot resolve, including fallbacks
   in a list, and `make check` treats unexpected warnings as failures. Name
   only families that exist. Embedded: Libertinus Serif, New Computer Modern,
-  New Computer Modern Math, DejaVu Sans Mono.
+  New Computer Modern Math, DejaVu Sans Mono. Bundled in `book/fonts/` and
+  reached via `--font-path book/fonts`, which every invocation passes: Noto
+  Color Emoji.
+- A **missing glyph is not a warning**. Emoji rendered as empty boxes in the
+  PDF for as long as no emoji font was bundled, while looking correct on the
+  website, where the reader's own system supplies one. Nothing in the gates
+  catches that class of fault; the only defence is that a named fallback
+  family which stops resolving does warn, and so fails the build.
 - A heading with `numbering: none` does not advance the chapter counter, which
   is what makes `numbered = false` parts work as front matter.
 - Regex strings use Typst string escapes: write `"^[0-9]+"`, not `"^\d+"`.
