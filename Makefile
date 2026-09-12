@@ -9,6 +9,7 @@ PYTHON ?= python3
 .DEFAULT_GOAL := help
 .PHONY: help setup build build-strict html pdf serve watch check check-links \
         check-external-links check-spelling check-code check-workflows check-fleet \
+        check-epub \
         notes \
         reindex-notes clean
 
@@ -36,7 +37,7 @@ serve: ## Build, serve on :8000, rebuild and reload on every save
 watch: ## Rebuild on every save, without serving
 	$(PYTHON) tools/build.py --out $(OUT) --watch
 
-check: build-strict check-links check-code check-workflows check-fleet check-spelling ## Run every gate CI runs
+check: build-strict check-links check-epub check-code check-workflows check-fleet check-spelling ## Run every gate CI runs
 	@echo "all checks passed"
 
 build-strict: ## Build with warnings treated as failures
@@ -61,6 +62,9 @@ check-spelling: ## Check spelling with typos, if installed
 
 check-code: ## Type-check the example code under code/
 	tools/check_code.sh
+
+check-epub: ## Check the EPUB is a well-formed EPUB 3 container
+	$(PYTHON) tools/check_epub.py $(OUT)/book.epub
 
 check-workflows: ## Check the GitHub Actions definitions
 	$(PYTHON) tools/check_workflows.py
