@@ -24,6 +24,9 @@ concurrency:
 
 jobs:
   build:
+    # `agent-branches.yml` requires a check run of exactly this name before
+    # it will call a branch green. Renaming the job renames the check, and
+    # the fleet would then merge nothing at all.
     name: Build
     runs-on: ubuntu-latest
     permissions:
