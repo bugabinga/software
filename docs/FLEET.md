@@ -40,12 +40,12 @@ behind. And this fleet is a pattern the author repeats: a habit that costs
 four minutes a push is affordable once and not fifteen times. Spend them as
 though they were billed.
 
-Two things are billed. `Fleet review` is a model call, paid to Anthropic, and
-it is the only thing here that gets dearer the more it is used. A reviewer's
-wall-clock is the other, and it is the one nobody itemises: one push used to
-run nine jobs for 131 seconds, and a person waits for the slowest. `ci.yml` is
-one job now instead of three, and `agent-branches.yml` one instead of three,
-each gated by the event that wants it.
+One thing here is billed: `Fleet review` is a model call, paid to Anthropic,
+and it is the only cost that grows with use. The other is a reviewer's
+wall-clock, which nobody itemises: one push used to run nine jobs for 131
+seconds, and a person waits for the slowest. `ci.yml` is one job now instead
+of three, and `agent-branches.yml` one instead of three, each gated by the
+event that wants it.
 
 ## 2. Agents (judgement, on a schedule or on demand)
 

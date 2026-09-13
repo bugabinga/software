@@ -73,10 +73,12 @@ a bad trade the moment it evicts a build cache saving four minutes.
 
 ## Minutes, and where they actually go
 
-Billing is per job and rounded up, so many short jobs cost more than the same
-work in one, and a matrix of trivial jobs is the usual way a bill triples
-without anything getting faster. Runner cost varies by platform by roughly an
-order of magnitude; [check before defaulting to macOS][billing].
+Billing is per job and rounded up -- GitHub "rounds the minutes and partial
+minutes each job uses up to the nearest whole minute" ([rates][rates]) -- so
+many short jobs cost more than the same work in one, and a matrix of trivial
+jobs is the usual way a bill triples without anything getting faster. Runner
+cost varies by platform by roughly an order of magnitude; [check before
+defaulting to macOS][billing].
 
 A public repository is charged nothing for standard runners, which is not the
 same as free. Concurrent jobs are limited **per account**, not per repository,
@@ -193,6 +195,7 @@ file fails is one the next worker learns to skip. Fix the workflow you are
 touching; each sweep is its own pull request.
 
 [billing]: https://docs.github.com/en/billing/concepts/product-billing/github-actions
+[rates]: https://docs.github.com/en/billing/reference/actions-runner-pricing
 [cache]: https://docs.github.com/en/actions/reference/dependency-caching-reference
 [events]: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
 [secure]: https://docs.github.com/en/actions/reference/secure-use-reference

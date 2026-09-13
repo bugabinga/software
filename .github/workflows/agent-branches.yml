@@ -37,9 +37,10 @@ permissions:
 jobs:
   branches:
     # One job, three things, each gated by the event that wants it. They were
-    # three jobs, which cost three billed minutes for about eight seconds of
-    # work -- GitHub rounds every job up to the whole minute, and none of
-    # these needs to run in parallel with the others.
+    # three jobs, which consumed three whole minutes for about eight seconds
+    # of work -- GitHub rounds every job up to the minute. Unbilled on a public
+    # repository and not free: the account's concurrency is shared, and none
+    # of these needs to run in parallel with the others.
     name: Agent branches
     runs-on: ubuntu-latest
     steps:
