@@ -13,10 +13,10 @@ inputs:
   permissions:
     description: >-
       The permissions to mint the token with, as a JSON object. Required and
-      without a default on purpose: the App holds every repository permission,
-      so a caller that forgets this would get a token that can push, merge and
-      read every secret. The scope belongs at the call site, where the reader
-      of the workflow can see it.
+      without a default on purpose: a POST with no body mints a token carrying
+      everything the installation holds, which here is push, merge and the
+      secrets. The scope belongs at the call site, where the reader of the
+      workflow can see it.
     required: true
 
 outputs:
@@ -93,8 +93,15 @@ runs:
         body=$(python3 -c 'import json, os; print(json.dumps({"repositories": [os.environ["REPO"].split("/", 1)[1]], "permissions": json.loads(os.environ["PERMISSIONS"])}))')
         if ! api -X POST -H "Content-Type: application/json" -d "$body" \
           "https://api.github.com/app/installations/$id/access_tokens" > /tmp/t.json; then
-          echo "::error::The app authenticated but would not issue an installation token. A permission the caller asked for that the installation does not hold is answered 422."
+          echo "::error::The app authenticated but would not issue an installation token."
           cat /tmp/t.json >&2 || true
+          # A permission asked for above what the installation holds is a 422,
+          # and the body does not name which one. The installation document
+          # already fetched does, so print both sides: on 2026-09-12 this app
+          # held `administration` at read while `repo_state.py` needs write,
+          # and that mismatch is the likeliest reason to be reading this.
+          echo "::error::asked for: $body"
+          echo "::error::installation grants: $(python3 -c 'import json; print(json.dumps(json.load(open("/tmp/i.json")).get("permissions", {}), sort_keys=True))')"
           exit 1
         fi
         token=$(python3 -c 'import json; print(json.load(open("/tmp/t.json"))["token"])')

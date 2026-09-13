@@ -62,12 +62,14 @@ at a time by whoever reads it next.
 before you push; `mise run check` fails if you did not. One formatter per
 language and no language without one -- typstyle for `.typ`, ruff for `.py`,
 biome for `.js`/`.json`/`.css`, dprint for `.md`/`.toml`/`.yml`, shfmt for
-`.sh`. All on their defaults. The reason is the reader: a diff that mixes a
-change with a reflow costs them the ability to see the change, and the author
-reads these on a phone. Do not argue with a formatter's output and do not
-configure around it; where its shape and the file's fight, change the file --
-`ruff.toml`'s rule list is one code per line because that is what the TOML
-formatter wanted, and it reads no worse.
+`.sh`. On their defaults, with one exception recorded where it is made: dprint's
+markdown `textWrap` is `always`, because the default left every wrap in the tree
+a human decision and nobody had noticed. The reason is the reader: a diff that
+mixes a change with a reflow costs them the ability to see the change, and the
+author reads these on a phone. Do not argue with a formatter's output; where its
+shape and the file's fight, change the file -- `ruff.toml`'s rule list is one
+code per line because that is what the TOML formatter wanted, and it reads no
+worse.
 
 `notes/` is excluded, like everywhere else. `book/` is typstyle's.
 

@@ -73,6 +73,13 @@ whole of it, and it is deliberate: the app manages the author's repositories and
 nobody can predict what the fleet will need next, so a per-feature grant means
 another trip to a settings page for every improvement.
 
+One of them has to be **Read and write**, not Read: **Administration**. It is
+what `repo_state.py` writes the repository object, the topics and the ruleset
+with, and `settings.yml` asks for it by name, so at Read the token request is
+refused with a 422 before anything is applied. The only measurement of the grant
+is run 34695708756 (2026-09-12), which read `administration` at read; if the
+first `Settings` run fails at the token step, that is what to change.
+
 An earlier version of this file listed each permission and forbade
 Administration, Secrets, Variables and Environments, on the argument that an
 agent holding them could widen its own authority. The argument was right and the
@@ -115,8 +122,9 @@ Then say so. Wiring the workflows is a pull request, not your job.
 `repo.toml` and `tools/repo_state.py`. The file says what the repository is
 configured to be; `mise run check` fails when GitHub disagrees, wherever a
 credential is held -- not yet in CI, where the Check step has no token and every
-section reads unread. There is no separate check of the grant, because the grant
-is no longer the boundary.
+section reads unread. There is no separate check of the grant, because
+`repo.toml` is the boundary now -- with the one exception above, which the
+`Settings` run reports for itself.
 
 ---
 

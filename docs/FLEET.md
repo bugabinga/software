@@ -247,11 +247,16 @@ corrupt download at the moment they are setting up their note-taker.
 
 ## Identities
 
-`docs/IDENTITY.md` is the setup. The App exists -- the author created it with
-every repository permission -- and `settings.yml` is the first workflow to use
-its key, so until that workflow has run green nothing here has proof the key and
-the environment name are right. An SSH signing key, which is what would make the
-fleet's commits read Verified, does not exist and is not urgent.
+`docs/IDENTITY.md` is the setup. The App exists and its key works: run
+34695708756's `Key in the Bot environment` job signed a JWT with
+`FLEET_APP_PRIVATE_KEY` from the `Bot` environment and read the installation's
+own grants. That reading, on 2026-09-12, also says `administration` was granted
+at **read**, and `settings.yml` mints its token asking for write. The author has
+since said the grant was widened; nothing here can check that, because the only
+thing that could read it was `bot-check.yml` and it is deleted. The first
+`Settings` run is the measurement, and it fails at the token step with a 422
+naming both sides if the grant is still read. An SSH signing key, which is what
+would make the fleet's commits read Verified, does not exist and is not urgent.
 
 ## Nothing here needs setting up
 

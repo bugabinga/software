@@ -2,9 +2,12 @@
 """Check the GitHub Actions definitions before they are pushed.
 
 A broken workflow does not fail loudly -- it fails at 06:17 on a Monday, in a
-run nobody is watching. Three classes of mistake are worth catching locally:
+run nobody is watching. Six classes of mistake are worth catching locally:
 
 * invalid YAML (checked when PyYAML happens to be importable);
+* a program under `tools/` that no longer parses as Python;
+* a `uses:` that is not a commit SHA, or one carrying no version comment;
+* a tab, which YAML forbids for indentation;
 * a comment wrapped past the width the author reads at;
 * a shell heredoc inside a `run:` block whose terminator is indented past the
   block. YAML strips a block scalar's own indentation before the shell ever
