@@ -1,7 +1,7 @@
 # The fleet
 
-Who maintains this book besides the author, what each of them may touch, and
-how to stop them.
+Who maintains this book besides the author, what each of them may touch, and how
+to stop them.
 
 Three kinds of worker, in increasing order of how much judgement they exercise
 and decreasing order of how often they run.
@@ -26,29 +26,29 @@ Deterministic work that a script does better than a model.
 
 ### What a push costs
 
-**No money, and not free.** This repository is public, so standard runners
-carry no charge: `GET /repos/{owner}/{repo}/actions/runs/{id}/timing` returns
+**No money, and not free.** This repository is public, so standard runners carry
+no charge: `GET /repos/{owner}/{repo}/actions/runs/{id}/timing` returns
 `billable.UBUNTU.total_ms: 0` on every run, against real durations of nine
 seconds to nine minutes. An earlier version of this section priced a push at
 nine billed minutes and then at four, which was arithmetic on a number nobody
 was charging.
 
-Minutes are still scarce, for two reasons that have nothing to do with
-invoices. **Concurrent jobs are an account-wide limit**, not a repository one,
-so every job here takes one of a ceiling the whole account shares -- something
-to stay clear of rather than a queue anyone here has measured. And this fleet
-is a pattern the author repeats: a habit that holds a slot on every push is
+Minutes are still scarce, for two reasons that have nothing to do with invoices.
+**Concurrent jobs are an account-wide limit**, not a repository one, so every
+job here takes one of a ceiling the whole account shares -- something to stay
+clear of rather than a queue anyone here has measured. And this fleet is a
+pattern the author repeats: a habit that holds a slot on every push is
 affordable once and not fifteen times. Spend them as though they were billed.
 
 The model is the cost that grows with use: `Fleet review` on every push to an
-open pull request, and `fleet.yml` and `fleet-respond.yml` whenever they fire
--- the review loop ran twelve rounds on #78. Whether that arrives as an
-invoice depends on which credential is set: the OAuth token is a subscription
-and the API key bills separately (`fleet-review.yml:144`). The cost nobody
-itemises is a reviewer's wall-clock, which is the slowest job rather than the
-total: one push used to run nine jobs adding up to 131 seconds of work.
-`ci.yml` is one job now instead of three, and `agent-branches.yml` one instead
-of three, each gated by the event that wants it.
+open pull request, and `fleet.yml` and `fleet-respond.yml` whenever they fire --
+the review loop ran twelve rounds on #78. Whether that arrives as an invoice
+depends on which credential is set: the OAuth token is a subscription and the
+API key bills separately (`fleet-review.yml:144`). The cost nobody itemises is a
+reviewer's wall-clock, which is the slowest job rather than the total: one push
+used to run nine jobs adding up to 131 seconds of work. `ci.yml` is one job now
+instead of three, and `agent-branches.yml` one instead of three, each gated by
+the event that wants it.
 
 ## 2. Agents (judgement, on a schedule or on demand)
 
@@ -62,8 +62,8 @@ tensions are load-bearing. Do not smooth them out.
 House style for every worker is in `CLAUDE.md` — terse, link rather than
 restate, long code comments and short reports.
 
-Defined in `.claude/agents/`, so a scheduled session, an interactive session
-and the GitHub-side bot all run the same agent rather than improvising.
+Defined in `.claude/agents/`, so a scheduled session, an interactive session and
+the GitHub-side bot all run the same agent rather than improvising.
 
 | Agent                | Beat                                                                              | Never                                                        |
 | -------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -74,9 +74,9 @@ and the GitHub-side bot all run the same agent rather than improvising.
 
 Three skills carry the procedures: `.claude/skills/garden` (the maintenance
 sweep, including the merge policy), `.claude/skills/ingest` (getting material
-into `notes/`), and `.claude/skills/workflows` (writing or reviewing a
-workflow -- pinning, caching, minutes, third-party risk, and the
-`GITHUB_TOKEN` rule this repository has now hit in both directions).
+into `notes/`), and `.claude/skills/workflows` (writing or reviewing a workflow
+-- pinning, caching, minutes, third-party risk, and the `GITHUB_TOKEN` rule this
+repository has now hit in both directions).
 
 ### Triggers
 
@@ -98,10 +98,10 @@ routes the occasion to a brief and fills it in; `mise run check` runs its
 self-test, because a broken brief is a fleet outage that would otherwise only
 show itself at 07:00 on a Monday.
 
-**Event beats cadence.** Waiting a week to notice that notes arrived is a
-worse fleet than one that notices on the push. The two schedules that remain
-are the ones with no event to hang on: link rot happens to the world, not to
-the repository, and whole-book consistency is only checkable periodically.
+**Event beats cadence.** Waiting a week to notice that notes arrived is a worse
+fleet than one that notices on the push. The two schedules that remain are the
+ones with no event to hang on: link rot happens to the world, not to the
+repository, and whole-book consistency is only checkable periodically.
 
 **Silence is the normal outcome.** No pull request, no issue, no message. An
 agent that reports every walk around the garden is worse than no agent.
@@ -109,149 +109,146 @@ agent that reports every walk around the garden is worse than no agent.
 #### The credential
 
 The three fleet workflows read `CLAUDE_CODE_OAUTH_TOKEN` from the **`Fleet`
-environment**, falling back to `ANTHROPIC_API_KEY` if that is what is set.
-An environment secret is invisible to a job that does not name the
-environment, which is why every fleet job carries `environment: Fleet`; get
-that name wrong and the secret is simply absent, and the run says so rather
-than failing obscurely.
+environment**, falling back to `ANTHROPIC_API_KEY` if that is what is set. An
+environment secret is invisible to a job that does not name the environment,
+which is why every fleet job carries `environment: Fleet`; get that name wrong
+and the secret is simply absent, and the run says so rather than failing
+obscurely.
 
 Without either credential every trigger still fires, routes, and prints the
 brief it would have used into the job summary. That is deliberate: it makes
 `Fleet review` safe to require before the fleet is armed, and it makes the
 routing watchable for nothing.
 
-Note that a GitHub environment can carry protection rules of its own --
-required reviewers, wait timers. Any set on `Fleet` apply to every fleet run,
-which is a second place, besides the branch ruleset, where the fleet can be
-paused or gated.
+Note that a GitHub environment can carry protection rules of its own -- required
+reviewers, wait timers. Any set on `Fleet` apply to every fleet run, which is a
+second place, besides the branch ruleset, where the fleet can be paused or
+gated.
 
 ## 3. The bot inside GitHub (on request)
 
-`claude.yml` picks up `@claude` in an issue, a pull-request comment or a
-review comment, with the repository checked out and the book's gates
-available. Use it for "@claude this link is dead" or "@claude why is this
-build red" without leaving GitHub.
+`claude.yml` picks up `@claude` in an issue, a pull-request comment or a review
+comment, with the repository checked out and the book's gates available. Use it
+for "@claude this link is dead" or "@claude why is this build red" without
+leaving GitHub.
 
-It needs an `ANTHROPIC_API_KEY` repository secret, which cannot be set from
-the author's Claude sessions — the Actions secrets API is blocked to that
+It needs an `ANTHROPIC_API_KEY` repository secret, which cannot be set from the
+author's Claude sessions — the Actions secrets API is blocked to that
 environment. Until the key exists, every run exits early with a notice rather
 than failing. Everything in sections 1 and 2 works without it.
 
 ## Judging the fleet
 
 `tools/fleet_report.py` is the operator's instrument, run weekly by
-`fleet-report.yml` and by hand with `make fleet-report` (`DAYS=30` for a
-longer window). It gathers what exists while it still exists -- workflow runs
-and their conclusions, each agent run's execution record uploaded as an
-artifact, every `agent/**` branch and whether it merged, and the open issues
--- and says a few blunt sentences about it before any table.
+`fleet-report.yml` and by hand with `make fleet-report` (`DAYS=30` for a longer
+window). It gathers what exists while it still exists -- workflow runs and their
+conclusions, each agent run's execution record uploaded as an artifact, every
+`agent/**` branch and whether it merged, and the open issues -- and says a few
+blunt sentences about it before any table.
 
 Three things make it worth reading rather than a dashboard nobody opens:
 
 - It reports what it does _not_ know. A run whose usage was never recorded is
   counted as unmeasured, because "we cannot say what the fleet cost" is a
   finding about the pipeline.
-- It names work that will never land: a branch with no pull request and no
-  merge is effort spent for nothing, and that is a fleet fault, not a backlog.
+- It names work that will never land: a branch with no pull request and no merge
+  is effort spent for nothing, and that is a fleet fault, not a backlog.
 - Its history is a file, not a query. `history.jsonl` on `fleet-log` keeps one
   line per report forever, so a bad month is still visible after GitHub has
   pruned the runs it was derived from.
 
 The page is at `<site>/fleet/`. It is reachable and `noindex`, and it is not
-part of the book: not in the book's navigation, the sitemap or the search
-index, and linked only from the foot of the front page.
-`publish.yml` folds it in from the `fleet-log` branch, so it survives the
-force-push that replaces the site.
+part of the book: not in the book's navigation, the sitemap or the search index,
+and linked only from the foot of the front page. `publish.yml` folds it in from
+the `fleet-log` branch, so it survives the force-push that replaces the site.
 
 ## How notes arrive
 
 `docs/NOTES-INBOX.md` is the whole of it. In short: the author's note-taking
 session POSTs to a Cloudflare Worker, which writes the note to an
-`agent/note-**` branch and stops. Everything after that is the machinery
-already described here.
+`agent/note-**` branch and stops. Everything after that is the machinery already
+described here.
 
 The Worker exists for one reason, and it is not hosting: a GitHub token cannot
 be scoped to "may only file a note", so without it that session would hold
-`contents: write` on the book. Notes still live in `notes/`, in the
-repository, verbatim and never edited. Cloudflare is the inbox, not the
-archive.
+`contents: write` on the book. Notes still live in `notes/`, in the repository,
+verbatim and never edited. Cloudflare is the inbox, not the archive.
 
 ## Previews
 
-Every pull request from this repository gets a URL once CI is green, posted
-as a comment and replaced on each push. `preview.yml` deploys the site CI
-already built as an assets-only Cloudflare Worker named `book-pr-<number>`.
-A fork's gets none: `workflow_run` would hand it the credential, so the head
-repository is checked rather than assumed.
+Every pull request from this repository gets a URL once CI is green, posted as a
+comment and replaced on each push. `preview.yml` deploys the site CI already
+built as an assets-only Cloudflare Worker named `book-pr-<number>`. A fork's
+gets none: `workflow_run` would hand it the credential, so the head repository
+is checked rather than assumed.
 
 **Deploys need a workers.dev subdomain the token can read.** The account has
-`software-fleet.workers.dev`, and `worker-deploy.yml` still failed on every
-run from the day it was armed with wrangler saying to register one -- which
-is what a token that cannot read the subdomain looks like from outside, and
-is the likeliest reading given the subdomain exists. `CLOUDFLARE_API_TOKEN`
-wants **Account / Workers Scripts / Edit**.
+`software-fleet.workers.dev`, and `worker-deploy.yml` still failed on every run
+from the day it was armed with wrangler saying to register one -- which is what
+a token that cannot read the subdomain looks like from outside, and is the
+likeliest reading given the subdomain exists. `CLOUDFLARE_API_TOKEN` wants
+**Account / Workers Scripts / Edit**.
 
 Both workflows now ask the API first and `tools/cloudflare.py` tells the three
 situations apart that wrangler reports as one -- a subdomain that exists, a
 token that cannot read it, an account that has none -- so the next run names
-which rather than printing a wall of wrangler output. A domain in the
-Cloudflare dashboard is a zone, incidentally, and not the same thing as a
-workers.dev subdomain; conflating them is what sent the first diagnosis after
-the wrong problem.
+which rather than printing a wall of wrangler output. A domain in the Cloudflare
+dashboard is a zone, incidentally, and not the same thing as a workers.dev
+subdomain; conflating them is what sent the first diagnosis after the wrong
+problem.
 
 It runs on `workflow_run` rather than as a step in `ci.yml`, and that is the
 whole design. The Cloudflare credential is an environment secret and the
 `Cloudflare` environment is restricted to `main` on purpose -- a deploy from a
 branch would be a stranger's Worker on the author's account. A `workflow_run`
 job executes in `main`'s context, so it satisfies that restriction instead of
-loosening it, and needs no second token. The cost is one extra job per push:
-no charge, one more slot out of the account's concurrency, and a reviewer
-waiting slightly longer.
+loosening it, and needs no second token. The cost is one extra job per push: no
+charge, one more slot out of the account's concurrency, and a reviewer waiting
+slightly longer.
 
 Previews delete themselves, but not when the pull request closes: the reaper
-runs inside the next `Preview` job, and that job needs an open pull request
-of its own to have pushed and passed CI. Close the last one and its Worker
-survives until another is built. It rides along there because that run is
-already awake and already holding the credential; a schedule or a
-`pull_request: closed` trigger would each be another run, and `pull_request`
-cannot reach the `Cloudflare` environment anyway. The naming and the matching
-live together in `tools/preview.py` and are tested against each other: a
-reaper that matches loosely deletes somebody else's Worker on the same
-account, and one that matches too tightly leaks previews until the account's
-limit stops the next deploy. Both fail quietly.
+runs inside the next `Preview` job, and that job needs an open pull request of
+its own to have pushed and passed CI. Close the last one and its Worker survives
+until another is built. It rides along there because that run is already awake
+and already holding the credential; a schedule or a `pull_request: closed`
+trigger would each be another run, and `pull_request` cannot reach the
+`Cloudflare` environment anyway. The naming and the matching live together in
+`tools/preview.py` and are tested against each other: a reaper that matches
+loosely deletes somebody else's Worker on the same account, and one that matches
+too tightly leaks previews until the account's limit stops the next deploy. Both
+fail quietly.
 
 ## Standalone pages
 
-Reachable on the site, and deliberately not part of the book: not in the
-book's navigation, not in the sitemap, not in the search index, `noindex` in
-their own head. A reader who wandered into one from a chapter would be right
-to be confused.
+Reachable on the site, and deliberately not part of the book: not in the book's
+navigation, not in the sitemap, not in the search index, `noindex` in their own
+head. A reader who wandered into one from a chapter would be right to be
+confused.
 
-They are linked once, from the foot of the front page, under "Also here".
-Before that they were not reachable at all -- `<site>/skill/` served for a day
-and the only way to find it was to know the URL.
+They are linked once, from the foot of the front page, under "Also here". Before
+that they were not reachable at all -- `<site>/skill/` served for a day and the
+only way to find it was to know the URL.
 
 | Page            | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `<site>/skill/` | Builds the note-taker's skill. Two fields in, a zip out, assembled in the browser so the intake token never leaves the page -- there is no server behind a static file on Pages, which is the whole reason this is a page rather than an endpoint. `?inbox=` prefills the address, and `worker-deploy.yml` links here with it filled in. `tools/make_skill.py` builds the same zip from this page's script, for anyone with a checkout; see `docs/NOTES-INBOX.md`. |
 | `<site>/fleet/` | The weekly fleet report, folded in by `publish.yml` from the `fleet-log` branch.                                                                                                                                                                                                                                                                                                                                                                                   |
 
-Anything under `site/` that is not `assets` or `templates` is copied to the
-site root by `tools/build.py`, so a new standalone page is a directory --
-plus an entry in that file's `STANDALONE`, giving it a name and a blurb.
-`check_standalone` fails the build on a directory with no entry, because a
-page linked from nowhere is the fault this list was added to fix.
+Anything under `site/` that is not `assets` or `templates` is copied to the site
+root by `tools/build.py`, so a new standalone page is a directory -- plus an
+entry in that file's `STANDALONE`, giving it a name and a blurb.
+`check_standalone` fails the build on a directory with no entry, because a page
+linked from nowhere is the fault this list was added to fix.
 
-`tools/check_skill_page.py` runs the generator's own script under node and
-opens the zip it produces with Python's `zipfile`. Two runtimes have to agree
-it is a zip before it is published, because the failure mode is the author
-discovering a corrupt download at the moment they are setting up their
-note-taker.
+`tools/check_skill_page.py` runs the generator's own script under node and opens
+the zip it produces with Python's `zipfile`. Two runtimes have to agree it is a
+zip before it is published, because the failure mode is the author discovering a
+corrupt download at the moment they are setting up their note-taker.
 
 ## Identities the fleet does not have yet
 
-Two things need a human and are written out in `docs/IDENTITY.md`: a GitHub
-App, which is what would let the fleet open its own pull requests and get its
+Two things need a human and are written out in `docs/IDENTITY.md`: a GitHub App,
+which is what would let the fleet open its own pull requests and get its
 branches checked without a workaround, and an SSH signing key, which is what
 would make its commits read Verified. Until the App exists, a branch the fleet
 pushes cannot reach `main` without somebody opening a pull request for it.
@@ -259,9 +256,9 @@ pushes cannot reach `main` without somebody opening a pull request for it.
 ## Nothing here needs setting up
 
 Everything runs on the workflow token, which every repository grants its own
-Actions by default. That is a design constraint, not an accident: three
-things a normal pipeline would reach for are unavailable here, and each was
-routed around rather than left as a chore for the author.
+Actions by default. That is a design constraint, not an accident: three things a
+normal pipeline would reach for are unavailable here, and each was routed around
+rather than left as a chore for the author.
 
 | Wanted                          | Refused because                                                                                                                                                | Done instead                                                                                                                                                  |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -271,27 +268,27 @@ routed around rather than left as a chore for the author.
 
 `tools/bootstrap-repo.sh` grants the first two properly, if you ever have a
 terminal and a token to hand. It is **optional** -- it makes the presentation
-nicer (real pull requests, Pages deployment history) and changes nothing
-about whether the book publishes.
+nicer (real pull requests, Pages deployment history) and changes nothing about
+whether the book publishes.
 
 **Arm the GitHub bot, if you want it** (see section 3): add an
 `ANTHROPIC_API_KEY` secret. Nothing else depends on it.
 
 Dependabot's pull requests wait for a human: every one of them touches
-`.github/`, which is not a chore, so nothing merges it. The actions are
-pinned to commits rather than tags -- `.github/dependabot.yml` says why -- so
-a bump is a new SHA, and the version in its trailing comment is the only
-thing in the diff that says what moved. The weekly sweep reads them and
-leaves them (`.claude/skills/garden`, step 2).
+`.github/`, which is not a chore, so nothing merges it. The actions are pinned
+to commits rather than tags -- `.github/dependabot.yml` says why -- so a bump is
+a new SHA, and the version in its trailing comment is the only thing in the diff
+that says what moved. The weekly sweep reads them and leaves them
+(`.claude/skills/garden`, step 2).
 
 ## Issues: how the fleet is asked for things
 
-Issues are the control surface. They are how work is requested from a phone,
-and they are where the fleet reports what it could not do.
+Issues are the control surface. They are how work is requested from a phone, and
+they are where the fleet reports what it could not do.
 
-**Asking.** `.github/ISSUE_TEMPLATE/` has three forms, and blank issues are
-off, because a form that names the agent and the target dispatches by itself
-while free text needs somebody to interpret it.
+**Asking.** `.github/ISSUE_TEMPLATE/` has three forms, and blank issues are off,
+because a form that names the agent and the target dispatches by itself while
+free text needs somebody to interpret it.
 
 | Form                        | Label it applies | What happens                                                                                                              |
 | --------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
@@ -304,8 +301,8 @@ The **label is the trigger**, not the form: `fleet.yml` fires on
 which is the re-run mechanism, and a label removed and re-added is a retry.
 
 Every dispatched agent puts `Closes #N` in its commit message, so the issue
-closes when the work merges. The fleet adds `fleet:running` when it starts
-and comments a link to the run.
+closes when the work merges. The fleet adds `fleet:running` when it starts and
+comments a link to the run.
 
 **Reporting.** The fleet opens an issue in exactly two situations, and updates
 one rather than filing duplicates:
@@ -317,34 +314,32 @@ It does not open an issue to say it looked and found nothing.
 
 ## Two channels for two kinds of finding
 
-A fault in a chapter is either decidable or it is judgement, and they should
-not share an artefact.
+A fault in a chapter is either decidable or it is judgement, and they should not
+share an artefact.
 
 **Decidable** — a cross-reference to no chapter, a note cited at a line it does
 not have, a marker left in the prose. `tools/prose_scan.py` finds these and
 emits SARIF, which GitHub takes from any tool: the finding lands as an
-annotation on the line, with a rule id, a severity, a dismissal flow and
-history in the Security tab. `mise run check` runs it too. The test for a rule
-belonging here is whether two people would agree on every result without
-discussing it.
+annotation on the line, with a rule id, a severity, a dismissal flow and history
+in the Security tab. `mise run check` runs it too. The test for a rule belonging
+here is whether two people would agree on every result without discussing it.
 
-**Judgement** — invention, a citation that does not support its claim, an
-agent outside its brief. That is `pr-reviewer`'s, delivered as review threads.
+**Judgement** — invention, a citation that does not support its claim, an agent
+outside its brief. That is `pr-reviewer`'s, delivered as review threads.
 
 Until this split, the reviewer wrote prose about faults a program could have
 pinned to a line, which wastes a model and produces the worse artefact.
 
-`book/terms.toml` exists and is deliberately empty: the `term-drift` rule
-is inactive until somebody writes down what this book's vocabulary is. A
-rule that invented its own terminology would be enforcing a program's
-opinion.
+`book/terms.toml` exists and is deliberately empty: the `term-drift` rule is
+inactive until somebody writes down what this book's vocabulary is. A rule that
+invented its own terminology would be enforcing a program's opinion.
 
 ## Reviews: how the loop runs
 
 `pr-reviewer` posts a **real GitHub review**, not a comment: findings become
-inline threads on the lines they are about, and where the reviewer knows the
-fix it comes as a `suggestion` block applied with one click. A `fail` is
-submitted as _changes requested_.
+inline threads on the lines they are about, and where the reviewer knows the fix
+it comes as a `suggestion` block applied with one click. A `fail` is submitted
+as _changes requested_.
 
 `review-responder` then answers every unresolved thread -- a fix pushed to the
 same branch, or a reply saying what the finding missed -- and **resolves it**.
@@ -353,60 +348,56 @@ the point: a review that nothing has to answer decays into a note.
 
 Three things are meant to keep it from running forever:
 
-- **Three rounds.** `fleet-respond.yml` counts the fleet's own
-  changes-requested reviews. On the fourth it does not run the agent at all:
-  it labels the pull request `hold`, says once why, and leaves it. Two agents
-  disagreeing is the author's to settle. **The `hold` has never been
-  applied**, because until #75 was fixed the count was never taken on a pull
-  request only the fleet had reviewed -- #78 passed the third round without
-  one, and kept going to twelve.
+- **Three rounds.** `fleet-respond.yml` counts the fleet's own changes-requested
+  reviews. On the fourth it does not run the agent at all: it labels the pull
+  request `hold`, says once why, and leaves it. Two agents disagreeing is the
+  author's to settle. **The `hold` has never been applied**, because until #75
+  was fixed the count was never taken on a pull request only the fleet had
+  reviewed -- #78 passed the third round without one, and kept going to twelve.
 - **The responder does not answer itself.** The bot comes through only on a
   `pull_request_review` that requests changes, never on a
-  `pull_request_review_comment`, which is what its own replies are. The
-  author comes through on either.
+  `pull_request_review_comment`, which is what its own replies are. The author
+  comes through on either.
 - **A pass dismisses the objection.** The reviewer never approves -- whether a
-  bot's approval satisfies a rule is a question about GitHub's internals, and
-  a check is the answer that does not depend on one -- and `Fleet review` is
-  a required check on `Main`, so the verdict gates the merge. So when a later
+  bot's approval satisfies a rule is a question about GitHub's internals, and a
+  check is the answer that does not depend on one -- and `Fleet review` is a
+  required check on `Main`, so the verdict gates the merge. So when a later
   round passes, `tools/post_review.py` dismisses the earlier changes-requested
   reviews. Without that a fixed pull request would carry a standing objection
   from three commits ago and never become mergeable.
 
-The reviewer writes only JSON; `tools/post_review.py` turns it into the
-review. Line numbers, diff sides, the range syntax and the fallback when
-GitHub refuses a request for changes on its own pull request are things a
-program is right about every time. Its `--self-test` checks the line
-arithmetic, which is the part that silently misplaces a comment.
+The reviewer writes only JSON; `tools/post_review.py` turns it into the review.
+Line numbers, diff sides, the range syntax and the fallback when GitHub refuses
+a request for changes on its own pull request are things a program is right
+about every time. Its `--self-test` checks the line arithmetic, which is the
+part that silently misplaces a comment.
 
 ## Who reviews, and who answers
 
 Two reviewers, and neither of them is Copilot.
 
-`pr-reviewer` judges every pull request. The author reviews what they choose
-to. `fleet-respond.yml` wakes on both, by two different routes: an author's
-review arrives as `pull_request_review`, and the fleet's own arrives as
-`workflow_run` on `Fleet review` finishing. The second route exists because
-the first cannot carry it -- a review posted with the workflow token starts
-no run, which is why every fleet review before #75 was answered by the
-operator by hand.
+`pr-reviewer` judges every pull request. The author reviews what they choose to.
+`fleet-respond.yml` wakes on both, by two different routes: an author's review
+arrives as `pull_request_review`, and the fleet's own arrives as `workflow_run`
+on `Fleet review` finishing. The second route exists because the first cannot
+carry it -- a review posted with the workflow token starts no run, which is why
+every fleet review before #75 was answered by the operator by hand.
 
-One of the two things the roster used to claim is true again; the other is
-not. The review does gate the merge -- `Fleet review` is a required check on
-`Main`. Nothing makes a thread end resolved, though:
-`required_review_thread_resolution` is `false` on `Main`, and the rule lives
-in `.claude/agents/review-responder.md`, which is handed out when the author
-reviews and not when the fleet does. Turning the ruleset rule
-on would make it real, and would also make a stranded thread unmergeable by
-anything but a human, which is why it is the author's call rather than the
-fleet's.
+One of the two things the roster used to claim is true again; the other is not.
+The review does gate the merge -- `Fleet review` is a required check on `Main`.
+Nothing makes a thread end resolved, though: `required_review_thread_resolution`
+is `false` on `Main`, and the rule lives in
+`.claude/agents/review-responder.md`, which is handed out when the author
+reviews and not when the fleet does. Turning the ruleset rule on would make it
+real, and would also make a stranded thread unmergeable by anything but a human,
+which is why it is the author's call rather than the fleet's.
 
-**Copilot's automated review is off.** It needs a paid Copilot plan, and since
-1 June 2026 each review also spends Actions minutes -- unbilled here, drawn
-from the same account-wide concurrency as everything else. The
-`copilot_code_review` rule was removed from the `Main` ruleset on 2026-09-12
-rather than paid for; `pr-reviewer` already covers the same ground and costs a
-model call the fleet is paying for anyway.
-Nothing here should assume a third reviewer exists.
+**Copilot's automated review is off.** It needs a paid Copilot plan, and since 1
+June 2026 each review also spends Actions minutes -- unbilled here, drawn from
+the same account-wide concurrency as everything else. The `copilot_code_review`
+rule was removed from the `Main` ruleset on 2026-09-12 rather than paid for;
+`pr-reviewer` already covers the same ground and costs a model call the fleet is
+paying for anyway. Nothing here should assume a third reviewer exists.
 
 Three workflows, three verbs, so it is clear which to look at:
 
@@ -416,12 +407,13 @@ Three workflows, three verbs, so it is clear which to look at:
 | `fleet-review.yml`  | judge it        | a check, and a comment        |
 | `fleet-respond.yml` | answer feedback | the pull request's own branch |
 
-`fleet-respond.yml` pushes with the workflow token, so the runs that push
-raises are held in an approval-required state and never execute -- runs
-34760403200 and 34760403209 are the record. It therefore asks for `ci.yml` and
+`fleet-respond.yml` pushes with the workflow token, so the runs that push raises
+are held in an approval-required state and never execute -- runs 34760403200 and
+34760403209 are the record. It therefore asks for `ci.yml` and
 `fleet-review.yml` by dispatch afterwards, which a `GITHUB_TOKEN` may raise.
 Without that the fixes would carry the verdict they answered, and `Fleet
-review` is required.
+review`
+is required.
 
 ## Which model runs which agent
 
@@ -442,17 +434,16 @@ Three tiers, and the words are the author's.
 | `prose-editor`       | smart     | what is left after the scanner is judgement       |
 | `pipeline-gardener`  | workhorse | weekly and on every CI failure; mechanical        |
 
-The tier lives in the agent's own `model:` frontmatter and the mapping lives
-in `tools/fleet_brief.py`, which resolves one to the other and writes `model=`
-for the workflow to pass as `--model`. It was decorative before that: these
+The tier lives in the agent's own `model:` frontmatter and the mapping lives in
+`tools/fleet_brief.py`, which resolves one to the other and writes `model=` for
+the workflow to pass as `--model`. It was decorative before that: these
 definitions are briefs an agent is told to read, not Claude Code subagents, so
 nothing read their frontmatter and every agent ran on the action's default --
-which is how `pr-reviewer` gated eight merges on Haiku without anyone
-noticing.
+which is how `pr-reviewer` gated eight merges on Haiku without anyone noticing.
 
-What the tier asks for and what actually served are different facts. The
-weekly report records the second, per agent, because a fallback under load
-changes it and nothing else in the repository would say so.
+What the tier asks for and what actually served are different facts. The weekly
+report records the second, per agent, because a fallback under load changes it
+and nothing else in the repository would say so.
 
 ## What is written down, and where
 
@@ -464,16 +455,16 @@ Three records, and each exists because the one above it expires.
 | `runs.jsonl` on `fleet-log`    | one run     | forever | `fleet_report.py --runs-log` |
 | `history.jsonl` on `fleet-log` | one week    | forever | `fleet_report.py --history`  |
 
-The artifact holds two files. Claude Code's execution output says how many
-turns a run took, what it cost and which model served it. `provenance.json`,
-written by `tools/fleet_record.py`, says what the run was _for_: the trigger,
-the agent, the model its definition asked for, a digest of the brief it was
-given, the branch it was pointed at and the commit it started from.
+The artifact holds two files. Claude Code's execution output says how many turns
+a run took, what it cost and which model served it. `provenance.json`, written
+by `tools/fleet_record.py`, says what the run was _for_: the trigger, the agent,
+the model its definition asked for, a digest of the brief it was given, the
+branch it was pointed at and the commit it started from.
 
 Both are needed and neither is enough. Without provenance the report has to
 guess the agent from the workflow name, which works for `fleet-review.yml` and
-`fleet-respond.yml` and collapses everything `fleet.yml` dispatches into one
-row called "dispatched". Without the execution output there is no cost.
+`fleet-respond.yml` and collapses everything `fleet.yml` dispatches into one row
+called "dispatched". Without the execution output there is no cost.
 
 The brief is recorded as a digest rather than its text. It is generated from a
 template and the occasion, it can be long, and the question worth answering is
@@ -482,20 +473,20 @@ does not.
 
 `runs.jsonl` is the durable half, appended weekly and deduplicated by run id.
 Both the artifact and the API's own run listing stop at 90 days, so a question
-asked in the spring about a run in the winter has nothing else to read. One
-line per agent run: trigger, agent, model asked for, model served, turns,
-seconds, cost, branch, pull request, and the commit it started from.
+asked in the spring about a run in the winter has nothing else to read. One line
+per agent run: trigger, agent, model asked for, model served, turns, seconds,
+cost, branch, pull request, and the commit it started from.
 
 A run that died before calling the model still gets a line. `always()` on the
-recording step is deliberate: the runs worth tracing are disproportionately
-the ones that failed.
+recording step is deliberate: the runs worth tracing are disproportionately the
+ones that failed.
 
 `fleet-log` is append-only in the git sense as well as the file sense: the
 report commits on top of what is there and pushes a fast-forward. It used to
-rebuild the history each week and force-push over it, which kept the branch
-to one commit and meant the JSONL files were the only copy of a record whose
-whole purpose is to outlive the API's 90-day window. Fast-forward is also
-what lets a ruleset guard the branch with nothing on its bypass list.
+rebuild the history each week and force-push over it, which kept the branch to
+one commit and meant the JSONL files were the only copy of a record whose whole
+purpose is to outlive the API's 90-day window. Fast-forward is also what lets a
+ruleset guard the branch with nothing on its bypass list.
 
 ## The merge policy
 
@@ -503,30 +494,30 @@ The author's standing decision: **everything arrives as a pull request, and
 anything green merges itself except the automation.**
 
 **The fleet decides about the book.** Structure, splits, rewrites, prose: the
-author controls those by writing the agent definitions in `.claude/agents/`,
-not by approving pull requests one at a time. Notes arrive one at a time over
-weeks and any of them can invalidate the shape the book has; a fleet that had
-to queue for approval on each would simply stop keeping up. So a green change
-to `book/` merges, and the pull request is written for someone reading a
-decision already taken.
+author controls those by writing the agent definitions in `.claude/agents/`, not
+by approving pull requests one at a time. Notes arrive one at a time over weeks
+and any of them can invalidate the shape the book has; a fleet that had to queue
+for approval on each would simply stop keeping up. So a green change to `book/`
+merges, and the pull request is written for someone reading a decision already
+taken.
 
 The one thing that still waits for a human is `.github/` and `.claude/`: the
 workflows and the fleet's own definitions. An agent that can rewrite its own
-brief, or its own merge rule, is supervised by nothing. That is the whole of
-the protected set, and it is what makes the delegation above safe to give.
+brief, or its own merge rule, is supervised by nothing. That is the whole of the
+protected set, and it is what makes the delegation above safe to give.
 
 To take a decision back, do not review harder: change the agent's brief, or
 label a pull request `hold`.
 
 ### What branch protection did to this
 
-`main` carries an active ruleset. Read from the API rather than remembered,
-all eight rules and no bypass actors: no creation, no deletion, no force-push,
-restricted update, linear history, signed commits, two required checks (`CI`
-and `Fleet review`, strictly -- a branch behind `main` has to be updated
-before it lands), and a pull request required -- squash only, **zero**
-required approvals, code-owner review required, stale reviews dismissed on
-push, thread resolution **not** required.
+`main` carries an active ruleset. Read from the API rather than remembered, all
+eight rules and no bypass actors: no creation, no deletion, no force-push,
+restricted update, linear history, signed commits, two required checks (`CI` and
+`Fleet review`, strictly -- a branch behind `main` has to be updated before it
+lands), and a pull request required -- squash only, **zero** required approvals,
+code-owner review required, stale reviews dismissed on push, thread resolution
+**not** required.
 
 | The fleet tries                  | Result                                                                                                                                                                                                                          |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -534,27 +525,27 @@ push, thread resolution **not** required.
 | opening a pull request           | refused — Actions is not permitted to create pull requests; `agent-branches.yml` hit that on `agent/badges` (run 34688705958), and stops earlier on a branch the operator has already opened                                    |
 | `PUT /pulls/N/merge`             | goes through — #78 merged on 13 September touching `.github/` and `.claude/`, with eleven standing changes-requested reviews and no approving review, so `require_code_owner_review` refused nothing at zero required approvals |
 
-So the fleet still routes through a human to land anything, and the reason is
-no longer the approval rule: it is that Actions cannot open the pull request.
-What the ruleset does enforce is the review itself -- `Fleet review` is a
-required check as of 13 September, so a failing verdict stops the merge rather
-than waiting for somebody to read the red mark.
+So the fleet still routes through a human to land anything, and the reason is no
+longer the approval rule: it is that Actions cannot open the pull request. What
+the ruleset does enforce is the review itself -- `Fleet review` is a required
+check as of 13 September, so a failing verdict stops the merge rather than
+waiting for somebody to read the red mark.
 
 #### Review by the fleet, which is what the protection was for
 
 The intention behind the ruleset was not "a human must approve" but "this must
-be reviewed" -- and the reviewer is the fleet. `fleet-review.yml` does that,
-and it is built as a **status check** rather than as an approving review on
-purpose. A check from Actions gates a merge in a way nothing argues with;
-whether a bot's _approval_ satisfies a required-reviews rule is a question
-about GitHub's internals that would have to keep being true.
+be reviewed" -- and the reviewer is the fleet. `fleet-review.yml` does that, and
+it is built as a **status check** rather than as an approving review on purpose.
+A check from Actions gates a merge in a way nothing argues with; whether a bot's
+_approval_ satisfies a required-reviews rule is a question about GitHub's
+internals that would have to keep being true.
 
-`pr-reviewer` reads the diff and checks what the automated gates cannot:
-whether the agent stayed inside its brief, whether cited notes actually say
-what the change claims, whether anything was invented, whether it contradicts
-the book, and whether it is the smallest change that does the job. It writes a
-verdict file; the workflow turns that into the check. No file means failure,
-because silence must never read as approval.
+`pr-reviewer` reads the diff and checks what the automated gates cannot: whether
+the agent stayed inside its brief, whether cited notes actually say what the
+change claims, whether anything was invented, whether it contradicts the book,
+and whether it is the smallest change that does the job. It writes a verdict
+file; the workflow turns that into the check. No file means failure, because
+silence must never read as approval.
 
 So the settings that fit the intention are:
 
@@ -562,64 +553,64 @@ So the settings that fit the intention are:
    Actions to create and approve pull requests. Without this the fleet cannot
    open a pull request at all, and there is nothing to review.
 2. **The `Main` ruleset → required status checks →** `CI` and `Fleet
-   review`. Done, 13 September. Not `Build`, `Spelling` or `Outbound links`:
-   those are steps inside the one `CI` job, not check contexts, and a
-   required check that never reports blocks every merge. The policy is
-   strict, so a branch behind `main` has to be updated before it can land.
-3. **The `Main` ruleset → require approvals: 0.** Done. The review
-   requirement lives in the checks, where the fleet can satisfy it. The cost
-   was not free: `require_code_owner_review` appears to be a qualification on
-   that count rather than a rule of its own, and at zero it refuses nothing --
-   see the merge row above. The `.github/CODEOWNERS` gate is currently a
-   review request and the author's own restraint.
+   review`.
+   Done, 13 September. Not `Build`, `Spelling` or `Outbound links`: those are
+   steps inside the one `CI` job, not check contexts, and a required check that
+   never reports blocks every merge. The policy is strict, so a branch behind
+   `main` has to be updated before it can land.
+3. **The `Main` ruleset → require approvals: 0.** Done. The review requirement
+   lives in the checks, where the fleet can satisfy it. The cost was not free:
+   `require_code_owner_review` appears to be a qualification on that count
+   rather than a rule of its own, and at zero it refuses nothing -- see the
+   merge row above. The `.github/CODEOWNERS` gate is currently a review request
+   and the author's own restraint.
 
-With those, no bypass actor is needed: the fleet opens a pull request, the
-gates and the fleet review run, and a green one squash-merges. Linear history
-intact, every rule still enforced.
+With those, no bypass actor is needed: the fleet opens a pull request, the gates
+and the fleet review run, and a green one squash-merges. Linear history intact,
+every rule still enforced.
 
 **Order matters.** Do not make `Fleet review` a required check before an
-`ANTHROPIC_API_KEY` exists and a few real pull requests have been through it.
-A required check that can never pass would brick the repository, which is why
-the workflow passes with a notice when there is no key.
+`ANTHROPIC_API_KEY` exists and a few real pull requests have been through it. A
+required check that can never pass would brick the repository, which is why the
+workflow passes with a notice when there is no key.
 
-Until then, a green branch the fleet may not merge becomes one issue saying
-so, rather than a red run every time.
+Until then, a green branch the fleet may not merge becomes one issue saying so,
+rather than a red run every time.
 
 ### How it is actually enforced
 
 Not by trust, and not by repository auto-merge. Agents **push a branch and
-stop**; `agent-branches.yml` opens the pull request and decides about
-merging, using the rules above, the files the pull request actually touches,
-and the state of every check on its head commit.
+stop**; `agent-branches.yml` opens the pull request and decides about merging,
+using the rules above, the files the pull request actually touches, and the
+state of every check on its head commit.
 
-That inversion exists because an unattended session may not be able to call
-the pull-request API at all: GraphQL is restricted in that environment, so
-`gh pr` does not work, and mutating REST calls can be refused — while
-`git push` always works. It also means the merge rules live in the repository
-where they can be read and changed, rather than in whatever an agent decided
-at 07:00.
+That inversion exists because an unattended session may not be able to call the
+pull-request API at all: GraphQL is restricted in that environment, so `gh pr`
+does not work, and mutating REST calls can be refused — while `git push` always
+works. It also means the merge rules live in the repository where they can be
+read and changed, rather than in whatever an agent decided at 07:00.
 
 Label a pull request `hold` to stop it merging automatically, whatever it
 touches.
 
 ## Who has to approve what
 
-`.github/CODEOWNERS` names the author as the owner of `.github/` and
-`.claude/`, and the `Main` ruleset requires an owner's approval. Everything
-else in the tree has no owner, which is the point: the author controls the
-book by controlling the fleet, not by reviewing what it writes.
+`.github/CODEOWNERS` names the author as the owner of `.github/` and `.claude/`,
+and the `Main` ruleset requires an owner's approval. Everything else in the tree
+has no owner, which is the point: the author controls the book by controlling
+the fleet, not by reviewing what it writes.
 
 This duplicates a rule `agent-branches.yml` already applies -- it refuses to
-auto-merge anything under those paths -- and the duplication is deliberate.
-That rule is the automation policing itself, in a file the automation can
-write to. It holds only because editing that file is itself a `.github/`
-change, which is an argument rather than a mechanism. CODEOWNERS is the
-mechanism, and the fleet cannot reach the setting that enforces it.
+auto-merge anything under those paths -- and the duplication is deliberate. That
+rule is the automation policing itself, in a file the automation can write to.
+It holds only because editing that file is itself a `.github/` change, which is
+an argument rather than a mechanism. CODEOWNERS is the mechanism, and the fleet
+cannot reach the setting that enforces it.
 
 **The one way it bites:** a pull request the author opens themselves touching
 those paths cannot be approved by them, and there is no second owner. The
-fleet's own pull requests are authored by `claude[bot]`, so those are fine.
-For the rare hand-written one, the bypass toggle is what it is for.
+fleet's own pull requests are authored by `claude[bot]`, so those are fine. For
+the rare hand-written one, the bypass toggle is what it is for.
 
 ## Boundaries that hold for every worker
 
@@ -648,5 +639,5 @@ gh workflow disable claude.yml
 git rm -r .claude/agents .claude/skills
 ```
 
-Disabling `ci.yml` or `publish.yml` stops the book being checked and
-published, which is a different decision from stopping the fleet.
+Disabling `ci.yml` or `publish.yml` stops the book being checked and published,
+which is a different decision from stopping the fleet.

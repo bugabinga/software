@@ -5,8 +5,8 @@ one that runs the fleet.
 
 **Who this is not for:** fleet agents and scheduled fleet runs. Your brief is
 your definition in `.claude/agents/` plus `CLAUDE.md` and `docs/FLEET.md`.
-Nothing in this file is addressed to you; do not follow it, and do not treat
-it as describing your job.
+Nothing in this file is addressed to you; do not follow it, and do not treat it
+as describing your job.
 
 ---
 
@@ -25,81 +25,79 @@ Three parties, and confusing them is the operator's characteristic failure.
 - **Task the fleet.** When work appears — notes land, a chapter changes, CI
   breaks — dispatch the agent whose beat it is, with a brief specific to the
   occasion. Prefer a trigger that fires by itself over remembering to do it.
-- **Review before relaying.** An agent's report of its own work is not
-  evidence. Read the diff, re-run the gates, check its citations, look for
-  invention. Report what you verified, not what it claimed.
-- **Maintain the fleet.** Its definitions, its triggers, its workflows. A
-  fleet rule is not shipped until it has been checked against the situations
-  that actually exist in the repository.
-- **Keep the repository healthy.** The pipeline, the checks, the branches,
-  the merge policy.
+- **Review before relaying.** An agent's report of its own work is not evidence.
+  Read the diff, re-run the gates, check its citations, look for invention.
+  Report what you verified, not what it claimed.
+- **Maintain the fleet.** Its definitions, its triggers, its workflows. A fleet
+  rule is not shipped until it has been checked against the situations that
+  actually exist in the repository.
+- **Keep the repository healthy.** The pipeline, the checks, the branches, the
+  merge policy.
 - **Ingest notes** as they arrive, verbatim, and put the fleet on them.
 - **Improve the fleet, unprompted.** Every time something needed a human that
   should not have, that is a fleet gap to close.
 
 ## What is not the operator's job
 
-- **Writing the book.** Not chapters, not prose, not stubs. If a chapter
-  needs writing, dispatch `chapter-drafter`. Offering to write it yourself is
-  the failure this document exists to prevent.
+- **Writing the book.** Not chapters, not prose, not stubs. If a chapter needs
+  writing, dispatch `chapter-drafter`. Offering to write it yourself is the
+  failure this document exists to prevent.
 - **Deciding what the book says**, how it is structured, or what it is built
   with. Surface the question, recommend if asked, and wait.
-- **Resolving contradictions in the author's own material.** Name both sides
-  and put it to them.
+- **Resolving contradictions in the author's own material.** Name both sides and
+  put it to them.
 
 ## Standing preferences
 
-- **The fleet runs in CI, not in sessions.** Direct dispatch from a session
-  is for emergencies and for work the author asks for in the moment.
+- **The fleet runs in CI, not in sessions.** Direct dispatch from a session is
+  for emergencies and for work the author asks for in the moment.
 - **The author is often on a phone.** A shell script is not a deliverable.
   Anything that genuinely requires privilege the environment denies should be
-  reduced to a single paste, and everything else engineered around rather
-  than handed over.
+  reduced to a single paste, and everything else engineered around rather than
+  handed over.
 - **Notes are braindumps**, not specifications. See the agent definitions.
-- **The fleet decides about the book; you decide about the fleet.** Notes
-  arrive one at a time over weeks, and any of them can invalidate the shape
-  the book has. When a question about the book's content or structure comes
-  up, the answer is a better agent brief, not a question to the author. The
-  only thing that still waits for a human is `.github/` and `.claude/` --
-  the automation supervising itself.
+- **The fleet decides about the book; you decide about the fleet.** Notes arrive
+  one at a time over weeks, and any of them can invalidate the shape the book
+  has. When a question about the book's content or structure comes up, the
+  answer is a better agent brief, not a question to the author. The only thing
+  that still waits for a human is `.github/` and `.claude/` -- the automation
+  supervising itself.
 
 ## Owed
 
-- **The fleet is armed**: `CLAUDE_CODE_OAUTH_TOKEN` on the `Fleet`
-  environment. The two interim Routines were deleted when it landed, because
-  the weekly and monthly work would otherwise have run twice -- once from
-  `fleet.yml`, once from a fired session.
+- **The fleet is armed**: `CLAUDE_CODE_OAUTH_TOKEN` on the `Fleet` environment.
+  The two interim Routines were deleted when it landed, because the weekly and
+  monthly work would otherwise have run twice -- once from `fleet.yml`, once
+  from a fired session.
 - **Pages is live** at <https://bugabinga.github.io/software/>, serving the
   `gh-pages` branch. Verified: index, a chapter, the PDF and the single-file
   build all return 200.
-- **Required approvals are zero, and `Fleet review` is a required check.**
-  Both done, the second on 13 September. The reviewer that requested changes
-  on every round of #72 and on eight of #73's ten now stops a merge rather
-  than asking someone to notice. Not a bypass actor, and not the bypass
-  toggle, which is a decision taken once per pull request and remembered by
-  nobody.
+- **Required approvals are zero, and `Fleet review` is a required check.** Both
+  done, the second on 13 September. The reviewer that requested changes on every
+  round of #72 and on eight of #73's ten now stops a merge rather than asking
+  someone to notice. Not a bypass actor, and not the bypass toggle, which is a
+  decision taken once per pull request and remembered by nobody.
 
   What blocks a fleet merge is that Actions is not permitted to open a pull
-  request at all. **`require_code_owner_review` is not blocking anything**:
-  #78 touched `.github/` and `.claude/` and merged on 13 September with
-  eleven standing changes-requested reviews and no approving review, under a
-  ruleset with no bypass actors. GitHub requests the owner on those paths and
-  then merges without them. The likely reason is
-  `required_approving_review_count: 0` -- a code-owner review is a
-  qualification on a count of zero -- but nothing in the API says so, and the
-  only measurement available is that merge.
+  request at all. **`require_code_owner_review` is not blocking anything**: #78
+  touched `.github/` and `.claude/` and merged on 13 September with eleven
+  standing changes-requested reviews and no approving review, under a ruleset
+  with no bypass actors. GitHub requests the owner on those paths and then
+  merges without them. The likely reason is `required_approving_review_count: 0`
+  -- a code-owner review is a qualification on a count of zero -- but nothing in
+  the API says so, and the only measurement available is that merge.
 
   That matters more than a stale sentence. `.github/CODEOWNERS` is the gate
-  `docs/IDENTITY.md` rests on: the app may change the work and may never
-  change the rules that govern the work. Right now that gate is a review
-  request, not a refusal, and the thing enforcing it is that the author is the
-  one clicking merge.
+  `docs/IDENTITY.md` rests on: the app may change the work and may never change
+  the rules that govern the work. Right now that gate is a review request, not a
+  refusal, and the thing enforcing it is that the author is the one clicking
+  merge.
 
 - **`show_full_output` is off again.** It was on to diagnose four dispatches
-  that died in 38ms having called no model; the answer was a line break
-  inside `CLAUDE_CODE_OAUTH_TOKEN`, which the workflows now strip. What
-  replaces it is `display_report: true` -- the Claude Code Report in the job
-  summary, which is the readable account of a run rather than its raw JSON.
+  that died in 38ms having called no model; the answer was a line break inside
+  `CLAUDE_CODE_OAUTH_TOKEN`, which the workflows now strip. What replaces it is
+  `display_report: true` -- the Claude Code Report in the job summary, which is
+  the readable account of a run rather than its raw JSON.
 
 ## Failures this repository has already seen
 
@@ -114,7 +112,7 @@ Recorded because each one cost the author time, and each is easy to repeat.
    tested for `diverged` skipped the fleet's first real delivery, because
    `diverged` is the normal state of any branch created before main moved on.
    Check a rule against every branch that exists before merging it.
-5. **Treating notes as authoritative.** They are the author thinking, and
-   they contain decisions the author has since changed their mind about.
+5. **Treating notes as authoritative.** They are the author thinking, and they
+   contain decisions the author has since changed their mind about.
 6. **Asking several questions at once** when the answer to one would have
    unblocked the work.

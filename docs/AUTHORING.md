@@ -56,9 +56,9 @@ which is exactly what CI runs.
    ]
    ```
 
-The level-one heading is the chapter title everywhere: the sidebar, the
-contents page, the PDF outline, the `<title>` tag. There must be exactly one
-per chapter, and it must come first.
+The level-one heading is the chapter title everywhere: the sidebar, the contents
+page, the PDF outline, the `<title>` tag. There must be exactly one per chapter,
+and it must come first.
 
 `numbered = false` marks a part as front or back matter: its chapters get no
 chapter number and do not advance the numbering of the rest.
@@ -78,14 +78,14 @@ live example of every helper -- read it rendered, and copy from its source.
 | `#slug-of(path)`                                     | The URL a chapter file is published under.                |
 
 Anything else is ordinary Typst: `#figure`, `#table`, `#image`, `#footnote`,
-lists, math, `@labels`. The
-[Typst reference](https://typst.app/docs/reference/) applies unchanged.
+lists, math, `@labels`. The [Typst reference](https://typst.app/docs/reference/)
+applies unchanged.
 
 ### Mathematics
 
-Write it as normal Typst. On the website it becomes MathML, which every
-current browser renders natively; in the PDF it is set in New Computer Modern
-Math. Nothing to configure, and no JavaScript in the page.
+Write it as normal Typst. On the website it becomes MathML, which every current
+browser renders natively; in the PDF it is set in New Computer Modern Math.
+Nothing to configure, and no JavaScript in the page.
 
 ### Code
 
@@ -129,8 +129,8 @@ point at it.
 As @fig-stages shows, ...
 ```
 
-Across chapters, use `#xref`, because each chapter is a separate document on
-the website:
+Across chapters, use `#xref`, because each chapter is a separate document on the
+website:
 
 ```typst
 See #xref("knowledge")[the chapter on knowledge].
@@ -142,16 +142,16 @@ number. A Typst `@label` that points into another chapter fails the web build
 with "label does not exist" -- that is the reminder to use `#xref`.
 
 Heading ids are generated from heading text (`## Figures and tables` becomes
-`#figures-and-tables`), so `anchor:` values are predictable. Rewording a
-heading changes its id and breaks links to it; the link checker catches that
-on the next build.
+`#figures-and-tables`), so `anchor:` values are predictable. Rewording a heading
+changes its id and breaks links to it; the link checker catches that on the next
+build.
 
 ## What the pipeline rejects
 
 `mise run check` (and CI) fails on:
 
-- a Typst error, and on any Typst warning that is not the known
-  "html export is under active development" notice;
+- a Typst error, and on any Typst warning that is not the known "html export is
+  under active development" notice;
 - a broken internal link or a `#fragment` that does not exist in the page it
   points at;
 - a misspelling, per `.typos.toml`;
@@ -169,10 +169,10 @@ switching the check off. To let a URL past the link check, add it to
 
 Two places, deliberately separate:
 
-- `site/assets/book.css` -- the website. Design tokens are CSS custom
-  properties at the top, with a dark palette below them.
-- `book/lib/theme.typ` and `book/lib/styles.typ` -- the PDF: page size,
-  margins, running heads, fonts.
+- `site/assets/book.css` -- the website. Design tokens are CSS custom properties
+  at the top, with a dark palette below them.
+- `book/lib/theme.typ` and `book/lib/styles.typ` -- the PDF: page size, margins,
+  running heads, fonts.
 
 `styles.typ` exports one function per output (`web` and `paged`), each applied
 exactly once by an entry point, so no show rule is ever applied twice. Helpers
@@ -188,22 +188,22 @@ Math, DejaVu Sans Mono) and builds with `--ignore-system-fonts`, so it renders
 identically on every machine. To use another font, put the file in
 `book/fonts/`, add `--font-path book/fonts` to the Typst calls in
 `tools/build.py`, and name it in `book/lib/theme.typ`. List only families that
-actually resolve: Typst warns about unknown families, and `mise run check` treats
-warnings as failures.
+actually resolve: Typst warns about unknown families, and `mise run check`
+treats warnings as failures.
 
 The website uses system font stacks, so it loads no webfonts at all.
 
 ## Known trade-offs
 
-- **Typst's HTML export is experimental.** That is why the Typst pin in `mise.toml` is
-  pinned and the pipeline asserts the shape of the exported document: if a
-  Typst upgrade changes the markup, the build says so instead of publishing
-  something broken. Upgrade deliberately, then read a chapter.
-- **Syntax colours come from Typst** and are chosen for paper. In dark mode
-  the stylesheet lifts them with a CSS filter rather than shipping a second
+- **Typst's HTML export is experimental.** That is why the Typst pin in
+  `mise.toml` is pinned and the pipeline asserts the shape of the exported
+  document: if a Typst upgrade changes the markup, the build says so instead of
+  publishing something broken. Upgrade deliberately, then read a chapter.
+- **Syntax colours come from Typst** and are chosen for paper. In dark mode the
+  stylesheet lifts them with a CSS filter rather than shipping a second
   highlighting theme. For exact control, set a `.tmTheme` via
   `#set raw(theme: ..)` in `book/lib/styles.typ`.
-- **Images are inlined** into the HTML as data URIs by Typst's export. Keep
-  them small; prefer SVG.
-- **Footnotes are per chapter**, collected at the end of each web page, which
-  is why chapters are compiled separately rather than as one long document.
+- **Images are inlined** into the HTML as data URIs by Typst's export. Keep them
+  small; prefer SVG.
+- **Footnotes are per chapter**, collected at the end of each web page, which is
+  why chapters are compiled separately rather than as one long document.

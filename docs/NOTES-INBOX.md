@@ -20,34 +20,34 @@ note-taker  ──POST /note──▶  notes-intake Worker  ──▶  GitHub: a
 
 ## Why a Worker
 
-The note-taker is a separate Claude session whose only job is to hand over
-text. Every route that skips the Worker gives it a GitHub credential instead:
-`repository_dispatch` and the Contents API both need `contents: write`, which
-is enough to rewrite the book.
+The note-taker is a separate Claude session whose only job is to hand over text.
+Every route that skips the Worker gives it a GitHub credential instead:
+`repository_dispatch` and the Contents API both need `contents: write`, which is
+enough to rewrite the book.
 
 A GitHub token cannot be scoped to "may only file a note". A Worker can. The
-note-taker holds a bearer token that reaches one endpoint; the GitHub
-credential lives in Cloudflare and never leaves it. That is the same principle
-as the GitHub App in `docs/IDENTITY.md` — _able to do the job and nothing
-else_ — applied to a session nobody is supervising.
+note-taker holds a bearer token that reaches one endpoint; the GitHub credential
+lives in Cloudflare and never leaves it. That is the same principle as the
+GitHub App in `docs/IDENTITY.md` — _able to do the job and nothing else_ —
+applied to a session nobody is supervising.
 
 Three layers of containment, none of which trusts the caller:
 
-1. The bearer token is compared as digests, in constant time, and a wrong one
-   is answered exactly like a missing one.
-2. The Worker writes only under `notes/`, and builds the path itself from a
-   slug of the title. A `path` field in the request is ignored; a `../` in the
-   title is slugified away. Both are covered by the tests.
+1. The bearer token is compared as digests, in constant time, and a wrong one is
+   answered exactly like a missing one.
+2. The Worker writes only under `notes/`, and builds the path itself from a slug
+   of the title. A `path` field in the request is ignored; a `../` in the title
+   is slugified away. Both are covered by the tests.
 3. It writes only to a fresh branch. `main` is protected by a ruleset, so even
    the credential could not push there.
 
 ## Notes stay in the repository
 
-Cloudflare is the inbox, not the archive. `notes/` is never edited — a rule
-git enforces for free, with history and diffs that no object store has. Every
-agent already has the notes in its checkout, with no credential and no network
-call. And the book is public: the material it is built from being readable is
-part of that.
+Cloudflare is the inbox, not the archive. `notes/` is never edited — a rule git
+enforces for free, with history and diffs that no object store has. Every agent
+already has the notes in its checkout, with no credential and no network call.
+And the book is public: the material it is built from being readable is part of
+that.
 
 The Worker's job ends the moment the note is a commit.
 
@@ -70,21 +70,21 @@ frontmatter. The body is stored exactly as sent — this is the author thinking,
 and nothing rewrites it.
 
 **Replies.** `201` with the path and branch when the note is filed. `200` with
-`"created": false` when that exact note is already on a branch, so a retry
-after a timeout is safe and files nothing twice. `401` for a bad token, `400`
-for a malformed note, `413` over 512 KB, `502` when GitHub refused.
+`"created": false` when that exact note is already on a branch, so a retry after
+a timeout is safe and files nothing twice. `401` for a bad token, `400` for a
+malformed note, `413` over 512 KB, `502` when GitHub refused.
 
-`GET /` answers `{"service":"notes-intake","ok":true}` and needs no token,
-which is how to check the URL is right before wiring anything to it.
+`GET /` answers `{"service":"notes-intake","ok":true}` and needs no token, which
+is how to check the URL is right before wiring anything to it.
 
 ## Getting the skill into the note-taker
 
-The note-taker is told all of this by a skill: `file-note`, one `SKILL.md` in
-a zip. Two ways to get one, and they are the same generator --
-`site/skill/index.html` builds the zip in the browser, and
-`tools/make_skill.py` runs that same script under node for anyone with a
-checkout. A second implementation would drift, and the drift would show up as
-a note-taking session behaving oddly rather than as a failing test.
+The note-taker is told all of this by a skill: `file-note`, one `SKILL.md` in a
+zip. Two ways to get one, and they are the same generator --
+`site/skill/index.html` builds the zip in the browser, and `tools/make_skill.py`
+runs that same script under node for anyone with a checkout. A second
+implementation would drift, and the drift would show up as a note-taking session
+behaving oddly rather than as a failing test.
 
 - **From the page.** `<site>/skill/`. The deploy's summary links to it with
   `?inbox=` already filled in, so only the token is typed.
@@ -93,12 +93,12 @@ a note-taking session behaving oddly rather than as a failing test.
 
 Neither route is the deploy handing you the finished zip, which is what this
 wanted to be. The deploy holds the token already, but **this repository is
-public**: a workflow artifact is downloadable by anyone who can see the run,
-so shipping the token in one would publish it. That matters more than the
-token's own value, because a note files itself -- `agent-branches.yml` merges
-a green `notes/` branch without a human reading it, and `notes/` is never
-edited afterwards. Rotating means changing `NOTES_INTAKE_TOKEN`, redeploying,
-and generating a new skill.
+public**: a workflow artifact is downloadable by anyone who can see the run, so
+shipping the token in one would publish it. That matters more than the token's
+own value, because a note files itself -- `agent-branches.yml` merges a green
+`notes/` branch without a human reading it, and `notes/` is never edited
+afterwards. Rotating means changing `NOTES_INTAKE_TOKEN`, redeploying, and
+generating a new skill.
 
 The zip holds a live token either way. Treat it as a credential.
 
@@ -116,15 +116,15 @@ every deploy, so what is in GitHub is what is in Cloudflare rather than
 something set by hand once and forgotten.
 
 The PAT is deliberately _not_ the GitHub App. The App holds eight write
-permissions; the inbox needs one. A narrower credential in a second place
-beats copying the App's key into Cloudflare, where a compromise of that
-account would hand over something that can merge to `main`.
+permissions; the inbox needs one. A narrower credential in a second place beats
+copying the App's key into Cloudflare, where a compromise of that account would
+hand over something that can merge to `main`.
 
 ## The Cloudflare account
 
-A **separate account from the author's other projects**, because Cloudflare
-API tokens have no per-Worker scoping: `Workers Scripts Write` is account-wide,
-so a token that can deploy this Worker can overwrite every Worker on the same
+A **separate account from the author's other projects**, because Cloudflare API
+tokens have no per-Worker scoping: `Workers Scripts Write` is account-wide, so a
+token that can deploy this Worker can overwrite every Worker on the same
 account. Accounts are free and switch from the same login, so the fix for "I
 cannot scope this token" is to give it an account where account-wide is narrow.
 
@@ -147,12 +147,12 @@ including the ones that matter: a wrong token, a traversal in the title, a
 
 ## Not built yet: the index
 
-A Vectorize index over `notes/` and the chapters would let the cartographer
-ask "what already covers this?" instead of grepping. It is free at this scale
-— 5M stored dimensions is thousands of chunks — and it needs Workers AI for
-the embeddings.
+A Vectorize index over `notes/` and the chapters would let the cartographer ask
+"what already covers this?" instead of grepping. It is free at this scale — 5M
+stored dimensions is thousands of chunks — and it needs Workers AI for the
+embeddings.
 
-It is deliberately second. A broken inbox blocks the workflow the author
-wants; a missing index blocks nothing, and with a handful of notes an agent
-reading them all is still cheaper than maintaining an index. Build it when the
-corpus makes grep useless, not before.
+It is deliberately second. A broken inbox blocks the workflow the author wants;
+a missing index blocks nothing, and with a handful of notes an agent reading
+them all is still cheaper than maintaining an index. Build it when the corpus
+makes grep useless, not before.

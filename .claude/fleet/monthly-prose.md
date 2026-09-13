@@ -17,8 +17,8 @@ Concentrate on what only a whole-book reading reveals:
 - chapters that have drifted into covering the same ground;
 - cross-references that resolve but no longer point at what they claim to.
 
-Ordinary line-level mechanics are secondary here — the per-change trigger
-sees those sooner and in smaller pieces.
+Ordinary line-level mechanics are secondary here — the per-change trigger sees
+those sooner and in smaller pieces.
 
 If the book has fewer than three chapters with real prose in them, there is
 nothing a consistency pass can find. Say so and stop.

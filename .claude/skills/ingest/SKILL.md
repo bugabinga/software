@@ -5,9 +5,9 @@ description: Put source material for the book into notes/ - from a URL, a Claude
 
 # Getting material into `notes/`
 
-`notes/` is the raw input the book is written from, kept verbatim. The tool
-does the saving; this skill is about getting the content to it, because the
-most common source -- a Claude conversation -- cannot simply be downloaded.
+`notes/` is the raw input the book is written from, kept verbatim. The tool does
+the saving; this skill is about getting the content to it, because the most
+common source -- a Claude conversation -- cannot simply be downloaded.
 
 ## The ladder
 
@@ -22,18 +22,18 @@ Try these in order and stop at the first that works.
    Works for articles, documentation, papers.
 
 2. **A Claude conversation share link** (`claude.ai/share/...`). This does not
-   work, and it has been tried properly, so do not spend turns rediscovering
-   it. Three separate walls, any one of which is enough:
+   work, and it has been tried properly, so do not spend turns rediscovering it.
+   Three separate walls, any one of which is enough:
 
-   - the page is a JavaScript shell. A real share link and a made-up one
-     return byte-for-byte the same 108 KB of markup and about a dozen visible
-     words; the conversation is not in the HTML;
+   - the page is a JavaScript shell. A real share link and a made-up one return
+     byte-for-byte the same 108 KB of markup and about a dozen visible words;
+     the conversation is not in the HTML;
    - the endpoint the page loads it from, `/api/chat_snapshots/<id>`, answers
-     403 with a Cloudflare bot challenge. Do not try to get around that --
-     it is an access control;
-   - headless rendering would execute the JavaScript, but Chromium cannot
-     tunnel through this environment's proxy (the relay drops it; the same
-     happens for any site, not just claude.ai).
+     403 with a Cloudflare bot challenge. Do not try to get around that -- it is
+     an access control;
+   - headless rendering would execute the JavaScript, but Chromium cannot tunnel
+     through this environment's proxy (the relay drops it; the same happens for
+     any site, not just claude.ai).
 
    A `claude.ai/chat/...` link is private and answers 403 outright.
 
@@ -58,8 +58,8 @@ Try these in order and stop at the first that works.
      --title "Chapter 3, second pass" --source "claude session 2026-09-08"
    ```
 
-   `--source` is free text here; it is what future readers use to work out
-   where a note came from, so make it identifying.
+   `--source` is free text here; it is what future readers use to work out where
+   a note came from, so make it identifying.
 
 ## After ingesting
 
@@ -74,10 +74,10 @@ Try these in order and stop at the first that works.
 
 ## What not to do
 
-- Do not summarise instead of saving. A note is the record; a summary is a
-  lossy opinion about the record. If a summary is useful, put it in the pull
-  request body, not in the note.
-- Do not edit an ingested note's text, ever. Corrections happen in the book,
-  not in the source material.
+- Do not summarise instead of saving. A note is the record; a summary is a lossy
+  opinion about the record. If a summary is useful, put it in the pull request
+  body, not in the note.
+- Do not edit an ingested note's text, ever. Corrections happen in the book, not
+  in the source material.
 - Do not ingest the same source twice under two names. Re-running the tool on
   the same source updates the existing note in place, which is what you want.
