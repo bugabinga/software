@@ -406,6 +406,7 @@ Three workflows, three verbs, so it is clear which to look at:
 | `fleet.yml`         | do the work     | a new branch                  |
 | `fleet-review.yml`  | judge it        | a check, and a comment        |
 | `fleet-respond.yml` | answer feedback | the pull request's own branch |
+| `settings.yml`      | make it so      | the repository's own settings |
 
 `fleet-respond.yml` pushes with the workflow token, so the runs that push raises
 are held in an approval-required state and never execute -- runs 34760403200 and

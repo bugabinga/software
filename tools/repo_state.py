@@ -17,12 +17,20 @@ checker that called an unreadable section a difference would fail every local
 run and teach everyone to ignore it; one that called it agreement would lie.
 So unread is reported, loudly, and does not fail.
 
-`--check` fails on a difference. Applying the difference is a separate verb
-and a separate credential, deliberately: reading needs nothing, and writing
-needs an App that may change the rules that govern the fleet.
+`--check` fails on a difference and needs no credential. `--apply` makes the
+repository match and needs an App that may change the rules governing the
+fleet, which is why it is a separate verb, a separate workflow and a separate
+environment.
+
+**`--apply` does not write rulesets, deliberately.** Updating one means PUTing
+the complete rules array, so a payload built wrong drops the rules it does not
+mention -- including the required checks that gate the fleet's own merges. The
+tool that may change the rules must not be able to un-gate itself by getting a
+shape wrong. Rulesets stay checked and stay a human's to change.
 
 Usage:
     tools/repo_state.py --check [--repo owner/name]
+    tools/repo_state.py --apply [--repo owner/name]
     tools/repo_state.py --self-test
 """
 
@@ -65,6 +73,30 @@ def gh(*args: str) -> str | None:
     if done.returncode != 0:
         return None
     return done.stdout
+
+
+def write(method: str, path: str, body: dict[str, Any]) -> str | None:
+    """One API write. Returns `None` on success, or the failure to report.
+
+    `--input -` rather than a string of `-f key=value` pairs: the fields here
+    are booleans and lists, and `gh`'s field syntax turns every one of them
+    into a string, so `has_wiki=false` would arrive as the truthy `"false"`.
+    """
+    binary = shutil.which("gh") or str(ROOT / ".tools" / "gh" / "gh")
+    try:
+        done = subprocess.run(  # noqa: PLW1510 - the caller reads returncode
+            [binary, "api", "-X", method, path, "--input", "-"],
+            input=json.dumps(body),
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return f"{method} {path}: {error}"
+    if done.returncode != 0:
+        detail = done.stderr.strip().splitlines()
+        return f"{method} {path}: {detail[-1] if detail else 'failed'}"
+    return None
 
 
 def fetch(path: str) -> Any | None:
@@ -233,6 +265,68 @@ def _verdict(findings: list[str]) -> tuple[str, list[str]]:
     return (DIFFER if findings else MATCH), findings
 
 
+def apply_state(repo: str, declared_path: Path = DECLARED) -> int:
+    """Make the repository match the file, for the parts it is safe to write.
+
+    Idempotent by construction: every call sends the declared value, so a run
+    that changes nothing found nothing to change. There is no state file,
+    because GitHub is the state.
+    """
+    declared = tomllib.loads(declared_path.read_text(encoding="utf-8"))
+    failures: list[str] = []
+    changed: list[str] = []
+
+    fields = {k: v for k, v in declared.get("repository", {}).items() if k != "topics"}
+    if fields:
+        actual = fetch(f"repos/{repo}")
+        if actual is None:
+            failures.append("repository: could not be read, so nothing was written")
+        else:
+            drift = {k: v for k, v in fields.items() if actual.get(k) != v}
+            if drift:
+                error = write("PATCH", f"repos/{repo}", drift)
+                (failures if error else changed).append(
+                    error or f"repository: {', '.join(sorted(drift))}"
+                )
+
+    topics = declared.get("repository", {}).get("topics")
+    if topics is not None:
+        actual = fetch(f"repos/{repo}/topics")
+        if actual is None:
+            failures.append("topics: could not be read, so nothing was written")
+        elif sorted(actual.get("names") or []) != sorted(topics):
+            error = write("PUT", f"repos/{repo}/topics", {"names": topics})
+            (failures if error else changed).append(error or "repository: topics")
+
+    actions = declared.get("actions", {})
+    if actions:
+        actual = fetch(f"repos/{repo}/actions/permissions/workflow")
+        if actual is None:
+            failures.append("actions: could not be read, so nothing was written")
+        elif any(actual.get(k) != v for k, v in actions.items()):
+            # The whole document rather than the drift: this endpoint replaces
+            # rather than merges, so sending one field resets the other.
+            error = write("PUT", f"repos/{repo}/actions/permissions/workflow", actions)
+            (failures if error else changed).append(
+                error or f"actions: {', '.join(sorted(actions))}"
+            )
+
+    print(f"repo state: applying {declared_path.name} to {repo}")
+    for line in changed:
+        print(f"  changed {line}")
+    for line in failures:
+        print(f"  FAILED  {line}")
+    if not changed and not failures:
+        print("  nothing to change")
+    if declared.get("ruleset"):
+        print(
+            "  skipped rulesets, by design: a ruleset write replaces every "
+            "rule at once, so a wrong payload would drop the checks that gate "
+            "this fleet's own merges. `--check` still holds them."
+        )
+    return 1 if failures else 0
+
+
 def check(repo: str, declared_path: Path = DECLARED) -> int:
     declared = tomllib.loads(declared_path.read_text(encoding="utf-8"))
 
@@ -354,15 +448,22 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check", action="store_true", help="compare the repository against repo.toml"
     )
+    parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="make the repository match repo.toml (needs a writing credential)",
+    )
     parser.add_argument("--repo", default=DEFAULT_REPO)
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args(argv)
 
     if args.self_test:
         return self_test()
+    if args.apply:
+        return apply_state(args.repo)
     if args.check:
         return check(args.repo)
-    parser.error("--check or --self-test")
+    parser.error("--check, --apply or --self-test")
     return 2
 
 

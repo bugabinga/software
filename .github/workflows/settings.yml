@@ -1,0 +1,89 @@
+name: Settings
+
+# Make the repository match `repo.toml`.
+#
+# The settings were the fifth source of truth and the only one in no file:
+# not diffable, not reviewable, and the place every surprise came from -- a
+# code-owner rule that blocks nothing, a required check the roster learned of
+# an hour late, an App grant whose own checker had not run since the policy
+# changed. `mise run check` fails when GitHub disagrees with the file. This is
+# the half that makes GitHub agree.
+#
+# Deliberately dumb. It reads a file and PUTs the difference; there is no
+# judgement in it and no model behind it, which is the only reason it is safe
+# to hand a credential that may change the rules governing the fleet. What
+# bounds it is the pull request that changed `repo.toml`.
+#
+# It does not write rulesets. `tools/repo_state.py` says why: a ruleset write
+# replaces every rule at once, so a wrong payload drops the required checks
+# that gate the fleet's own merges, and the tool that may change the rules
+# must not be able to un-gate itself by getting a shape wrong.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "repo.toml"
+      - "tools/repo_state.py"
+      - ".github/workflows/settings.yml"
+      - ".github/actions/app-token/action.yml"
+  workflow_dispatch:
+
+# Nothing from `GITHUB_TOKEN`: every write here is the App's, and a job that
+# cannot write with the workflow token cannot quietly fall back to it.
+permissions: {}
+
+concurrency:
+  # One at a time, globally. Two runs reconciling the same settings would race
+  # over the same fields, and there is never a reason to want the older answer.
+  group: settings
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Settings
+    # The App's key is an environment secret, so the job has to name the
+    # environment to see it at all. If this name is wrong the secret is simply
+    # absent and the run says so rather than failing obscurely.
+    environment: Bot
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Is the key here
+        id: key
+        env:
+          APP_ID: ${{ vars.FLEET_APP_ID || secrets.FLEET_APP_ID }}
+          KEY: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+        run: |
+          set -uo pipefail
+          if [ -n "${KEY:-}" ] && [ -n "${APP_ID:-}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::No app key in the Bot environment, so the settings were not applied. \`mise run check\` still reports the difference."
+          fi
+
+      - uses: ./.github/actions/app-token
+        id: token
+        if: steps.key.outputs.present == 'true'
+        with:
+          app-id: ${{ vars.FLEET_APP_ID || secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+
+      - name: Apply repo.toml
+        if: steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: python3 tools/repo_state.py --apply
+
+      # The check the sweep would otherwise have to run by hand, and the
+      # answer a human reads: after applying, does anything still differ? A
+      # difference here is one `--apply` cannot fix -- a ruleset, or a field
+      # the App may not write -- which is exactly what somebody needs told.
+      - name: And does it match now
+        if: steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: python3 tools/repo_state.py --check
