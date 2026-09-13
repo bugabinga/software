@@ -114,8 +114,11 @@ formatter wanted, and it reads no worse.
 
 ## CI
 
-The workflows share one build definition in
-`.github/actions/build-book/action.yml`:
+Fifteen workflows; `docs/FLEET.md` is the roster. The four that need a built
+book -- `ci.yml`, `maintenance.yml`, `publish.yml`, `release.yml` -- share one
+definition in `.github/actions/build-book/action.yml` rather than four copies
+of the same install-and-compile. The four worth knowing from here are not the
+same four:
 
 - `ci.yml` -- build (strict), internal links, example code, spelling,
   outbound links; uploads the site as an artifact and comments a preview link
@@ -248,8 +251,8 @@ paragraph of what the chapter will argue. None of them is written yet.
 
 The **title is a placeholder**. `A Book Written in Types` was invented by the
 pipeline so that something could be rendered; the author has not chosen one.
-It lives in `book/book.toml` and, as a heading, in `README.md` -- nothing else
-hardcodes it. Propose a title when the notes support one; do not treat the
+It is written out in three places and nowhere else: `book/book.toml`, the
+heading of `README.md`, and this paragraph. Propose a title when the notes support one; do not treat the
 current string as a decision anybody made.
 
 `99-prelude-reference.typ` is not a stub and not part of that outline: it is

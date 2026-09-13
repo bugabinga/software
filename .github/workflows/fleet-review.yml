@@ -117,6 +117,8 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Review
+        # Named so the posting step below can reach `outputs.github_token`.
+        id: review
         if: steps.key.outputs.present == 'true'
         uses: anthropics/claude-code-action@56cf60fde42f7b19c3abfd5c9c48b69a1288461f # v1
         env:
@@ -226,7 +228,33 @@ jobs:
       - name: Post it as a review
         if: always() && steps.key.outputs.present == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Not `github.token`, and this is the whole reason the review loop
+          # exists rather than merely being described. GitHub does not start
+          # a workflow run from an event a `GITHUB_TOKEN` created, so a
+          # review posted with the workflow token raises a
+          # `pull_request_review` that nothing can subscribe to:
+          # `fleet-respond.yml` had four runs ever, all of them from reviews
+          # the author submitted by hand, while this workflow had twelve on
+          # one branch. The reviewing half woke on every push and the
+          # answering half never woke at all, which also means the three-round
+          # cap in `fleet-respond.yml` -- the thing that stops two agents
+          # arguing forever -- had never executed once.
+          #
+          # The action hands back the token it authenticated with, described
+          # in its own `action.yml` as the "Claude App token if available".
+          # An App installation token is not `GITHUB_TOKEN` and does start
+          # runs -- every pull request opened here by the operator's own App
+          # got its `pull_request` runs -- but whether this action obtains
+          # one in this repository is not provable from the outside. The test
+          # is cheap and it is the next review: if the verdict is authored
+          # `claude[bot]` rather than `github-actions[bot]`, the token is an
+          # App token and the responder can finally wake.
+          #
+          # The fallback is deliberate rather than defensive. When the action
+          # fails early there may be no output to read, and posting as
+          # `github-actions[bot]` is what happens today: the verdict still
+          # lands, the responder just does not wake for it.
+          GH_TOKEN: ${{ steps.review.outputs.github_token || github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
