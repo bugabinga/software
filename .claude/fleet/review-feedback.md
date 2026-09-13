@@ -47,8 +47,9 @@ Take every unresolved thread to a conclusion. There are exactly two:
    saying so is a conclusion.
 
 Then **resolve the thread**, either way. An answered thread that stays open is
-indistinguishable from an ignored one, and the repository's rules treat an
-unresolved thread as a reason not to merge:
+indistinguishable from an ignored one. The repository's rules do not stop the
+merge -- `required_review_thread_resolution` is `false` on `Main` -- so the
+only thing that closes a thread is you closing it:
 
 ```sh
 # Reply on the thread (REST; needs the comment's databaseId, not the thread id)

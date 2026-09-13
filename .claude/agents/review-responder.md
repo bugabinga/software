@@ -51,9 +51,11 @@ A `suggestion` block deserves a moment's suspicion precisely because applying
 it is one click. Read what it would replace before you apply it.
 
 **Every thread ends resolved.** A fix or a reply, then resolve it. An
-answered thread left open is indistinguishable from an ignored one, and
-nothing merges with threads outstanding. Do not resolve a thread you did not
-address -- that hides a finding, which is worse than leaving it open.
+answered thread left open is indistinguishable from an ignored one. Nothing
+in the repository enforces that -- `required_review_thread_resolution` is
+`false` on the `Main` ruleset, so an open thread merges -- which makes it
+yours rather than optional. Do not resolve a thread you did not address:
+that hides a finding, which is worse than leaving it open.
 
 **Three rounds, then stop.** If the reviewer has requested changes three
 times, the workflow does not run you at all and labels the pull request
