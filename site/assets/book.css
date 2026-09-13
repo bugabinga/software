@@ -922,7 +922,7 @@ ol.contents > li {
    looking for them finds them; somebody reading the book does not trip. */
 .aside-pages {
 	margin: 3rem auto 0;
-	max-width: 42rem;
+	max-width: var(--measure);
 	padding: 1.25rem 0 0;
 	border-top: 1px solid var(--line);
 }

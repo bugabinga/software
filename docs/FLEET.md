@@ -226,7 +226,7 @@ and the only way to find it was to know the URL.
 Anything under `site/` that is not `assets` or `templates` is copied to the
 site root by `tools/build.py`, so a new standalone page is a directory --
 plus an entry in that file's `STANDALONE`, giving it a name and a blurb.
-`check_standalone` fails the build on a directory that has neither, because a
+`check_standalone` fails the build on a directory with no entry, because a
 page linked from nowhere is the fault this list was added to fix.
 
 `tools/check_skill_page.py` runs the generator's own script under node and
