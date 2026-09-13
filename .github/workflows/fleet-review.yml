@@ -21,6 +21,18 @@ name: Fleet review
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  # Asked for by name, because a push that nothing notices still needs a
+  # verdict. `fleet-respond.yml` pushes with the workflow token, which starts
+  # no `pull_request` run, so without this the responder's fixes would carry
+  # the failing verdict they answered -- and `Fleet review` is a required
+  # check, so that pull request could never merge. `workflow_dispatch` is one
+  # of the two events a `GITHUB_TOKEN` may still raise.
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: The pull request to review.
+        required: true
+        type: string
 
 permissions:
   # `contents: read` to see the diff, `pull-requests: write` to post the
@@ -38,13 +50,15 @@ permissions:
 concurrency:
   # Per pull request, and cancel superseded runs: a review of an old head is
   # worse than no review, because it looks like a review of the new one.
-  group: fleet-review-${{ github.event.pull_request.number }}
+  group: fleet-review-${{ github.event.pull_request.number || inputs.pr }}
   cancel-in-progress: true
 
 jobs:
   review:
     name: Fleet review
-    if: github.event.pull_request.draft == false
+    # A dispatch has no pull request on the event, so it has no `draft`
+    # either: an unqualified test reads `null == false` and skips the job.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     # The credential is an environment secret, so the job has to name the
     # environment to see it at all. If this name is wrong the secret is
     # simply absent and the run says so rather than failing obscurely.
@@ -106,7 +120,7 @@ jobs:
         id: brief
         if: steps.key.outputs.present == 'true'
         env:
-          PR: ${{ github.event.pull_request.number }}
+          PR: ${{ github.event.pull_request.number || inputs.pr }}
         run: |
           set -euo pipefail
           python3 tools/fleet_brief.py --trigger pull-request --pr "$PR" > /tmp/brief.md
@@ -193,8 +207,8 @@ jobs:
       - name: Record what this run was
         if: always()
         env:
-          FLEET_BRANCH: ${{ github.event.pull_request.head.ref }}
-          FLEET_PR: ${{ github.event.pull_request.number }}
+          FLEET_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          FLEET_PR: ${{ github.event.pull_request.number || inputs.pr }}
         run: |
           python3 tools/fleet_record.py \
             --out "${{ runner.temp }}/fleet" \
@@ -274,7 +288,7 @@ jobs:
             exit 0
           fi
           python3 tools/post_review.py \
-            --pr "${{ github.event.pull_request.number }}" \
+            --pr "${{ github.event.pull_request.number || inputs.pr }}" \
             --verdict /tmp/fleet-review.json
 
       # The verdict is a file, not a mood. A reviewer that fell over, ran out
