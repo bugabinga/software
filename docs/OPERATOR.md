@@ -72,13 +72,12 @@ Three parties, and confusing them is the operator's characteristic failure.
 - **Pages is live** at <https://bugabinga.github.io/software/>, serving the
   `gh-pages` branch. Verified: index, a chapter, the PDF and the single-file
   build all return 200.
-- **Required approvals are zero**, done. What was asked for alongside it was
-  not: **`Fleet review` is still not a required check.** The one required
-  check on `Main` is `CI`, so a reviewer that requested changes on every round
-  of #72 and on eight of #73's ten gates nothing -- a human reading the
-  red mark is the whole of the enforcement. Not a bypass actor, and not the
-  bypass toggle, which is a decision taken once per pull request and
-  remembered by nobody.
+- **Required approvals are zero, and `Fleet review` is a required check.**
+  Both done, the second on 13 September. The reviewer that requested changes
+  on every round of #72 and on eight of #73's ten now stops a merge rather
+  than asking someone to notice. Not a bypass actor, and not the bypass
+  toggle, which is a decision taken once per pull request and remembered by
+  nobody.
 
   What blocks a fleet merge now is that Actions is not permitted to open a
   pull request at all, and, for the paths in `.github/CODEOWNERS`,

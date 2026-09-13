@@ -351,8 +351,8 @@ Three things are meant to keep it from running forever:
   author comes through on either.
 - **A pass dismisses the objection.** The reviewer never approves -- whether a
   bot's approval satisfies a rule is a question about GitHub's internals, and
-  a check is the answer that does not depend on one. `Fleet review` is not a
-  required check, so what it gates is a human's attention. So when a later
+  a check is the answer that does not depend on one -- and `Fleet review` is
+  a required check on `Main`, so the verdict gates the merge. So when a later
   round passes, `tools/post_review.py` dismisses the earlier changes-requested
   reviews. Without that a fixed pull request would carry a standing objection
   from three commits ago and never become mergeable.
@@ -374,8 +374,8 @@ token starts no run, so every fleet review to date has been answered by the
 operator by hand (#75).
 
 So two things the roster used to claim are off. The review does not gate the
-merge -- `Fleet review` is not a required check. And nothing makes a thread
-end resolved: `required_review_thread_resolution` is `false` on `Main`, and
+merge, though the review that raises them does: `Fleet review` is a required
+check. What makes no thread end resolved: `required_review_thread_resolution` is `false` on `Main`, and
 the rule lives in `.claude/agents/review-responder.md`, which is handed out
 when the author reviews and not when the fleet does. Turning the ruleset rule
 on would make it real, and would also make a stranded thread unmergeable by
@@ -509,9 +509,9 @@ code-owner review required, stale reviews dismissed on push, thread resolution
 
 So the fleet still routes through a human to land anything, and the reason is
 no longer the approval rule: it is that Actions cannot open the pull request.
-What is worse and quieter: `Fleet review` is not a required check, so a
-failing review does not stop a merge by itself -- a human reading the red mark
-is the whole of it.
+What the ruleset does enforce is the review itself -- `Fleet review` is a
+required check as of 13 September, so a failing verdict stops the merge rather
+than waiting for somebody to read the red mark.
 
 #### Review by the fleet, which is what the protection was for
 
@@ -534,12 +534,11 @@ So the settings that fit the intention are:
 1. **Settings → Actions → General → Workflow permissions →** allow GitHub
    Actions to create and approve pull requests. Without this the fleet cannot
    open a pull request at all, and there is nothing to review.
-2. **The `Main` ruleset → required status checks →** `CI` and — now that
-   the fleet is armed — `Fleet review`. Only `CI` is required today, which
-   leaves the review it was all built for unenforced. Not `Build`,
-   `Spelling` or `Outbound links`: those are steps inside the one `CI` job,
-   not check contexts, and a required check that never reports blocks every
-   merge.
+2. **The `Main` ruleset → required status checks →** `CI` and `Fleet
+   review`. Done, 13 September. Not `Build`, `Spelling` or `Outbound links`:
+   those are steps inside the one `CI` job, not check contexts, and a
+   required check that never reports blocks every merge. The policy is
+   strict, so a branch behind `main` has to be updated before it can land.
 3. **The `Main` ruleset → require approvals: 0.** Done. The review
    requirement lives in the checks, where the fleet can satisfy it;
    `require_code_owner_review` still holds the paths in `.github/CODEOWNERS`,
