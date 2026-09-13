@@ -266,10 +266,11 @@ rather than left as a chore for the author.
 | Workflows opening pull requests | off by default; "GitHub Actions is not permitted to create or approve pull requests"                                                                           | tried anyway, in case it is on; when it is not, a green chore is merged with `POST /merges` and anything needing review becomes one issue with a compare link |
 | Repository auto-merge           | a repository setting, and the settings API is unreachable from Claude sessions                                                                                 | `agent-branches.yml` merges explicitly, after reading the checks on the exact head commit                                                                     |
 
-`tools/bootstrap-repo.sh` grants the first two properly, if you ever have a
-terminal and a token to hand. It is **optional** -- it makes the presentation
-nicer (real pull requests, Pages deployment history) and changes nothing about
-whether the book publishes.
+`tools/bootstrap-repo.sh` grants the first properly, if you ever have a terminal
+and a token to hand. It is **optional** -- it makes the presentation nicer
+(Pages deployment history) and changes nothing about whether the book publishes.
+The second is `repo.toml`'s now: `can_approve_pull_request_reviews`, applied by
+`settings.yml`.
 
 **Arm the GitHub bot, if you want it** (see section 3): add an
 `ANTHROPIC_API_KEY` secret. Nothing else depends on it.
@@ -524,8 +525,10 @@ label a pull request `hold`.
 ### What branch protection does to this
 
 `main` carries a ruleset and `repo.toml` is what it says. `mise run check` fails
-when GitHub disagrees, and `settings.yml` makes GitHub agree, so nothing here
-restates it -- read the file.
+when GitHub disagrees -- wherever a credential is held. In CI it does not yet:
+`ci.yml`'s Check step sets no `GH_TOKEN`, so every section reads unread and the
+task passes. `settings.yml` makes GitHub agree, so nothing here restates it --
+read the file.
 
 Three things the file cannot say, because they are measurements rather than
 settings:

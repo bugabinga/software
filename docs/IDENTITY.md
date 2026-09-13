@@ -113,8 +113,10 @@ Then say so. Wiring the workflows is a pull request, not your job.
 ### Checking it
 
 `repo.toml` and `tools/repo_state.py`. The file says what the repository is
-configured to be; `mise run check` fails when GitHub disagrees. There is no
-separate check of the grant, because the grant is no longer the boundary.
+configured to be; `mise run check` fails when GitHub disagrees, wherever a
+credential is held -- not yet in CI, where the Check step has no token and every
+section reads unread. There is no separate check of the grant, because the grant
+is no longer the boundary.
 
 ---
 

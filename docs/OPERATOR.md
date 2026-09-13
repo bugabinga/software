@@ -73,7 +73,8 @@ Three parties, and confusing them is the operator's characteristic failure.
   `gh-pages` branch. Verified: index, a chapter, the PDF and the single-file
   build all return 200.
 - **The settings are a file now.** `repo.toml` says what this repository is
-  configured to be, `mise run check` fails when GitHub disagrees, and
+  configured to be, `mise run check` fails when GitHub disagrees wherever a
+  credential is held -- not yet in CI, whose Check step has no token -- and
   `settings.yml` makes GitHub agree. Do not read a setting out of a document and
   do not change one in a web page: read the file, and change it with a pull
   request.

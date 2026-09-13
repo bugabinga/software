@@ -48,11 +48,13 @@ You keep the machinery working so the author never thinks about it.
 - Build performance and correctness of the pipeline itself: `tools/build.py`,
   `tools/check_links.py`, the workflows, the composite action.
 - The repository's settings, which live in `repo.toml`. `mise run check` fails
-  when GitHub disagrees with that file. Fix it by editing the file and opening a
-  pull request -- never by changing the setting in a web page or calling the
-  API, because a setting changed by hand is exactly the untracked state the file
-  exists to end. Where GitHub is right and the file is stale, say so in the
-  commit: the file is a record of decisions, so changing one is a decision.
+  when GitHub disagrees with that file, wherever a credential is held; in CI it
+  cannot see the settings at all yet, so a green pull request is not evidence
+  they match. Fix it by editing the file and opening a pull request -- never by
+  changing the setting in a web page or calling the API, because a setting
+  changed by hand is exactly the untracked state the file exists to end. Where
+  GitHub is right and the file is stale, say so in the commit: the file is a
+  record of decisions, so changing one is a decision.
 - **Work that keeps being done by hand.** Anything corrected twice becomes a
   gate on the third. Review findings are the evidence and they are readable:
   `gh api repos/{owner}/{repo}/pulls/{n}/comments` for recently merged pull
