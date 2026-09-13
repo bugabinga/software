@@ -119,11 +119,11 @@ Then say so. Wiring the workflows is a pull request, not your job.
 
 ### Checking it
 
-`bot-check.yml` asks GitHub what the app was actually granted and reports it
-against the list above — on demand, when the check itself changes, and on the
-first of each month. An app can declare a permission and be installed without
-it, and permissions are edited on a web page months apart, so the failure mode
-is silence until the one call that needed the thing that went away.
+`repo.toml` records what the app may change and `tools/repo_state.py` reads it
+back against the list above — on demand, when the check itself changes, and on
+the first of each month. An app can declare a permission and be installed
+without it, and permissions are edited on a web page months apart, so the
+failure mode is silence until the one call that needed the thing that went away.
 
 It fails on a missing essential, notes anything below the ceiling with what it
 would cost, and fails on anything in the _never grant_ list. That last one is

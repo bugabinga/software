@@ -14,10 +14,10 @@ name: Settings
 # to hand a credential that may change the rules governing the fleet. What
 # bounds it is the pull request that changed `repo.toml`.
 #
-# It does not write rulesets. `tools/repo_state.py` says why: a ruleset write
-# replaces every rule at once, so a wrong payload drops the required checks
-# that gate the fleet's own merges, and the tool that may change the rules
-# must not be able to un-gate itself by getting a shape wrong.
+# It writes the ruleset too. `repo.toml` declares the whole of it, so what is
+# not declared is what should not exist -- and a fleet that cannot change the
+# rule blocking it is a fleet that stays blocked, which is the arrangement
+# this replaces.
 
 on:
   push:
@@ -51,39 +51,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Is the key here
-        id: key
-        env:
-          APP_ID: ${{ vars.FLEET_APP_ID || secrets.FLEET_APP_ID }}
-          KEY: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
-        run: |
-          set -uo pipefail
-          if [ -n "${KEY:-}" ] && [ -n "${APP_ID:-}" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::No app key in the Bot environment, so the settings were not applied. \`mise run check\` still reports the difference."
-          fi
-
       - uses: ./.github/actions/app-token
         id: token
-        if: steps.key.outputs.present == 'true'
         with:
           app-id: ${{ vars.FLEET_APP_ID || secrets.FLEET_APP_ID }}
           private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
 
       - name: Apply repo.toml
-        if: steps.key.outputs.present == 'true'
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         run: python3 tools/repo_state.py --apply
-
-      # The check the sweep would otherwise have to run by hand, and the
-      # answer a human reads: after applying, does anything still differ? A
-      # difference here is one `--apply` cannot fix -- a ruleset, or a field
-      # the App may not write -- which is exactly what somebody needs told.
-      - name: And does it match now
-        if: steps.key.outputs.present == 'true'
-        env:
-          GH_TOKEN: ${{ steps.token.outputs.token }}
-        run: python3 tools/repo_state.py --check

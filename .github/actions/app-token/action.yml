@@ -22,8 +22,7 @@ runs:
     # Built with openssl rather than a third-party action, for the reason the
     # workflows skill gives: an action runs with every secret this job holds,
     # and this job holds the key to an app that may change the repository's
-    # settings. Twenty lines of shell against that is a good trade, and
-    # `.github/actions/check-app` already proved the JWT half works.
+    # settings. Twenty lines of shell against that is a good trade.
     - name: Mint an installation token
       id: mint
       shell: bash

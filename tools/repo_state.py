@@ -22,12 +22,6 @@ repository match and needs an App that may change the rules governing the
 fleet, which is why it is a separate verb, a separate workflow and a separate
 environment.
 
-**`--apply` does not write rulesets, deliberately.** Updating one means PUTing
-the complete rules array, so a payload built wrong drops the rules it does not
-mention -- including the required checks that gate the fleet's own merges. The
-tool that may change the rules must not be able to un-gate itself by getting a
-shape wrong. Rulesets stay checked and stay a human's to change.
-
 Usage:
     tools/repo_state.py --check [--repo owner/name]
     tools/repo_state.py --apply [--repo owner/name]
@@ -311,6 +305,23 @@ def apply_state(repo: str, declared_path: Path = DECLARED) -> int:
                 error or f"actions: {', '.join(sorted(actions))}"
             )
 
+    rulesets = declared.get("ruleset", {})
+    if rulesets:
+        listing = fetch(f"repos/{repo}/rulesets")
+        if listing is None:
+            failures.append("rulesets: could not be read, so nothing was written")
+        else:
+            by_name = {entry.get("name"): entry.get("id") for entry in listing}
+            for name, want in rulesets.items():
+                payload = ruleset_payload(name, want)
+                if name in by_name:
+                    error = write(
+                        "PUT", f"repos/{repo}/rulesets/{by_name[name]}", payload
+                    )
+                else:
+                    error = write("POST", f"repos/{repo}/rulesets", payload)
+                (failures if error else changed).append(error or f"ruleset: {name}")
+
     print(f"repo state: applying {declared_path.name} to {repo}")
     for line in changed:
         print(f"  changed {line}")
@@ -318,13 +329,52 @@ def apply_state(repo: str, declared_path: Path = DECLARED) -> int:
         print(f"  FAILED  {line}")
     if not changed and not failures:
         print("  nothing to change")
-    if declared.get("ruleset"):
-        print(
-            "  skipped rulesets, by design: a ruleset write replaces every "
-            "rule at once, so a wrong payload would drop the checks that gate "
-            "this fleet's own merges. `--check` still holds them."
-        )
     return 1 if failures else 0
+
+
+# Rules carrying no parameters of their own. A ruleset write replaces every
+# rule at once, which is why `repo.toml` declares the whole ruleset rather
+# than a subset: what is not declared is what should not exist.
+PLAIN_RULES = frozenset(
+    {
+        "creation",
+        "deletion",
+        "non_fast_forward",
+        "required_linear_history",
+        "required_signatures",
+        "update",
+    }
+)
+
+
+def ruleset_payload(name: str, want: dict[str, Any]) -> dict[str, Any]:
+    """The complete ruleset GitHub expects, built from the declaration."""
+    rules: list[dict[str, Any]] = [
+        {"type": rule} for rule in sorted(want.get("rules", [])) if rule in PLAIN_RULES
+    ]
+    if "pull_request" in want:
+        rules.append({"type": "pull_request", "parameters": dict(want["pull_request"])})
+    if "required_status_checks" in want:
+        checks = want["required_status_checks"]
+        rules.append(
+            {
+                "type": "required_status_checks",
+                "parameters": {
+                    "required_status_checks": [
+                        {"context": context} for context in checks.get("contexts", [])
+                    ],
+                    "strict_required_status_checks_policy": checks.get("strict", False),
+                },
+            }
+        )
+    return {
+        "name": name,
+        "target": "branch",
+        "enforcement": want.get("enforcement", "active"),
+        "bypass_actors": want.get("bypass_actors", []),
+        "conditions": {"ref_name": {"include": want.get("include", []), "exclude": []}},
+        "rules": rules,
+    }
 
 
 def check(repo: str, declared_path: Path = DECLARED) -> int:

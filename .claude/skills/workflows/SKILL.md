@@ -194,11 +194,11 @@ Three items are standing debt here rather than rules this repository keeps. **No
 job sets `timeout-minutes`**, in any of them. Several `run:` bodies still
 interpolate `${{ }}` -- `release.yml:43` builds a shell string out of a tag
 name, `maintenance.yml:120` out of an upstream release tag. And four workflows
-declare no `concurrency` at all: `agent-branches.yml`, `bot-check.yml`,
-`labels.yml`, `release.yml`. All three stay on the list because they are right,
-and they are named because a checklist every existing file fails is one the next
-worker learns to skip. Fix the workflow you are touching; each sweep is its own
-pull request.
+declare no `concurrency` at all: `agent-branches.yml`, `labels.yml` and
+`release.yml`. All three stay on the list because they are right, and they are
+named because a checklist every existing file fails is one the next worker
+learns to skip. Fix the workflow you are touching; each sweep is its own pull
+request.
 
 [billing]: https://docs.github.com/en/billing/concepts/product-billing/github-actions
 [rates]: https://docs.github.com/en/billing/reference/actions-runner-pricing
