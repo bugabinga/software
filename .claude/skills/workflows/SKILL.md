@@ -82,9 +82,10 @@ defaulting to macOS][billing].
 
 A public repository is charged nothing for standard runners, which is not the
 same as free. Concurrent jobs are limited **per account**, not per repository,
-so minutes spent here are minutes another of your repositories waits for.
-Optimise them as though they were billed; the discipline is identical and only
-the unit changes.
+so every job takes one of a ceiling your other repositories share. Whether
+anything ever waits behind it is a measurement, not an assumption; stay clear
+of the ceiling and optimise as though the minutes were billed, because the
+discipline is identical and only the unit changes.
 
 What saves minutes, in order of effect:
 

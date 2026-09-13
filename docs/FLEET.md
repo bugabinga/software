@@ -45,10 +45,10 @@ open pull request, and `fleet.yml` and `fleet-respond.yml` whenever they fire
 -- the review loop ran twelve rounds on #78. Whether that arrives as an
 invoice depends on which credential is set: the OAuth token is a subscription
 and the API key bills separately (`fleet-review.yml:144`). The cost nobody
-itemises is a reviewer's wall-clock: one push used to run nine jobs for 131
-seconds, and a person waits for the slowest. `ci.yml` is one
-job now instead of three, and `agent-branches.yml` one instead of three, each
-gated by the event that wants it.
+itemises is a reviewer's wall-clock, which is the slowest job rather than the
+total: one push used to run nine jobs adding up to 131 seconds of work.
+`ci.yml` is one job now instead of three, and `agent-branches.yml` one instead
+of three, each gated by the event that wants it.
 
 ## 2. Agents (judgement, on a schedule or on demand)
 
