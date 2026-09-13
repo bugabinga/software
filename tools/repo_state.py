@@ -133,18 +133,22 @@ def check_repository(declared: dict[str, Any], repo: str) -> tuple[str, list[str
         return UNREAD, ["repository: could not be read"]
     fields = {k: v for k, v in declared.items() if k != "topics"}
     findings = compare(fields, actual, "repository")
+    unread: list[str] = []
 
     if "topics" in declared:
         topics = fetch(f"repos/{repo}/topics")
         if topics is None:
-            findings.append("repository.topics: could not be read")
+            # `repos/{repo}/topics` can be refused the way
+            # `actions/permissions/workflow` already is, and an endpoint
+            # nobody could read is not a setting that disagrees.
+            unread.append("repository.topics: could not be read")
         else:
             findings += compare(
                 {"topics": declared["topics"]},
                 {"topics": topics.get("names")},
                 "repository",
             )
-    return (DIFFER if findings else MATCH), findings
+    return _verdict(findings, unread)
 
 
 def check_actions(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]:
@@ -169,6 +173,7 @@ def check_rulesets(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]
 
     by_name = {entry.get("name"): entry.get("id") for entry in listing}
     findings: list[str] = []
+    unread: list[str] = []
     for name, want in declared.items():
         if name not in by_name:
             findings.append(
@@ -177,10 +182,10 @@ def check_rulesets(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]
             continue
         actual = fetch(f"repos/{repo}/rulesets/{by_name[name]}")
         if actual is None:
-            findings.append(f"ruleset.{name}: could not be read")
+            unread.append(f"ruleset.{name}: could not be read")
             continue
         findings += _compare_ruleset(name, want, actual)
-    return _verdict(findings)
+    return _verdict(findings, unread)
 
 
 def _compare_ruleset(
@@ -196,11 +201,15 @@ def _compare_ruleset(
         )
 
     if "bypass_actors" in want:
-        have = actual.get("bypass_actors") or []
-        if len(have) != len(want["bypass_actors"]):
+        # Compared by content, not by count: an actor swapped for another is
+        # the whole of the change worth catching, and it keeps the length the
+        # same. Sorted on the printed form because the API chooses the order
+        # and the entries are small dictionaries.
+        have = _actors(actual.get("bypass_actors") or [])
+        declared_actors = _actors(want["bypass_actors"])
+        if have != declared_actors:
             findings.append(
-                f"{where}.bypass_actors: declared "
-                f"{len(want['bypass_actors'])}, found {len(have)}"
+                f"{where}.bypass_actors: declared {declared_actors}, found {have}"
             )
 
     if "include" in want:
@@ -218,6 +227,19 @@ def _compare_ruleset(
     for rule in want.get("rules", []):
         if rule not in rules:
             findings.append(f"{where}: rule {rule!r} is declared and not present")
+
+    # The other direction, which is the one that matters: `repo.toml` declares
+    # the ruleset complete, so a rule added in the web UI -- a
+    # `commit_message_pattern`, a `required_deployments` -- is drift even
+    # though nothing declared is missing. `--apply` would remove it on the
+    # next write, and the gap between the two writes is what this closes.
+    declared_rules = set(want.get("rules", [])) | {
+        section
+        for section in ("pull_request", "required_status_checks")
+        if section in want
+    }
+    for rule in sorted(set(rules) - declared_rules):
+        findings.append(f"{where}: rule {rule!r} is present and not declared")
 
     for section, key in (
         ("pull_request", "pull_request"),
@@ -255,8 +277,24 @@ def _compare_rule_parameters(
     return compare(want, have, where)
 
 
-def _verdict(findings: list[str]) -> tuple[str, list[str]]:
-    return (DIFFER if findings else MATCH), findings
+def _actors(actors: list[Any]) -> list[str]:
+    return sorted(json.dumps(actor, sort_keys=True) for actor in actors)
+
+
+def _verdict(
+    findings: list[str], unread: list[str] | None = None
+) -> tuple[str, list[str]]:
+    """A difference outranks an unreadable endpoint; both outrank agreement.
+
+    The order matters because only `DIFFER` fails the run: a section that
+    disagreed about one field and could not read another has disagreed.
+    """
+    lines = [*findings, *(unread or [])]
+    if findings:
+        return DIFFER, lines
+    if unread:
+        return UNREAD, lines
+    return MATCH, lines
 
 
 def apply_state(repo: str, declared_path: Path = DECLARED) -> int:
@@ -468,6 +506,7 @@ def self_test() -> int:
                 "enforcement": "active",
                 "include": ["~DEFAULT_BRANCH"],
                 "rules": ["deletion"],
+                "pull_request": {"required_approving_review_count": 0},
             },
             actual,
         )
@@ -480,6 +519,24 @@ def self_test() -> int:
         )
         != []
     )
+    # A rule nobody declared is drift too, because the declaration is the
+    # whole ruleset. Without `pull_request` declared, `actual` has one.
+    assert "not declared" in " ".join(
+        _compare_ruleset("Main", {"rules": ["deletion"]}, actual)
+    )
+    # An actor swapped for another keeps the count and changes the ruleset.
+    swapped = {**actual, "bypass_actors": [{"actor_id": 2, "actor_type": "Team"}]}
+    assert (
+        _compare_ruleset(
+            "Main", {"bypass_actors": [{"actor_id": 1, "actor_type": "Team"}]}, swapped
+        )
+        != []
+    )
+
+    # Unread is neither agreement nor a difference, and a difference wins.
+    assert _verdict([], []) == (MATCH, [])
+    assert _verdict([], ["x: could not be read"])[0] == UNREAD
+    assert _verdict(["x.a: declared 1, found 2"], ["y: could not be read"])[0] == DIFFER
 
     # The declared file must parse and must not be empty, or the gate is a
     # gate over nothing.

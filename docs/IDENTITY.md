@@ -14,28 +14,30 @@ repository where it can be read, reviewed and changed by a pull request.
 
 ## The principle
 
-**The app may change the work. It may never change the rules that govern the
-work.**
+**The app may change the rules, and only through a diff.**
 
-That line is the only judgement call in this document, and it is worth stating
-plainly because everything else follows from it. An agent that can rewrite the
-repository's settings, read its secrets, or edit the environment protections is
-not supervised by anything. An agent that can push branches, open pull requests,
-merge, comment and start CI is doing its job. The first set is the ceiling; the
-second is everything below it.
+An earlier version of this document said it may never change them at all. That
+was the right instinct in the wrong place: an agent that can rewrite the
+settings from a web page is supervised by nothing, but an agent that cannot fix
+the rule blocking it stays blocked, and every week of this repository's life has
+been somebody unblocking it by hand. What makes the difference is not whether
+the app holds the permission but whether the change is legible: `repo.toml` is
+the settings, a pull request is how they change, and `settings.yml` is the only
+thing that writes them.
 
-Three layers, and only the first is on a web page:
+Four layers, and only the first is on a web page:
 
 | Layer                                           | Where                                     | Who changes it |
 | ----------------------------------------------- | ----------------------------------------- | -------------- |
 | **Ceiling** — what the app _could_ ever do      | GitHub App settings                       | you, once      |
+| **Repository settings** — the rules themselves  | `repo.toml`                               | a pull request |
 | **Per workflow** — what a given workflow may do | `permissions:` in the workflow            | a pull request |
 | **Per token** — what one step may do            | `permission-*` inputs on the token action | a pull request |
 
 Nothing the fleet grows into needs the first layer touched again, because the
-ceiling already covers everything a book pipeline can want. Tightening happens
-in the two layers that live in the repository, are diffable, and are subject to
-the same review as any other change.
+ceiling already covers everything a book pipeline can want. Everything below it
+lives in the repository, is diffable, and is subject to the same review as any
+other change.
 
 ---
 
@@ -79,9 +81,8 @@ app may change are declared in a file, changed by a pull request, applied by
 `settings.yml`, and read back by `mise run check`. The ceiling moved from a
 settings page with no history to a diff with one.
 
-So the app can now change the rules that govern it -- and that is the point. A
-fleet that cannot fix the rule blocking it stays blocked, and every week of this
-repository's life has been somebody unblocking it by hand.
+So the app can now change the rules that govern it, through a diff and nothing
+else. That is the principle above, and it is the point.
 
 ### Doing it
 

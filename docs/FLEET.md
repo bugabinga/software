@@ -22,6 +22,7 @@ Deterministic work that a script does better than a model.
 | `preview.yml`        | CI finishing on a pull request                               | deploys the site CI just built as an assets-only Cloudflare Worker, comments its URL, and deletes the previews whose pull requests have closed                                                                                                             |
 | `labels.yml`         | pushes to `main` touching `.github/labels.yml`               | reconciles the repository's labels with `.github/labels.yml`. Not cosmetics: `agent-branches.yml` refuses to merge anything carrying `hold`, and `maintenance.yml` files its link-rot issue with `chore`                                                   |
 | `maintenance.yml`    | Mondays 06:17 UTC                                            | compares every pin in `mise.toml` against its upstream, bumps Typst and opens an upgrade pull request _if the book still builds and passes every gate on it_; re-runs the outbound link check and files one standing issue for dead links                  |
+| `settings.yml`       | pushes to `main` touching `repo.toml`                        | makes the repository's settings and the `Main` ruleset match `repo.toml`, with the App's token. Deliberately dumb: it reads a file and PUTs the difference, and the pull request that changed the file is what bounds it                                   |
 
 ### What a push costs
 
@@ -244,13 +245,13 @@ the zip it produces with Python's `zipfile`. Two runtimes have to agree it is a
 zip before it is published, because the failure mode is the author discovering a
 corrupt download at the moment they are setting up their note-taker.
 
-## Identities the fleet does not have yet
+## Identities
 
-Two things need a human and are written out in `docs/IDENTITY.md`: a GitHub App,
-which is what would let the fleet open its own pull requests and get its
-branches checked without a workaround, and an SSH signing key, which is what
-would make its commits read Verified. Until the App exists, a branch the fleet
-pushes cannot reach `main` without somebody opening a pull request for it.
+`docs/IDENTITY.md` is the setup. The App exists -- the author created it with
+every repository permission -- and `settings.yml` is the first workflow to use
+its key, so until that workflow has run green nothing here has proof the key and
+the environment name are right. An SSH signing key, which is what would make the
+fleet's commits read Verified, does not exist and is not urgent.
 
 ## Nothing here needs setting up
 
@@ -405,7 +406,6 @@ Three workflows, three verbs, so it is clear which to look at:
 | `fleet.yml`         | do the work     | a new branch                  |
 | `fleet-review.yml`  | judge it        | a check, and a comment        |
 | `fleet-respond.yml` | answer feedback | the pull request's own branch |
-| `settings.yml`      | make it so      | the repository's own settings |
 
 `fleet-respond.yml` pushes with the workflow token, so the runs that push raises
 are held in an approval-required state and never execute -- runs 34760403200 and

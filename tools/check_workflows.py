@@ -2,7 +2,7 @@
 """Check the GitHub Actions definitions before they are pushed.
 
 A broken workflow does not fail loudly -- it fails at 06:17 on a Monday, in a
-run nobody is watching. Two classes of mistake are worth catching locally:
+run nobody is watching. Three classes of mistake are worth catching locally:
 
 * invalid YAML (checked when PyYAML happens to be importable);
 * a comment wrapped past the width the author reads at;

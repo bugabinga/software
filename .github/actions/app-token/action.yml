@@ -33,6 +33,16 @@ runs:
       run: |
         set -euo pipefail
 
+        # Checked before anything uses it, because the alternative is what
+        # this replaced: an empty PEM, `openssl dgst` exiting with "unable to
+        # load key", and the two annotations that would have named the cause
+        # sitting further down the script. A wrong `environment:` name makes
+        # the secret simply absent, and that is the likeliest way this fails.
+        if [ -z "$KEY" ] || [ -z "$APP_ID" ]; then
+          echo "::error::FLEET_APP_ID or FLEET_APP_PRIVATE_KEY is empty. Both live on the Bot environment; check the job names it."
+          exit 1
+        fi
+
         printf '%s' "$KEY" > /tmp/app.pem
         chmod 600 /tmp/app.pem
 
