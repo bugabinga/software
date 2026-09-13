@@ -20,6 +20,8 @@ Deterministic work that a script does better than a model.
 | `notes-reindex.yml`  | pushes to `agent/note-**`                                    | rebuilds `notes/index.md` after the Cloudflare inbox files a note, since the Worker writes one file and stops                                                                                                                                              |
 | `worker-deploy.yml`  | pushes to `main` touching `worker/**`                        | tests the notes inbox with plain node, then deploys it to Cloudflare and sets its secrets from the repository's                                                                                                                                            |
 | `preview.yml`        | CI finishing on a pull request                               | deploys the site CI just built as an assets-only Cloudflare Worker, comments its URL, and deletes the previews whose pull requests have closed                                                                                                             |
+| `labels.yml`         | pushes to `main` touching `.github/labels.yml`               | reconciles the repository's labels with `.github/labels.yml`. Not cosmetics: `agent-branches.yml` refuses to merge anything carrying `hold`, and `maintenance.yml` files its link-rot issue with `chore`                                                   |
+| `bot-check.yml`      | first of the month, and on demand                            | asks the GitHub App what it is actually allowed to do and says whether that is enough. Read-only; runs from `main`, because that is the only branch the `Bot` environment lets deploy                                                                      |
 | `maintenance.yml`    | Mondays 06:17 UTC                                            | compares every pin in `mise.toml` against its upstream, bumps Typst and opens an upgrade pull request _if the book still builds and passes every gate on it_; re-runs the outbound link check and files one standing issue for dead links                  |
 
 ### What a push costs
@@ -144,7 +146,8 @@ Three things make it worth reading rather than a dashboard nobody opens:
   pruned the runs it was derived from.
 
 The page is at `<site>/fleet/`. It is reachable and `noindex`, and it is not
-part of the book: not in the navigation, the sitemap or the search index.
+part of the book: not in the book's navigation, the sitemap or the search
+index, and linked only from the foot of the front page.
 `publish.yml` folds it in from the `fleet-log` branch, so it survives the
 force-push that replaces the site.
 
@@ -206,9 +209,14 @@ limit stops the next deploy. Both fail quietly.
 
 ## Standalone pages
 
-Reachable on the site, and deliberately not part of the book: no navigation,
-no sitemap entry, no search index, `noindex` in their own head. A reader who
-wandered into one from a chapter would be right to be confused.
+Reachable on the site, and deliberately not part of the book: not in the
+book's navigation, not in the sitemap, not in the search index, `noindex` in
+their own head. A reader who wandered into one from a chapter would be right
+to be confused.
+
+They are linked once, from the foot of the front page, under "Also here".
+Before that they were not reachable at all -- `<site>/skill/` served for a day
+and the only way to find it was to know the URL.
 
 | Page            | What it is                                                                                                                                                                                                                                                     |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -216,8 +224,10 @@ wandered into one from a chapter would be right to be confused.
 | `<site>/fleet/` | The weekly fleet report, folded in by `publish.yml` from the `fleet-log` branch.                                                                                                                                                                               |
 
 Anything under `site/` that is not `assets` or `templates` is copied to the
-site root by `tools/build.py`, so a new standalone page is a directory and
-nothing else.
+site root by `tools/build.py`, so a new standalone page is a directory --
+plus an entry in that file's `STANDALONE`, giving it a name and a blurb.
+`check_standalone` fails the build on a directory with no entry, because a
+page linked from nowhere is the fault this list was added to fix.
 
 `tools/check_skill_page.py` runs the generator's own script under node and
 opens the zip it produces with Python's `zipfile`. Two runtimes have to agree

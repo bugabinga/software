@@ -555,6 +555,88 @@ def head_meta_html(book: Book, title: str, description: str, path: str) -> str:
     return "\n".join(parts)
 
 
+# Reachable on the site and deliberately not part of the book: not in the
+# book's navigation, not in the sitemap, not in the search index, not in the
+# contents. Linked once, from the foot of the front page, because until that
+# existed they were not reachable at all -- `dist/skill/` served for a day and
+# the only way to find it was to know the URL.
+#
+# `when` is the note beside the link: what a reader gets if they follow it
+# before the thing exists. The fleet report is written by Monday's run and
+# pulled onto the site by the next publish; until then the link reaches the
+# placeholder `write_fleet_placeholder` writes, which says exactly that.
+#
+# A list rather than a scan of `site/`, because a blurb cannot be derived from
+# a directory name and a page nobody can describe is not worth linking. The
+# cost of a list is that it drifts -- so `check_standalone` below makes drift
+# a build failure instead of a promise, and `prune_stale_pages` further down
+# keeps what this list names rather than a hardcoded set of its own.
+STANDALONE = [
+    {
+        "url": "skill/",
+        "name": "Skill generator",
+        "blurb": "Builds the note-taker's Claude skill as a zip, in the browser.",
+        "when": "",
+    },
+    {
+        "url": "fleet/",
+        "name": "Fleet report",
+        "blurb": "What the agents did last week: runs, failures, cost, what merged.",
+        "when": "written on Mondays",
+    },
+]
+
+
+def check_standalone() -> None:
+    """Every standalone directory in `site/` is listed in `STANDALONE`.
+
+    `docs/FLEET.md` says a standalone page is a directory plus an entry in
+    `STANDALONE`, and names this check as what enforces it. Without it that
+    sentence would be a promise rather than a rule: the directory would still
+    be copied and still survive the pruner, and be linked from nowhere -- the
+    exact fault the list exists to fix, waiting for the next page.
+
+    One direction only. A `STANDALONE` entry with no directory and no writer
+    passes here -- `fleet/` is exactly that, written by
+    `write_fleet_placeholder` rather than copied from `site/` -- so a listing
+    that names nothing is caught later by the internal link check over
+    `dist/`, which is a different gate.
+    """
+    on_disk = {
+        f"{entry.name}/"
+        for entry in SITE_DIR.iterdir()
+        if entry.is_dir() and entry.name not in {"assets", "templates"}
+    }
+    listed = {page["url"] for page in STANDALONE}
+    missing = on_disk - listed
+    if missing:
+        raise SystemExit(
+            "site/ has standalone page(s) nothing links to: "
+            f"{', '.join(sorted(missing))}. Add them to STANDALONE in "
+            "tools/build.py, with a blurb."
+        )
+
+
+def standalone_html() -> str:
+    """The not-the-book pages, for the landing page's footer."""
+    check_standalone()
+    items = []
+    for page in STANDALONE:
+        when = (
+            f' <span class="aside-when">{esc(page["when"])}</span>'
+            if page["when"]
+            else ""
+        )
+        items.append(
+            f'<li><a href="{esc(page["url"])}">{esc(page["name"])}</a>{when}'
+            f'<span class="aside-blurb">{esc(page["blurb"])}</span></li>'
+        )
+    return (
+        '<nav class="aside-pages" aria-label="Not part of the book">'
+        "<h2>Also here</h2><ul>" + "".join(items) + "</ul></nav>"
+    )
+
+
 def contents_html(book: Book) -> str:
     """The landing page's table of contents: chapters, with their sections."""
     out: list[str] = []
@@ -809,6 +891,7 @@ def write_pages(book: Book, out_dir: Path, dev: bool) -> None:
             "authors": esc(authors),
             "nav": nav_html(book, None, ""),
             "contents": contents_html(book),
+            "standalone": standalone_html(),
             "start_url": book.chapters[0].url,
             "edition": esc(edition),
             "dev_script": dev_script,
@@ -821,8 +904,9 @@ def write_pages(book: Book, out_dir: Path, dev: bool) -> None:
             not_found_template,
             {
                 "lang": book.language,
-                "book_title": esc(book.title),
                 "title": esc(f"Not found — {book.title}"),
+                "heading": "That page is not part of this book",
+                "message": esc(book.title),
                 "home": esc(book.base_path),
             },
         ),
@@ -896,6 +980,45 @@ def write_site_files(book: Book, out_dir: Path, pdf: bool) -> None:
     )
 
 
+def write_fleet_placeholder(book: Book, out_dir: Path) -> None:
+    """A page at `fleet/` before there is a report to put there.
+
+    `publish.yml` builds first and folds the report in afterwards, so this
+    always writes and is always overwritten when there is a report. Until
+    Monday's first run there is nothing to overwrite it with, and the landing
+    page links here regardless -- so without this the link check fails the
+    build, and removing the link instead would hide the page from the only
+    place it is advertised.
+
+    Written unconditionally on purpose. An `if target.exists(): return` here
+    looks protective and is not: nothing writes this file before the build,
+    and the only thing it changes is that a stale placeholder in a reused
+    local `dist/` becomes permanent.
+    """
+    target = out_dir / "fleet" / "index.html"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        render(
+            (TEMPLATES / "404.html").read_text(encoding="utf-8"),
+            {
+                "lang": book.language,
+                "title": esc(f"Fleet report — {book.title}"),
+                "heading": "No report yet",
+                "message": (
+                    "The fleet report is written on Mondays and reaches the "
+                    "site on the next publish."
+                ),
+                # Relative, unlike the 404's. That one is root-relative
+                # because it can be served from any depth; this page is only
+                # ever at `fleet/`, and a root-relative link here is one the
+                # outbound-link check cannot resolve in a local file.
+                "home": "../",
+            },
+        ),
+        encoding="utf-8",
+    )
+
+
 def prune_stale_pages(book: Book, out_dir: Path) -> list[str]:
     """Delete chapter directories for chapters that no longer exist.
 
@@ -910,18 +1033,31 @@ def prune_stale_pages(book: Book, out_dir: Path) -> list[str]:
     `index.html`, sits directly under the output, and is neither a current
     chapter nor somewhere another part of the pipeline writes.
     """
-    # Derived, not listed. A hardcoded set drifts the moment somebody adds a
-    # standalone page: `dist/skill/` holds one index.html and is not a
-    # chapter, which is exactly the shape this deletes.
-    standalone = {
+    # Two sources, and the overlap is on purpose. `check_standalone` has
+    # already run by the time this does, so every directory in `site/` is a
+    # `STANDALONE` entry and `from_site` can only repeat `from_list` -- but
+    # this deletes directories, and a checked-in page must not go missing
+    # because a list drifted.
+    #
+    # `from_list` is the one that earns its place: it carries `fleet/`, which
+    # no directory produces. `write_fleet_placeholder` writes it immediately
+    # before this runs, and it is exactly the shape this deletes -- one
+    # `index.html`, directly under the output, no chapter.
+    #
+    # Reading `STANDALONE` here is what the pruner lacked: `fleet/` survived on
+    # a hardcoded "fleet" in the keep set, so the next generated page would have
+    # been deleted by the build that wrote it and reported as stale.
+    from_site = {
         entry.name
         for entry in SITE_DIR.iterdir()
         if entry.is_dir() and entry.name not in {"assets", "templates"}
     }
+    from_list = {page["url"].rstrip("/") for page in STANDALONE}
     keep = (
         {chapter.slug for chapter in book.chapters}
-        | {"assets", "badges", "fleet"}
-        | standalone
+        | {"assets", "badges"}
+        | from_site
+        | from_list
     )
     removed = []
     for entry in sorted(out_dir.iterdir()):
@@ -979,10 +1115,10 @@ def copy_assets(out_dir: Path) -> None:
     shutil.copytree(SITE_DIR / "assets", assets)
 
     # Standalone pages: reachable on the site, and deliberately not part of
-    # the book. No navigation, no sitemap entry, no search index, `noindex` in
-    # their own head. `site/skill/` is the generator that builds the
-    # note-taker's skill; `/fleet/` arrives by another route because it is
-    # generated weekly rather than checked in.
+    # the book. Not in the book's navigation, no sitemap entry, no search
+    # index, `noindex` in their own head. `site/skill/` is the generator
+    # that builds the note-taker's skill; `/fleet/` arrives by another route
+    # because it is generated weekly rather than checked in.
     for page in sorted((SITE_DIR).iterdir()):
         if not page.is_dir() or page.name in {"assets", "templates"}:
             continue
@@ -1069,6 +1205,8 @@ def build(args: argparse.Namespace, binary: str) -> Book:
     single = build_single_page(book, out_dir)
     write_search_index(book, out_dir)
     copy_assets(out_dir)
+    write_fleet_placeholder(book, out_dir)
+
     for stale in prune_stale_pages(book, out_dir):
         print(f"  removed stale page: {stale}/")
     epub = build_epub(book, out_dir, cover=out_dir / "social-card.png")
