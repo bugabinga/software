@@ -3,14 +3,18 @@
 
 `site/skill/index.html` is the generator, and it is a page rather than an
 endpoint so that the intake token never leaves the machine that types it. That
-is the right design for anyone who has to set this up from a phone, and it has
-one cost: the author types a token they already gave the repository, into a
-form, to produce a file the deploy could have handed them.
+is the right design for anyone setting this up from a phone, and it is the
+wrong shape for anyone who already has a checkout and a shell.
 
-So the deploy builds the same zip. Not a second generator -- the page's script
-is pulled out and run under node, exactly as `tools/check_skill_page.py` does,
-because two implementations of the skill would drift and the drift would be
-invisible until a note-taking session behaved oddly.
+Not a second generator: the page's script is pulled out and run under node,
+exactly as `tools/check_skill_page.py` does. Two implementations of the skill
+would drift, and the drift would surface as a note-taking session behaving
+oddly rather than as a failing test.
+
+The deploy does not call this to build a zip, and deliberately: the repository
+is public, so a workflow artifact holding the token would publish it. What the
+deploy does use is `--print-endpoint`, so the worker's name stays in
+`wrangler.jsonc` and the job summary cannot point somewhere that never existed.
 
 The token is read from stdin. An argument is in the process table and in the
 log of anything that traces the runner; stdin is neither.
