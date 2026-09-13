@@ -365,8 +365,11 @@ Two reviewers, and neither of them is Copilot.
 `pr-reviewer` judges every pull request and gates the merge. The author
 reviews what they choose to. `fleet-respond.yml` wakes `review-responder` on
 either, and every comment ends in a fix or in a reply saying what the finding
-missed -- because `required_review_thread_resolution` means an unanswered
-thread blocks the merge outright.
+missed. That is a rule in `.claude/agents/review-responder.md` and nothing
+else: `required_review_thread_resolution` is `false` on the `Main` ruleset, so
+an unanswered thread does not block a merge. Turning it on would make the rule
+real, and would also make a stranded thread unmergeable by anything but a
+human, which is why it is the author's call rather than the fleet's.
 
 **Copilot's automated review is off.** It needs a paid Copilot plan, and since
 1 June 2026 each review also bills Actions minutes, which is the budget this
