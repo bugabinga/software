@@ -336,18 +336,23 @@ same branch, or a reply saying what the finding missed -- and **resolves it**.
 Its push runs the reviewer again on the new head. That is the loop, and it is
 the point: a review that nothing has to answer decays into a note.
 
-Three things keep it from running forever:
+Three things are meant to keep it from running forever:
 
 - **Three rounds.** `fleet-respond.yml` counts the fleet's own
   changes-requested reviews. On the fourth it does not run the agent at all:
   it labels the pull request `hold`, says once why, and leaves it. Two agents
-  disagreeing is the author's to settle.
-- **The responder does not answer itself.** It wakes on a
+  disagreeing is the author's to settle. **The `hold` has never been
+  applied**: a review posted with the workflow token wakes nothing (#75), so
+  on a pull request only the fleet has reviewed the count is never taken --
+  #78 passed the third round with no `hold` label, and kept going.
+- **The responder does not answer itself.** The bot comes through only on a
   `pull_request_review` that requests changes, never on a
-  `pull_request_review_comment`, which is what its own replies are.
+  `pull_request_review_comment`, which is what its own replies are. The
+  author comes through on either.
 - **A pass dismisses the objection.** The reviewer never approves -- whether a
   bot's approval satisfies a rule is a question about GitHub's internals, and
-  the merge is gated by the `Fleet review` check instead. So when a later
+  a check is the answer that does not depend on one. `Fleet review` is not a
+  required check, so what it gates is a human's attention. So when a later
   round passes, `tools/post_review.py` dismisses the earlier changes-requested
   reviews. Without that a fixed pull request would carry a standing objection
   from three commits ago and never become mergeable.
@@ -362,11 +367,20 @@ arithmetic, which is the part that silently misplaces a comment.
 
 Two reviewers, and neither of them is Copilot.
 
-`pr-reviewer` judges every pull request and gates the merge. The author
-reviews what they choose to. `fleet-respond.yml` wakes `review-responder` on
-either, and every comment ends in a fix or in a reply saying what the finding
-missed -- because `required_review_thread_resolution` means an unanswered
-thread blocks the merge outright.
+`pr-reviewer` judges every pull request. The author reviews what they choose
+to. `fleet-respond.yml` wakes on the author's review -- it ran on #66 on
+12 September -- and not on the fleet's own: a review posted with the workflow
+token starts no run, so every fleet review to date has been answered by the
+operator by hand (#75).
+
+So two things the roster used to claim are off. The review does not gate the
+merge -- `Fleet review` is not a required check. And nothing makes a thread
+end resolved: `required_review_thread_resolution` is `false` on `Main`, and
+the rule lives in `.claude/agents/review-responder.md`, which is handed out
+when the author reviews and not when the fleet does. Turning the ruleset rule
+on would make it real, and would also make a stranded thread unmergeable by
+anything but a human, which is why it is the author's call rather than the
+fleet's.
 
 **Copilot's automated review is off.** It needs a paid Copilot plan, and since
 1 June 2026 each review also bills Actions minutes, which is the budget this
@@ -480,17 +494,24 @@ label a pull request `hold`.
 
 ### What branch protection did to this
 
-`main` carries an active ruleset. Measured against it, the fleet currently
-**cannot land anything**:
+`main` carries an active ruleset. Read from the API rather than remembered,
+all eight rules and no bypass actors: no creation, no deletion, no force-push,
+restricted update, linear history, signed commits, one required check (`CI`),
+and a pull request required -- squash only, **zero** required approvals,
+code-owner review required, stale reviews dismissed on push, thread resolution
+**not** required.
 
-| The fleet tries                  | Result                                                                        |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                   |
-| opening a pull request           | refused — Actions is not permitted to create pull requests                    |
-| `PUT /pulls/N/merge`             | would be blocked — one approving review is required and Actions has no bypass |
+| The fleet tries                  | Result                                                                                                                                                                                         |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                                                    |
+| opening a pull request           | refused — Actions is not permitted to create pull requests; `agent-branches.yml` hit that on `agent/badges` (run 34688705958), and stops earlier on a branch the operator has already opened   |
+| `PUT /pulls/N/merge`             | unexercised — no fleet merge is in the record. `require_code_owner_review` is why GitHub requests the owner on a `.github/` branch; whether it refuses the merge at zero approvals is untested |
 
-The owner can still merge, so nothing is stuck permanently; it just all
-routes through a human, which is the opposite of the delegation above.
+So the fleet still routes through a human to land anything, and the reason is
+no longer the approval rule: it is that Actions cannot open the pull request.
+What is worse and quieter: `Fleet review` is not a required check, so a
+failing review does not stop a merge by itself -- a human reading the red mark
+is the whole of it.
 
 #### Review by the fleet, which is what the protection was for
 
@@ -513,14 +534,16 @@ So the settings that fit the intention are:
 1. **Settings → Actions → General → Workflow permissions →** allow GitHub
    Actions to create and approve pull requests. Without this the fleet cannot
    open a pull request at all, and there is nothing to review.
-2. **The `Main` ruleset → required status checks →** `Build`, `Spelling`,
-   `Outbound links`, and — once the fleet is armed — `Fleet review`. Only
-   `Spelling` is required today, so the gate that matters least is the only
-   one enforced.
-3. **The `Main` ruleset → require approvals: 0.** The review requirement moves
-   into the checks, where the fleet can satisfy it. Leave it at 1 and only a
-   second human can ever merge, since GitHub does not let an author approve
-   their own pull request.
+2. **The `Main` ruleset → required status checks →** `CI` and — now that
+   the fleet is armed — `Fleet review`. Only `CI` is required today, which
+   leaves the review it was all built for unenforced. Not `Build`,
+   `Spelling` or `Outbound links`: those are steps inside the one `CI` job,
+   not check contexts, and a required check that never reports blocks every
+   merge.
+3. **The `Main` ruleset → require approvals: 0.** Done. The review
+   requirement lives in the checks, where the fleet can satisfy it;
+   `require_code_owner_review` still holds the paths in `.github/CODEOWNERS`,
+   which is the intention.
 
 With those, no bypass actor is needed: the fleet opens a pull request, the
 gates and the fleet review run, and a green one squash-merges. Linear history

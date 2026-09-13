@@ -170,10 +170,11 @@ def dismiss_earlier(repo: str, pr: int) -> list[int]:
 
     A `CHANGES_REQUESTED` review stays in force until it is dismissed or the
     same reviewer submits a new one that supersedes it -- and this reviewer
-    never approves, deliberately, because the merge is gated by a check
-    instead. Without this the loop could never finish: the responder fixes
-    everything, the reviewer passes, and the pull request still carries a
-    standing objection from three commits ago.
+    never approves, deliberately: whether a bot's approval satisfies a
+    required-reviews rule is a question about GitHub's internals, and a check
+    does not depend on the answer. Without this the loop could never finish:
+    the responder fixes everything, the reviewer passes, and the pull request
+    still carries a standing objection from three commits ago.
 
     Dismissing says, in the pull request's own record, that the objection was
     answered. That is the honest artefact, and it is more useful than an
@@ -371,7 +372,9 @@ def main() -> int:
         "body": review_body(verdict, orphaned, round_number),
         # A pass is a comment, not an approval: whether a bot's approval
         # satisfies a required-reviews rule is a question about GitHub's
-        # internals, and the merge is gated by the check instead.
+        # internals, and a check does not depend on the answer. It does not
+        # gate the merge either -- `Fleet review` is not a required check --
+        # so what the verdict buys is a human reading it.
         "event": "COMMENT" if verdict.get("verdict") == "pass" else "REQUEST_CHANGES",
         "comments": inline,
     }

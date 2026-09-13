@@ -72,18 +72,25 @@ Three parties, and confusing them is the operator's characteristic failure.
 - **Pages is live** at <https://bugabinga.github.io/software/>, serving the
   `gh-pages` branch. Verified: index, a chapter, the PDF and the single-file
   build all return 200.
-- **The `Main` ruleset still requires an approving review**, and that is now
-  the only thing standing between a green pull request and `main`. It was
-  right to wait: `Fleet review` had to be armed and seen working first, and it
-  is -- it passes on every branch and it caught a real bug in #63 that a local
-  dry run could not. So the change is ripe: **required approvals to zero,
-  `Fleet review` required.** Not a bypass actor, and not the bypass toggle,
-  which is a decision taken once per pull request and remembered by nobody.
+- **Required approvals are zero**, done. What was asked for alongside it was
+  not: **`Fleet review` is still not a required check.** The one required
+  check on `Main` is `CI`, so a reviewer that requested changes on every round
+  of #72 and on eight of #73's ten gates nothing -- a human reading the
+  red mark is the whole of the enforcement. Not a bypass actor, and not the
+  bypass toggle, which is a decision taken once per pull request and
+  remembered by nobody.
 
-  The author _can_ approve in the meantime -- the fleet's pull requests are
-  authored by `claude[bot]`, so approving them is not approving their own
-  work -- but that is a click per pull request forever, which is the tax this
-  whole arrangement exists to remove.
+  What blocks a fleet merge now is that Actions is not permitted to open a
+  pull request at all, and, for the paths in `.github/CODEOWNERS`,
+  `require_code_owner_review` -- which is why GitHub requests the owner on
+  #78. Whether it refuses a merge at zero approvals is untested: #78 is
+  blocked by the fleet's own standing changes-requested review.
+
+  A click is still needed for `.github/` and `.claude/`, and that one is
+  deliberate -- `docs/FLEET.md` calls it the intention, and `.github/CODEOWNERS`
+  says why. What was a click on every pull request is not any more: approvals
+  are zero, so a green branch touching only the book needs no approving
+  review -- only somebody to open its pull request.
 
 - **`show_full_output` is off again.** It was on to diagnose four dispatches
   that died in 38ms having called no model; the answer was a line break
