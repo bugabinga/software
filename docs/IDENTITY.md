@@ -100,8 +100,8 @@ at write could change the `Fleet` and `Bot` protection rules, which is the
 second place the fleet can be paused (`docs/FLEET.md`), and no diff and no check
 would say so. Nothing in the fleet uses those three today. What bounds them is
 that every workflow mints its own token by name, and `settings.yml`'s asks for
-administration, actions and metadata: a step that wanted a secret would have to
-say so in a diff. That is weaker than the ruleset's bound, and it is the honest
+administration and metadata: a step that wanted a secret would have to say so in
+a diff. That is weaker than the ruleset's bound, and it is the honest
 description of it.
 
 ### Doing it

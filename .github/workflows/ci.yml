@@ -22,12 +22,11 @@ concurrency:
   #
   # The group used to be the branch alone, so that a push and a pull request
   # for the same head did not both run. What actually happened is that one
-  # cancelled the other, and both produce check runs named `Build`,
-  # `Outbound links` and `Spelling` -- the names the ruleset requires. A
-  # required check that reads *Canceled* is not a check that passed, and on
-  # #59 the pull request showed `CI / Build (push)` as `Required · Canceled
-  # after 2s` beside a successful `CI / Build (pull_request)` for the same
-  # commit.
+  # cancelled the other, and both produce a check run named `CI` -- the name
+  # the ruleset requires (`repo.toml`). A required check that reads *Canceled*
+  # is not a check that passed, and on #59, when this was still three jobs,
+  # the pull request showed `CI / Build (push)` as `Required · Canceled after
+  # 2s` beside a successful `CI / Build (pull_request)` for the same commit.
   #
   # It did not block that merge, because the successful run was the later
   # one. That is a race, not a design: the day a pull request run finishes

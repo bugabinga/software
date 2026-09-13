@@ -528,9 +528,9 @@ That is a judgement this change records rather than a fact, and it is the one
 exposure here named rather than closed. What bounds it instead is that every
 change is a diff on `main` the author sees; that `settings.yml` has no judgement
 in it, reading the file and PUTting the difference; and that the token it mints
-asks for administration, actions and metadata rather than everything the App
-holds. Adding both paths to `protected` is a two-line change if that trade stops
-being worth it.
+asks for administration and metadata rather than everything the App holds.
+Adding both paths to `protected` is a two-line change if that trade stops being
+worth it.
 
 To take a decision back, do not review harder: change the agent's brief, or
 label a pull request `hold`.
