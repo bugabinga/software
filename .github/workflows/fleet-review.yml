@@ -250,14 +250,25 @@ jobs:
           # `claude[bot]` rather than `github-actions[bot]`, the token is an
           # App token and the responder can finally wake.
           #
-          # The fallback is deliberate rather than defensive. When the action
-          # fails early there may be no output to read, and posting as
-          # `github-actions[bot]` is what happens today: the verdict still
-          # lands, the responder just does not wake for it.
-          GH_TOKEN: ${{ steps.review.outputs.github_token || github.token }}
+          # Tried, not trusted. The output is populated and the token in it
+          # was rejected: `gh: Bad credentials (HTTP 401)` on run 34745916958,
+          # which failed the step and threw away a finished review. So the
+          # token is probed against this repository before anything depends
+          # on it, and a verdict is never lost to a credential.
+          APP_TOKEN: ${{ steps.review.outputs.github_token }}
+          GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # `repos/{repo}` rather than `user`: an installation token is not a
+          # user and would 403 on the second while being perfectly good.
+          if [ -n "${APP_TOKEN:-}" ] \
+            && GH_TOKEN="$APP_TOKEN" gh api "repos/$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            export GH_TOKEN="$APP_TOKEN"
+            echo "::notice::posting as the App, so fleet-respond.yml wakes on this review"
+          else
+            echo "::notice::the App token is absent or not usable here, so the review is posted by github-actions[bot] and wakes nothing -- see #75"
+          fi
           if [ ! -f /tmp/fleet-review.json ]; then
             echo "::notice::no verdict file yet; the next step decides what that means"
             exit 0
