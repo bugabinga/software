@@ -78,11 +78,11 @@ Three parties, and confusing them is the operator's characteristic failure.
   do not change one in a web page: read the file, and change it with a pull
   request.
 
-  The one thing the file cannot enforce is the gate `docs/IDENTITY.md` rests on.
-  At zero required approvals `require_code_owner_review` requests the owner and
-  then merges without them -- #78 is the measurement -- so `.github/CODEOWNERS`
-  is a request rather than a refusal, and what holds the line is the author
-  being the one who clicks merge.
+  `.github/CODEOWNERS` is gone with it: at zero required approvals
+  `require_code_owner_review` requested the owner and merged without them (#78),
+  so it was a file three documents called a gate. What refuses a change to the
+  machinery is `agent-branches.yml`, and the author being the one who clicks
+  merge.
 
 - **`show_full_output` is off again.** It was on to diagnose four dispatches
   that died in 38ms having called no model; the answer was a line break inside

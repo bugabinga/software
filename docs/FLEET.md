@@ -518,16 +518,18 @@ restates it -- read the file.
 Three things the file cannot say, because they are measurements rather than
 settings:
 
-| The fleet tries                  | Result                                                                                                                                                                              |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                                         |
-| opening a pull request           | refused — `agent-branches.yml` hit that on `agent/badges` (run 34688705958). `repo.toml` declares the setting that ends it, so this row should stop being true                      |
-| `PUT /pulls/N/merge`             | goes through — #78 merged touching `.github/` and `.claude/` with eleven standing changes-requested reviews and no approving review, so `require_code_owner_review` refused nothing |
+| The fleet tries                  | Result                                                                                                                                                         |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                    |
+| opening a pull request           | refused — `agent-branches.yml` hit that on `agent/badges` (run 34688705958). `repo.toml` declares the setting that ends it, so this row should stop being true |
+| `PUT /pulls/N/merge`             | goes through — #78 merged touching `.github/` and `.claude/` with eleven standing changes-requested reviews and no approving review                            |
 
-That last row is the one worth knowing. `.github/CODEOWNERS` is the gate
-`docs/IDENTITY.md` rests on, and at zero required approvals it is a review
-request rather than a refusal: what holds the line is the author being the one
-who clicks merge.
+That last row is why there is no `CODEOWNERS` file any more. At zero required
+approvals `require_code_owner_review` requested the owner and merged without
+them, so the file named a gate that refused nothing while three documents
+described it as the thing holding the line. What refuses is
+`agent-branches.yml`, on the paths it names, plus the author being the one who
+clicks merge.
 
 #### Why a check and not an approving review
 
@@ -561,20 +563,15 @@ touches.
 
 ## Who has to approve what
 
-`.github/CODEOWNERS` names the author as the owner of `.github/` and `.claude/`.
-Everything else in the tree has no owner, which is the point: the author
-controls the book by controlling the fleet, not by reviewing what it writes.
+Nobody, by rule. `agent-branches.yml` refuses to auto-merge anything under
+`.github/` or `.claude/`, so a change to the machinery waits for the author to
+click merge; everything else in the tree the fleet merges on green. That is the
+point: the author controls the book by controlling the fleet, not by reviewing
+what it writes.
 
-**It is not a mechanism.** At zero required approvals GitHub requests the owner
-and then merges without them -- #78 is the measurement. So what enforces it is
-`agent-branches.yml` refusing to auto-merge those paths, which is the automation
-policing itself in a file the automation can write, and the author being the one
-who clicks merge.
-
-That was worth accepting when the alternative was a second human on every
-hand-written pull request. It is worth revisiting now that `repo.toml` exists:
-raising `required_approving_review_count` to one is a line in that file, and the
-fleet applies it.
+The alternative is a line in `repo.toml`: `required_approving_review_count = 1`.
+It is off because there is no second human to give the approval, so it would
+stop the author's own pull requests as readily as an agent's.
 
 ## Boundaries that hold for every worker
 

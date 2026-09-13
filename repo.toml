@@ -95,10 +95,15 @@ rules = [
 [ruleset.Main.pull_request]
 allowed_merge_methods = ["squash"]
 # Zero, because the review requirement lives in the checks where the fleet can
-# satisfy it. Raising this to one makes `require_code_owner_review` bite and
-# also means nothing the author opens can merge without a second human.
+# satisfy it. Raising this to one means nothing the author opens can merge
+# without a second human, and there is no second human.
 required_approving_review_count = 0
-require_code_owner_review = true
+# False, because at zero approvals it was never a gate: #78 merged touching
+# `.github/` and `.claude/` with no approving review, having only requested
+# one. A rule that requests and then merges anyway is worse than no rule,
+# because the roster spent months describing it as the thing holding the line.
+# What actually refuses is `agent-branches.yml`, on the paths it names.
+require_code_owner_review = false
 dismiss_stale_reviews_on_push = true
 require_last_push_approval = false
 # False, and the responder's brief is what makes threads end resolved. Turning

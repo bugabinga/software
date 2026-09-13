@@ -40,11 +40,12 @@ becomes something a program checks. `tools/prose_scan.py` reads it and annotates
 every line that uses a spelling the book has ruled out, which means the finding
 reaches the author as a mark on the line rather than as a paragraph from you.
 
-**Propose entries; do not merge them.** The file is owned in
-`.github/CODEOWNERS`, so the author approves each one. That is not distrust: it
-is a rule you have to satisfy, and an agent that can delete an entry instead of
-fixing a chapter has a gate that is really a suggestion. It is also the only
-written record of what the book calls things, which is the author's.
+**Propose entries; do not merge them.** Nothing in GitHub stops you -- the
+`CODEOWNERS` file that claimed to was requesting a review it then merged
+without, and it is gone. This is a rule you keep because you understand it: an
+agent that can delete an entry instead of fixing a chapter has a gate that is
+really a suggestion, and this is the only written record of what the book calls
+things, which is the author's.
 
 An entry is a claim that two spellings are one referent and this is its name.
 Two spellings in the corpus are not automatically drift — the author may mean
