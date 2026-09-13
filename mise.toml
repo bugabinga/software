@@ -241,6 +241,16 @@ run = "python3 tools/post_review.py --self-test"
 description = "The mechanical faults in the chapters a program can decide"
 run = ["python3 tools/prose_scan.py --self-test", "python3 tools/prose_scan.py"]
 
+[tasks.check-settings]
+description = "The repository's settings, against what repo.toml declares"
+# Reads GitHub and compares; it never writes. A section the token cannot see
+# is reported as unread rather than as agreement, so this is honest in a
+# session behind a proxy and authoritative in CI, and says which it was.
+run = [
+  "python3 tools/repo_state.py --self-test",
+  "python3 tools/repo_state.py --check",
+]
+
 [tasks.check]
 description = "Every gate CI runs"
 # check-skill (#60), check-review (#61) and check-prose (#66) landed on main
@@ -262,6 +272,7 @@ depends = [
   "check-lint",
   "check-types",
   "check-report",
+  "check-settings",
 ]
 run = "echo 'all checks passed'"
 
