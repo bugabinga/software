@@ -38,7 +38,7 @@ request with red CI is more urgent than anything below it).
 
 5. **Link rot.** Outbound links only; internal ones are checked on every build.
    If `lychee` is unavailable locally, read the most recent CI run for the
-   `Outbound links` job instead of guessing.
+   `Check outbound links` step in the `CI` job instead of guessing.
 
 6. **Notes.** Is there anything in `notes/` first seen since the last sweep that
    the book does not account for? If so, hand it to the `notes-cartographer`

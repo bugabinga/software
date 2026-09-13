@@ -24,7 +24,12 @@ on:
       - "agent/**"
       - "maintenance/**"
   workflow_run:
-    workflows: [CI]
+    # Both, because either can be the last to report. CI runs from the push
+    # that created the branch; `Fleet review` is dispatched when the pull
+    # request is opened, and it is a required check, so a wake on CI alone
+    # decides while the verdict is still in progress, says "has checks that
+    # are not green", and nothing brings it back.
+    workflows: [CI, Fleet review]
     types: [completed]
   workflow_dispatch:
 
@@ -286,8 +291,12 @@ jobs:
           # runs on it. Nothing merged it only because it fell foul of a later
           # rule -- which is luck, not a safeguard.
           #
-          # So `Build` -- CI's own job, the one that compiles the book -- must
-          # be present and successful. It is polled rather than read once:
+          # So `CI` -- the job that builds the book and runs the gates --
+          # must be present and successful. It was `Build` until that job
+          # became one job named `CI`, and the grep was left behind: nothing
+          # in the tree produces a check called `Build`, so this exited on
+          # every branch and the fleet auto-merged nothing at all. It is
+          # polled rather than read once:
           # this job starts the instant CI reports completion, and the check
           # runs are not always visible by then. Sixty seconds of asking, then
           # the branch is left alone and said so.
@@ -295,7 +304,7 @@ jobs:
           for attempt in $(seq 1 12); do
             states=$(gh api "repos/$REPO/commits/$HEAD_SHA/check-runs" \
               --jq '.check_runs[] | select(.name != "Merge green chores" and .name != "Open the pull request") | "\(.name):\(.status):\(.conclusion // "pending")"')
-            if echo "$states" | grep -q '^Build:completed:'; then
+            if echo "$states" | grep -q '^CI:completed:'; then
               break
             fi
             echo "waiting for checks on $HEAD_SHA (attempt $attempt)"
@@ -303,8 +312,8 @@ jobs:
           done
 
           echo "checks on $HEAD_SHA:"; echo "${states//$'\n'/$'\n  '}"
-          if ! echo "$states" | grep -q '^Build:completed:success$'; then
-            echo "::notice::$BRANCH has no successful Build check on $HEAD_SHA, so there is nothing to call green; leaving it"
+          if ! echo "$states" | grep -q '^CI:completed:success$'; then
+            echo "::notice::$BRANCH has no successful CI check on $HEAD_SHA, so there is nothing to call green; leaving it"
             exit 0
           fi
           if echo "$states" | grep -vE ':completed:(success|neutral|skipped)$' | grep -q .; then
