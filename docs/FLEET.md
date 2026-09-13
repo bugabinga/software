@@ -36,8 +36,8 @@ was charging.
 Minutes are still scarce, for two reasons that have nothing to do with
 invoices. **Concurrent jobs are an account-wide limit**, not a repository one,
 so a run here is a run some other repository of the author's is waiting
-behind. And this fleet is a pattern the author repeats: a habit that costs
-four minutes a push is affordable once and not fifteen times. Spend them as
+behind. And this fleet is a pattern the author repeats: a habit that holds a
+slot on every push is affordable once and not fifteen times. Spend them as
 though they were billed.
 
 One thing here is billed: `Fleet review` is a model call, paid to Anthropic,

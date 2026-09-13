@@ -176,7 +176,9 @@ absent on a free plan, so check before building a merge rule around it.
 - [ ] Every `uses:` is a full SHA with an accurate version comment.
 - [ ] `permissions:` declared, least-privilege, raised per job.
 - [ ] No `${{ }}` interpolated into a shell body.
-- [ ] `timeout-minutes` on every job; `concurrency` keyed on event and ref.
+- [ ] `timeout-minutes` on every job; `concurrency` declared -- keyed on event
+      and ref for per-branch runs, one global group where only one run may
+      proceed at a time.
 - [ ] Logic worth being wrong about lives in a program with a self-test.
 - [ ] `actionlint` passes.
 - [ ] The check name matches what the ruleset requires, exactly.

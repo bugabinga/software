@@ -42,17 +42,17 @@ concurrency:
 
 jobs:
   ci:
-    # One job, and the reason is billing rather than tidiness.
+    # One job, and the reason is concurrency rather than tidiness.
     #
     # This used to be three -- Build, Spelling, Outbound links -- running in
     # parallel. Measured on one push: nine jobs across all workflows, 131
-    # seconds of actual work and nine whole minutes consumed, because GitHub
-    # rounds every job up to the minute. Nothing is billed here -- the
-    # repository is public -- but concurrent jobs are limited per account, so
-    # those minutes are ones the author's other repositories queue behind. The
+    # seconds of actual work. Nothing here is billed -- the repository is
+    # public -- and the per-job round-up to a whole minute is a billing rule,
+    # so it is not what the author's other repositories queue behind: that is
+    # the 131 seconds, across nine concurrency slots held to spend it. The
     # three CI jobs were 21s, 17s and 12s, roughly five seconds each of runner
-    # setup and checkout. Parallel saved perhaps fifteen seconds of wall clock
-    # and spent two extra minutes to do it.
+    # setup and checkout. Parallel bought perhaps fifteen seconds of wall
+    # clock and paid two extra checkouts and two extra slots for it.
     #
     # It also deletes the artifact round-trip: the link check used to download
     # the site that the build had just uploaded from the same commit.
