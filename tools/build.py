@@ -596,9 +596,11 @@ def check_standalone() -> None:
     be copied and still survive the pruner, and be linked from nowhere -- the
     exact fault the list exists to fix, waiting for the next page.
 
-    `fleet/` is listed and is not a directory in `site/`: it is written by
-    `write_fleet_placeholder` and replaced by `publish.yml`. So the check runs
-    one way for directories and the other only against what a build produces.
+    One direction only. A `STANDALONE` entry with no directory and no writer
+    passes here -- `fleet/` is exactly that, written by
+    `write_fleet_placeholder` rather than copied from `site/` -- so a listing
+    that names nothing is caught later by the internal link check over
+    `dist/`, which is a different gate.
     """
     on_disk = {
         f"{entry.name}/"
@@ -1031,12 +1033,16 @@ def prune_stale_pages(book: Book, out_dir: Path) -> list[str]:
     `index.html`, sits directly under the output, and is neither a current
     chapter nor somewhere another part of the pipeline writes.
     """
-    # Two sources, because there are two kinds of standalone page and each
-    # knows about one. `site/` has the ones that are directories in the tree;
-    # `STANDALONE` has every page the front page links, including `fleet/`,
-    # which no directory produces -- `write_fleet_placeholder` writes it
-    # immediately before this runs, and it is exactly the shape this deletes:
-    # one `index.html`, directly under the output, no chapter.
+    # Two sources, and the overlap is on purpose. `check_standalone` has
+    # already run by the time this does, so every directory in `site/` is a
+    # `STANDALONE` entry and `from_site` can only repeat `from_list` -- but
+    # this deletes directories, and a checked-in page must not go missing
+    # because a list drifted.
+    #
+    # `from_list` is the one that earns its place: it carries `fleet/`, which
+    # no directory produces. `write_fleet_placeholder` writes it immediately
+    # before this runs, and it is exactly the shape this deletes -- one
+    # `index.html`, directly under the output, no chapter.
     #
     # Reading `STANDALONE` here is what the pruner lacked: `fleet/` survived on
     # a hardcoded "fleet" in the keep set, so the next generated page would have
@@ -1109,7 +1115,8 @@ def copy_assets(out_dir: Path) -> None:
     shutil.copytree(SITE_DIR / "assets", assets)
 
     # Standalone pages: reachable on the site, and deliberately not part of
-    # the book. No navigation, no sitemap entry, no search index, `noindex` in
+    # the book. Not in the book's navigation, no sitemap entry, no search
+    # index, `noindex` in
     # their own head. `site/skill/` is the generator that builds the
     # note-taker's skill; `/fleet/` arrives by another route because it is
     # generated weekly rather than checked in.
