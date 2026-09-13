@@ -86,18 +86,21 @@ a zip. Two ways to get one, and they are the same generator --
 it too. A second implementation would drift, and the drift would show up as a
 note-taking session behaving oddly rather than as a failing test.
 
-- **From the deploy.** `worker-deploy.yml` attaches `file-note-skill` to its
-  run, with the address and the token already in it, retained for a day. The
-  token is one you already gave the repository, so nothing is typed.
-- **From the page.** `<site>/skill/`, for a rotation or a second note-taker.
-  The deploy's summary links to it with `?inbox=` filled in; the token is
-  typed there, because the page is a static file on Pages and anything
-  prefilled into it is published.
+- **From the page.** `<site>/skill/`. The deploy's summary links to it with
+  `?inbox=` already filled in, so only the token is typed.
+- **From a checkout.** `tools/make_skill.py --subdomain NAME --out PATH`, with
+  the token on stdin.
 
-The zip holds a live token. That is proportionate here: the notes are not
-secret, and the worst a leaked intake token buys is junk notes, which arrive
-as pull requests a human merges. Rotating it means changing
-`NOTES_INTAKE_TOKEN` and taking the next deploy's artifact.
+Neither route is the deploy handing you the finished zip, which is what this
+wanted to be. The deploy holds the token already, but **this repository is
+public**: a workflow artifact is downloadable by anyone who can see the run,
+so shipping the token in one would publish it. That matters more than the
+token's own value, because a note files itself -- `agent-branches.yml` merges
+a green `notes/` branch without a human reading it, and `notes/` is never
+edited afterwards. Rotating means changing `NOTES_INTAKE_TOKEN`, redeploying,
+and generating a new skill.
+
+The zip holds a live token either way. Treat it as a credential.
 
 ## The credentials
 

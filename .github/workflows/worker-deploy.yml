@@ -170,46 +170,6 @@ jobs:
             | mise exec -- wrangler secret put GITHUB_TOKEN
           echo "::notice::secrets set from repository secrets"
 
-      # The generator at /skill/ exists so the token never leaves the machine
-      # that types it, which is right for anyone setting this up from a phone
-      # and leaves the author typing a token the repository already holds.
-      # Here it does not have to: the same script that runs in the page runs
-      # under node, so this is the page's zip rather than a second skill that
-      # could drift from it.
-      #
-      # The artifact carries a live token. The notes are not secret and a
-      # leaked intake token is an annoyance rather than an emergency -- the
-      # worst it buys is filing junk notes, which arrive as pull requests that
-      # a human merges -- so one day of retention against a repository only
-      # the author can read is the proportionate answer, not an argument for
-      # not doing it.
-      - name: Build the note-taker's skill
-        id: skill
-        if: steps.subdomain.outputs.present == 'true'
-        env:
-          INTAKE_TOKEN: ${{ secrets.NOTES_INTAKE_TOKEN }}
-          SUBDOMAIN: ${{ steps.subdomain.outputs.name }}
-        run: |
-          set -euo pipefail
-          if [ -z "${INTAKE_TOKEN:-}" ]; then
-            echo "::notice::no NOTES_INTAKE_TOKEN, so there is no skill to build"
-            exit 0
-          fi
-          # On stdin, for the same reason the secrets above are piped.
-          printf '%s' "$INTAKE_TOKEN" \
-            | python3 tools/make_skill.py \
-                --subdomain "$SUBDOMAIN" \
-                --out "$RUNNER_TEMP/file-note-skill.zip"
-          echo "built=true" >> "$GITHUB_OUTPUT"
-
-      - name: Keep it for one day
-        if: steps.skill.outputs.built == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: file-note-skill
-          path: ${{ runner.temp }}/file-note-skill.zip
-          retention-days: 1
-
       # Asked for rather than assembled here, so the worker's name stays in
       # `wrangler.jsonc` alone. A copy in this file would be a second place to
       # get it wrong, and the deploy above is the thing that would keep
@@ -233,20 +193,17 @@ jobs:
         env:
           INBOX: ${{ steps.inbox.outputs.url }}
           PAGES: https://bugabinga.github.io/software
-          BUILT: ${{ steps.skill.outputs.built }}
         run: |
           {
             echo "### Notes inbox deployed"
             echo
             echo "The note-taker POSTs to \`$INBOX/note\`. See \`docs/NOTES-INBOX.md\`."
             echo
-            if [ "$BUILT" = "true" ]; then
-              echo "The skill is the **file-note-skill** artifact on this run,"
-              echo "with the token already in it. It is deleted after a day."
-              echo
-            fi
-            # The generator, with the address filled in, for a rotation or a
-            # second note-taker. The token is still typed there: this page is
-            # on GitHub Pages and anything prefilled into it is published.
-            echo "[Generate one instead]($PAGES/skill/?inbox=$INBOX)"
+            # The generator, with the address filled in. The token is typed
+            # there and not carried here: this repository is public, so a
+            # workflow artifact holding one would publish it, and a stranger
+            # who files a note gets it merged without anyone reading it.
+            echo "The note-taker's skill: [generate it]($PAGES/skill/?inbox=$INBOX),"
+            # shellcheck disable=SC2016  # backticks are markdown here.
+            echo 'or run `tools/make_skill.py` if you have a checkout.'
           } >> "$GITHUB_STEP_SUMMARY"
