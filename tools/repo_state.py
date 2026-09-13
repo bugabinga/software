@@ -388,9 +388,17 @@ def apply_state(repo: str, declared_path: Path = DECLARED) -> int:
                     # Compared first, like the two sections above: a PUT that
                     # sends what is already there is not a change, and a log
                     # that says it changed the ruleset on every run is a log
-                    # nobody can read a real change out of.
+                    # nobody can read a real change out of. And a read that
+                    # failed is not a comparison, so it does not write -- the
+                    # rule the other two sections already follow, and this is
+                    # the write that governs merging.
                     actual = fetch(f"repos/{repo}/rulesets/{by_name[name]}")
-                    if actual is not None and not _compare_ruleset(name, want, actual):
+                    if actual is None:
+                        failures.append(
+                            f"ruleset {name}: could not be read, so nothing was written"
+                        )
+                        continue
+                    if not _compare_ruleset(name, want, actual):
                         continue
                     error = write(
                         "PUT", f"repos/{repo}/rulesets/{by_name[name]}", payload
