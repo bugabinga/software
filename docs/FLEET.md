@@ -521,14 +521,16 @@ under `.github/` and therefore protected, while the file it applies is not.
 
 The reason is not that protection would stop the fleet fixing a rule; it would
 not. Protection only withholds the auto-merge: the branch, the pull request and
-the diff all still happen, and the author clicks. The reason is that the author
-asked for it, having spent every week of this repository's life unblocking the
-fleet by hand, and decided the wait was the cost rather than the safeguard. What
-bounds it instead is that every change is a diff on `main` the author sees; that
-`settings.yml` has no judgement in it, reading the file and PUTting the
-difference; and that the token it mints asks for administration, actions and
-metadata rather than everything the App holds. Adding both paths to `protected`
-is a two-line change if that trade stops being worth it.
+the diff all still happen, and somebody clicks. The reason is that the wait is
+the cost being avoided: every week of this repository's life so far has ended
+with a person unblocking the fleet by hand, and this file exists so that stops.
+That is a judgement this change records rather than a fact, and it is the one
+exposure here named rather than closed. What bounds it instead is that every
+change is a diff on `main` the author sees; that `settings.yml` has no judgement
+in it, reading the file and PUTting the difference; and that the token it mints
+asks for administration, actions and metadata rather than everything the App
+holds. Adding both paths to `protected` is a two-line change if that trade stops
+being worth it.
 
 To take a decision back, do not review harder: change the agent's brief, or
 label a pull request `hold`.

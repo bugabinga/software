@@ -57,15 +57,42 @@ jobs:
         with:
           app-id: ${{ vars.FLEET_APP_ID || secrets.FLEET_APP_ID }}
           private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
-          # The three endpoints `repo_state.py` touches, and nothing else:
-          # administration for the repository object, its topics and the
-          # ruleset; actions for `actions/permissions/workflow`; metadata
-          # because every call needs it. The App holds far more than this.
-          permissions: >-
-            {"administration": "write", "actions": "write",
-             "metadata": "read"}
+          # Administration covers all four paths `repo_state.py` touches --
+          # the repository object, its topics, the rulesets and
+          # `actions/permissions/workflow`, which reads as Administration
+          # rather than Actions despite its name (GitHub's REST description:
+          # read to get, write to set). Metadata because every call needs it.
+          # The App holds far more than these two.
+          permissions: '{"administration": "write", "metadata": "read"}'
 
       - name: Apply repo.toml
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
         run: python3 tools/repo_state.py --apply
+
+      # An installation token lives about an hour and this job takes minutes,
+      # so without this there is a credential able to rewrite the `Main`
+      # ruleset sitting valid for the rest of that hour after the only thing
+      # that needed it has finished. One call ends it. It belongs here rather
+      # than in the composite action because a composite cannot carry a post
+      # step, and `always()` because the run that failed is the one whose
+      # token is most worth not leaving alive.
+      - name: Revoke the installation token
+        if: always() && steps.token.outputs.token != ''
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/installation/token)
+          # 204 is revoked; 401 is a token GitHub had already invalidated,
+          # which is the same outcome. Anything else is worth a line, and
+          # worth not failing the job over: the apply already happened.
+          if [ "$code" = "204" ] || [ "$code" = "401" ]; then
+            echo "::notice::installation token revoked ($code)"
+          else
+            echo "::warning::could not revoke the installation token (HTTP $code); it expires within the hour"
+          fi

@@ -318,9 +318,9 @@ def _verdict(
 def apply_state(repo: str, declared_path: Path = DECLARED) -> int:
     """Make the repository match the file, for the parts it is safe to write.
 
-    Idempotent by construction: every call sends the declared value, so a run
-    that changes nothing found nothing to change. There is no state file,
-    because GitHub is the state.
+    Idempotent by construction: every section is compared before it is
+    written, so a run that changes nothing found nothing to change. There is
+    no state file, because GitHub is the state.
     """
     declared = tomllib.loads(declared_path.read_text(encoding="utf-8"))
     failures: list[str] = []
@@ -441,6 +441,13 @@ def ruleset_payload(name: str, want: dict[str, Any]) -> dict[str, Any]:
                         {"context": context} for context in checks.get("contexts", [])
                     ],
                     "strict_required_status_checks_policy": checks.get("strict", False),
+                    # Declared in `repo.toml` and compared on the way back, so
+                    # it has to be written on the way out: a parameter this
+                    # payload omits is one `--check` can go red on and
+                    # `--apply` can never set.
+                    "do_not_enforce_on_create": checks.get(
+                        "do_not_enforce_on_create", False
+                    ),
                 },
             }
         )
