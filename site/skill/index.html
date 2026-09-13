@@ -75,7 +75,8 @@
 
   <form id="form">
     <label for="endpoint">Inbox URL
-      <span class="hint">The worker's address, printed by the deploy. Ends in <code>.workers.dev</code>.</span>
+      <span class="hint">The worker's address, ending in <code>.workers.dev</code>. The
+        deploy's summary links here with it already filled in.</span>
     </label>
     <input id="endpoint" class="mono" type="url" required spellcheck="false"
            placeholder="https://notes-intake.your-subdomain.workers.dev"
@@ -122,32 +123,28 @@ function skillMarkdown({ endpoint, token, book }) {
   return `---
 name: file-note
 description: >-
-  File a note to the book's notes inbox. Use whenever the author says to save,
-  keep, file or send a note, or asks for what was just discussed to reach the
-  book. The book is ${book}.
+  File a note to the book's notes inbox. Use when the author says to save,
+  keep, file or send something, and when a session that produced material
+  worth keeping is ending with none of it filed.
+  The book is ${book}.
 ---
 
 # Filing a note to the book
 
-The author thinks out loud here; the book is written elsewhere, by a fleet of
+The author thinks out loud here. The book is written elsewhere, by a fleet of
 agents that read \`notes/\`. This skill is the hand-off between the two.
-
-## When to use it
-
-When the author says any of: save this, keep this, file it, send it to the
-book, add this to the notes. Also when a session has produced material the
-author clearly means to keep and is about to move on from — ask first.
 
 ## What a note is
 
 **Raw material, not writing.** Send what was actually said and thought,
 including the parts that contradict each other. Do not tidy it into an
 argument, do not resolve the contradictions, and do not decide what the book
-should do about it — that is the fleet's job, and a note that has already been
-decided for it is worth less than the thinking that produced it.
+should do about it -- that is the fleet's job, and thinking that has already
+been concluded for it is worth less than the thinking that produced it.
 
-Markdown. A heading and prose is plenty. Length is not a problem; the limit is
-512 KB.
+If the session produced something separate -- a document, a file, a page, a
+transcript -- that is the note. Get its content by whatever means this session
+has, and send that. Markdown. 512 KB per note; split anything longer.
 
 ## How
 
@@ -159,34 +156,23 @@ Content-Type: application/json
 {
   "title": "Session 02 — what a machine is",
   "body": "# Heading\\n\\nThe note, verbatim.\\n",
-  "source": "claude content session, exported 2026-09-20"
+  "source": "where this came from, so a reader can trace it"
 }
 \`\`\`
 
-\`title\` and \`body\` are required. \`source\` is free text and should say where
-the material came from, so a reader of the book's notes can trace it.
+\`title\` and \`body\` are required. \`source\` is free text.
 
-## What the replies mean
+\`201\` is filed, and the reply names the path -- tell the author. \`200\` with
+\`"created": false\` means that exact note is already filed, so retrying is
+safe. \`401\` is the wrong token: stop, and say so. Read any other reply
+before deciding whether to retry.
 
-| Status | Meaning |
-| --- | --- |
-| \`201\` | Filed. The reply names the branch and the path. |
-| \`200\` with \`"created": false\` | That exact note is already filed. Retrying is safe and files nothing twice. |
-| \`400\` | The note is malformed — a missing title, or an empty body. |
-| \`401\` | The token is wrong. Do not retry; tell the author. |
-| \`413\` | Over 512 KB. Split it into two notes. |
-| \`502\` | The inbox reached GitHub and GitHub refused. Retrying later is reasonable. |
+Do not paste the token back into the conversation.
 
-Tell the author the path it was filed at. Do not paste the token back into the
-conversation.
-
-## What happens next, so you can say so
-
-The note lands on a branch of the book's repository, verbatim — \`notes/\` is
-never edited by anyone. A pull request opens, and once it merges the fleet's
-cartographer reads the note and decides what it means for the book's shape:
-a new chapter, a reordering, a stub rewritten. That decision is not yours and
-not the author's to make here.
+The note lands verbatim on a branch of the book's repository and a pull
+request opens; \`notes/\` is never edited by anyone. What the book does about
+it is decided later, by the fleet, and is neither yours nor the author's to
+settle here.
 `;
 }
 
@@ -306,6 +292,18 @@ if (typeof module === "object" && module && module.exports) {
 // Testing a copy of the zip writer would be testing the wrong thing.
 const form = typeof document === "undefined" ? null : document.getElementById("form");
 const status = form && document.getElementById("status");
+
+// The address is not in the repository: `worker-deploy.yml` reads the
+// account's subdomain from Cloudflare at deploy time, because a copy checked
+// in here would keep looking right after the account changed. So the deploy
+// links to this page with `?inbox=` already filled, and the value arrives from
+// the run that did the deploying. Typing it by hand still works.
+if (form) {
+  const given = new URLSearchParams(location.search).get("inbox");
+  if (given && /^https:\/\//.test(given)) {
+    document.getElementById("endpoint").value = given.trim().replace(/\/+$/, "");
+  }
+}
 
 if (form) form.addEventListener("submit", (event) => {
   event.preventDefault();
