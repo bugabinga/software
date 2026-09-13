@@ -375,11 +375,12 @@ the first cannot carry it -- a review posted with the workflow token starts
 no run, which is why every fleet review before #75 was answered by the
 operator by hand.
 
-So two things the roster used to claim are off. The review does not gate the
-merge, though the review that raises them does: `Fleet review` is a required
-check. What makes no thread end resolved: `required_review_thread_resolution` is `false` on `Main`, and
-the rule lives in `.claude/agents/review-responder.md`, which is handed out
-when the author reviews and not when the fleet does. Turning the ruleset rule
+One of the two things the roster used to claim is true again; the other is
+not. The review does gate the merge -- `Fleet review` is a required check on
+`Main`. Nothing makes a thread end resolved, though:
+`required_review_thread_resolution` is `false` on `Main`, and the rule lives
+in `.claude/agents/review-responder.md`, which is handed out when the author
+reviews and not when the fleet does. Turning the ruleset rule
 on would make it real, and would also make a stranded thread unmergeable by
 anything but a human, which is why it is the author's call rather than the
 fleet's.
@@ -503,10 +504,11 @@ label a pull request `hold`.
 
 `main` carries an active ruleset. Read from the API rather than remembered,
 all eight rules and no bypass actors: no creation, no deletion, no force-push,
-restricted update, linear history, signed commits, one required check (`CI`),
-and a pull request required -- squash only, **zero** required approvals,
-code-owner review required, stale reviews dismissed on push, thread resolution
-**not** required.
+restricted update, linear history, signed commits, two required checks (`CI`
+and `Fleet review`, strictly -- a branch behind `main` has to be updated
+before it lands), and a pull request required -- squash only, **zero**
+required approvals, code-owner review required, stale reviews dismissed on
+push, thread resolution **not** required.
 
 | The fleet tries                  | Result                                                                                                                                                                                         |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

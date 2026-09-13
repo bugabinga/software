@@ -372,9 +372,10 @@ def main() -> int:
         "body": review_body(verdict, orphaned, round_number),
         # A pass is a comment, not an approval: whether a bot's approval
         # satisfies a required-reviews rule is a question about GitHub's
-        # internals, and a check does not depend on the answer. `Fleet
-        # review` is required on `Main`, so this payload is what stops a
-        # merge: a `REQUEST_CHANGES` here is a red required check.
+        # internals, and a check does not depend on the answer. What stops a
+        # merge is the check, not this payload: `fleet-review.yml` exits
+        # non-zero on a non-pass verdict and `Fleet review` is required on
+        # `Main`. The `REQUEST_CHANGES` event is where the findings land.
         "event": "COMMENT" if verdict.get("verdict") == "pass" else "REQUEST_CHANGES",
         "comments": inline,
     }
