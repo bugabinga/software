@@ -74,10 +74,12 @@ can_approve_pull_request_reviews = true
 # convenient one.
 default_workflow_permissions = "read"
 
-# The `Main` ruleset, complete. Not a subset: `repo_state.py` writes this
-# ruleset from this declaration, so a rule that is not here is a rule that
-# should not exist. That is what makes the fleet able to unstick itself --
-# a rule that is wrong is fixed by a pull request against this file.
+# The `Main` ruleset, complete, down to the parameters: `repo_state.py` writes
+# this ruleset from this declaration, so a rule that is not here is a rule that
+# should not exist, and `compare()` only looks at parameters that are declared,
+# so one left out is one nothing would notice changing. That is what makes the
+# fleet able to unstick itself -- a rule that is wrong is fixed by a pull
+# request against this file.
 [ruleset.Main]
 enforcement = "active"
 bypass_actors = []
@@ -112,6 +114,13 @@ require_last_push_approval = false
 # it on would make a thread no agent can resolve into a merge nothing can
 # complete -- see `docs/FLEET.md`.
 required_review_thread_resolution = false
+# Declared because the section calls itself complete, and `compare()` only
+# looks at what is declared -- so an undeclared parameter is one GitHub could
+# change between two applies with nothing reporting it. Both are GitHub's
+# defaults and neither was a decision anybody made; they are here to be
+# checked, not because they are interesting.
+require_extra_approval_for_unattributed_changes = false
+required_reviewers = []
 
 [ruleset.Main.required_status_checks]
 # `CI` is one job covering build, spelling and links: requiring those three by
@@ -119,6 +128,8 @@ required_review_thread_resolution = false
 # review` is the fleet reading its own work, required since 13 September.
 contexts = ["CI", "Fleet review"]
 strict = true
+# The same reason as the two undeclared `pull_request` parameters above.
+do_not_enforce_on_create = false
 
 # The branch `fleet-report.yml` appends a line to every Monday, so the fleet's
 # record outlives the API's 90-day window. Nothing may delete it or rewrite

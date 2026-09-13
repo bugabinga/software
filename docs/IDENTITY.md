@@ -85,11 +85,24 @@ Administration, Secrets, Variables and Environments, on the argument that an
 agent holding them could widen its own authority. The argument was right and the
 remedy was in the wrong place. What replaced it is `repo.toml`: the rules the
 app may change are declared in a file, changed by a pull request, applied by
-`settings.yml`, and read back by `mise run check`. The ceiling moved from a
-settings page with no history to a diff with one.
+`settings.yml`, and read back by `mise run check-settings`, which is not itself
+a gate. The ceiling moved from a settings page with no history to a diff with
+one.
 
-So the app can now change the rules that govern it, through a diff and nothing
+So the app can change the rules `repo.toml` declares, through a diff and nothing
 else. That is the principle above, and it is the point.
+
+**Three grants sit outside that file's reach**, and they are the three the
+earlier version of this document forbade by name: Secrets, Variables and
+Environments. `repo_state.py` reads the repository object, the Actions
+permissions and the rulesets, and nothing else -- so an App holding Environments
+at write could change the `Fleet` and `Bot` protection rules, which is the
+second place the fleet can be paused (`docs/FLEET.md`), and no diff and no check
+would say so. Nothing in the fleet uses those three today. What bounds them is
+that every workflow mints its own token by name, and `settings.yml`'s asks for
+administration, actions and metadata: a step that wanted a secret would have to
+say so in a diff. That is weaker than the ruleset's bound, and it is the honest
+description of it.
 
 ### Doing it
 

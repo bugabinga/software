@@ -179,8 +179,18 @@ def check_rulesets(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]
     # about a rule nobody declared, one level up: `Fleet log` existed for weeks
     # against a file that named only `Main`, and this read `ok rulesets`. So
     # the declaration is every ruleset, not every rule of some of them.
+    #
+    # The finding names both ways out, because `--apply` cannot take either:
+    # it writes the declared rulesets and never deletes one. That is
+    # deliberate -- deleting a ruleset is irreversible and a program with no
+    # judgement in it should not do it from a file somebody edited -- but it
+    # means this difference stays red until a person acts, which is what the
+    # text has to say.
     for name in sorted(set(by_name) - set(declared)):
-        findings.append(f"ruleset.{name}: exists and is not declared")
+        findings.append(
+            f"ruleset.{name}: exists and is not declared. --apply will not "
+            "remove it: declare it here, or delete it in the web UI"
+        )
 
     for name, want in declared.items():
         if name not in by_name:
