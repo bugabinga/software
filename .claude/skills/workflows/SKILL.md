@@ -51,7 +51,10 @@ code that can only be tested by pushing.
 - `set -euo pipefail`, `shellcheck`, and never interpolate `${{ }}` into a
   shell body -- pass it through `env:`, so a branch named `"; rm -rf /` is a
   string and not a statement.
-- `actionlint` catches the YAML-shaped mistakes. Gate on it.
+- `actionlint` catches the YAML-shaped mistakes. Gate on it, and on whatever
+  catches the ones it does not: here `tools/check_workflows.py` finds a
+  heredoc terminator indented past its `run:` block, which never closes, so
+  bash runs a truncated script and says nothing.
 
 ## Caching
 
@@ -181,7 +184,9 @@ absent on a free plan, so check before building a merge rule around it.
       and ref for per-branch runs, one global group where only one run may
       proceed at a time.
 - [ ] Logic worth being wrong about lives in a program with a self-test.
-- [ ] `actionlint` passes.
+- [ ] `actionlint` passes -- and `mise run check-workflows` with it, which
+      adds `tools/check_workflows.py`: the pin rule above, and a heredoc
+      terminator indented past its `run:` block, which never closes.
 - [ ] The check name matches what the ruleset requires, exactly.
 - [ ] You can name who can trigger this and what they reach.
 - [ ] If two workflows talk to each other, you have checked the

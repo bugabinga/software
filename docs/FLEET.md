@@ -281,8 +281,8 @@ Dependabot's pull requests wait for a human: every one of them touches
 `.github/`, which is not a chore, so nothing merges it. The actions are
 pinned to commits rather than tags -- `.github/dependabot.yml` says why -- so
 a bump is a new SHA, and the version in its trailing comment is the only
-thing that says what moved. The weekly sweep reads them and leaves them
-(`.claude/skills/garden`, step 2).
+thing in the diff that says what moved. The weekly sweep reads them and
+leaves them (`.claude/skills/garden`, step 2).
 
 ## Issues: how the fleet is asked for things
 
