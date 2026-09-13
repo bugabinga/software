@@ -120,11 +120,11 @@ Then say so. Wiring the workflows is a pull request, not your job.
 ### Checking it
 
 `repo.toml` and `tools/repo_state.py`. The file says what the repository is
-configured to be; `mise run check` fails when GitHub disagrees, wherever a
-credential is held -- not yet in CI, where the Check step has no token and every
-section reads unread. There is no separate check of the grant, because
-`repo.toml` is the boundary now -- with the one exception above, which the
-`Settings` run reports for itself.
+configured to be; `mise run check-settings` reads it back, wherever a credential
+is held. It is not in `mise run check` yet and CI cannot see the settings at
+all, so nothing gates this today -- `mise.toml` says why and what ends it. There
+is no separate check of the grant, because `repo.toml` is the boundary now --
+with the one exception above, which the `Settings` run reports for itself.
 
 ---
 

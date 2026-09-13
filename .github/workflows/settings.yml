@@ -6,8 +6,9 @@ name: Settings
 # not diffable, not reviewable, and the place every surprise came from -- a
 # code-owner rule that blocks nothing, a required check the roster learned of
 # an hour late, an App grant whose own checker had not run since the policy
-# changed. `mise run check` fails when GitHub disagrees with the file, wherever
-# a credential is held. This is the half that makes GitHub agree.
+# changed. `mise run check-settings` reads the settings back and fails on a
+# difference; it is not in `mise run check` yet, and in CI it sees nothing.
+# This is the half that makes GitHub agree.
 #
 # Deliberately dumb. It reads a file and PUTs the difference; there is no
 # judgement in it and no model behind it, which is the only reason it is safe

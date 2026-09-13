@@ -174,6 +174,14 @@ def check_rulesets(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]
     by_name = {entry.get("name"): entry.get("id") for entry in listing}
     findings: list[str] = []
     unread: list[str] = []
+
+    # A whole ruleset nobody declared, for the reason `_compare_ruleset` gives
+    # about a rule nobody declared, one level up: `Fleet log` existed for weeks
+    # against a file that named only `Main`, and this read `ok rulesets`. So
+    # the declaration is every ruleset, not every rule of some of them.
+    for name in sorted(set(by_name) - set(declared)):
+        findings.append(f"ruleset.{name}: exists and is not declared")
+
     for name, want in declared.items():
         if name not in by_name:
             findings.append(

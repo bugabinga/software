@@ -515,24 +515,31 @@ delegation above safe to give.
 `repo.toml` and `tools/repo_state.py` are deliberately **not** in it, and that
 is the exposure worth naming: the file holds the required checks, the approval
 count and the bypass actors, the program is what writes them, `settings.yml`
-triggers on both, and a green fleet branch touching either merges itself. The
-alternative is a fleet that cannot fix the rule blocking it, which is the
-arrangement this replaced -- every week of this repository's life so far has
-been somebody unblocking it by hand. What bounds it instead is that the change
-is a diff on `main`; that `settings.yml` has no judgement in it, reading the
-file and PUTting the difference; and that the token it mints asks for
-administration, actions and metadata rather than everything the App holds.
+triggers on both, and a green fleet branch touching either merges itself and is
+applied with no human in the loop. The asymmetry is real -- `settings.yml` is
+under `.github/` and therefore protected, while the file it applies is not.
+
+The reason is not that protection would stop the fleet fixing a rule; it would
+not. Protection only withholds the auto-merge: the branch, the pull request and
+the diff all still happen, and the author clicks. The reason is that the author
+asked for it, having spent every week of this repository's life unblocking the
+fleet by hand, and decided the wait was the cost rather than the safeguard. What
+bounds it instead is that every change is a diff on `main` the author sees; that
+`settings.yml` has no judgement in it, reading the file and PUTting the
+difference; and that the token it mints asks for administration, actions and
+metadata rather than everything the App holds. Adding both paths to `protected`
+is a two-line change if that trade stops being worth it.
 
 To take a decision back, do not review harder: change the agent's brief, or
 label a pull request `hold`.
 
 ### What branch protection does to this
 
-`main` carries a ruleset and `repo.toml` is what it says. `mise run check` fails
-when GitHub disagrees -- wherever a credential is held. In CI it does not yet:
-`ci.yml`'s Check step sets no `GH_TOKEN`, so every section reads unread and the
-task passes. `settings.yml` makes GitHub agree, so nothing here restates it --
-read the file.
+`main` carries a ruleset and `repo.toml` is what it says, so nothing here
+restates it -- read the file. `mise run check-settings` reads it back and fails
+on a difference, wherever a credential is held; it is not in `mise run check`
+and CI cannot see the settings at all, so no gate enforces the file today.
+`settings.yml` makes GitHub agree.
 
 Three things the file cannot say, because they are measurements rather than
 settings:
