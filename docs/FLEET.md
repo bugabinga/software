@@ -372,9 +372,10 @@ So two things the roster used to claim are off. The review does not gate the
 merge -- `Fleet review` is not a required check. And nothing makes a thread
 end resolved: `required_review_thread_resolution` is `false` on `Main`, and
 the rule lives in `.claude/agents/review-responder.md`, which is handed out
-when the author reviews and not when the fleet does. Turning the ruleset rule on would make
-it real, and would also make a stranded thread unmergeable by anything but a
-human, which is why it is the author's call rather than the fleet's.
+when the author reviews and not when the fleet does. Turning the ruleset rule
+on would make it real, and would also make a stranded thread unmergeable by
+anything but a human, which is why it is the author's call rather than the
+fleet's.
 
 **Copilot's automated review is off.** It needs a paid Copilot plan, and since
 1 June 2026 each review also bills Actions minutes, which is the budget this
@@ -495,11 +496,11 @@ and a pull request required -- squash only, **zero** required approvals,
 code-owner review required, stale reviews dismissed on push, thread resolution
 **not** required.
 
-| The fleet tries                  | Result                                                                                                                                                                                       |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                                                  |
-| opening a pull request           | refused — Actions is not permitted to create pull requests; `agent-branches.yml` hit that on `agent/badges` (run 34688705958), and stops earlier on a branch the operator has already opened |
-| `PUT /pulls/N/merge`             | blocked for the paths in `.github/CODEOWNERS` — `require_code_owner_review` bites at zero required approvals, which #78 shows: green `CI`, and GitHub requesting the owner's review          |
+| The fleet tries                  | Result                                                                                                                                                                                         |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                                                    |
+| opening a pull request           | refused — Actions is not permitted to create pull requests; `agent-branches.yml` hit that on `agent/badges` (run 34688705958), and stops earlier on a branch the operator has already opened   |
+| `PUT /pulls/N/merge`             | unexercised — no fleet merge is in the record. `require_code_owner_review` is why GitHub requests the owner on a `.github/` branch; whether it refuses the merge at zero approvals is untested |
 
 So the fleet still routes through a human to land anything, and the reason is
 no longer the approval rule: it is that Actions cannot open the pull request.
@@ -528,14 +529,16 @@ So the settings that fit the intention are:
 1. **Settings → Actions → General → Workflow permissions →** allow GitHub
    Actions to create and approve pull requests. Without this the fleet cannot
    open a pull request at all, and there is nothing to review.
-2. **The `Main` ruleset → required status checks →** `CI` and — now that the
-   fleet is armed — `Fleet review`. Only `CI` is required today, which leaves
-   the review it was all built for unenforced. Not `Build`, `Spelling` or
-   `Outbound links`: those are steps inside the one `CI` job, not check
-   contexts, and a required check that never reports blocks every merge.
-3. **The `Main` ruleset → require approvals: 0.** Done. The review requirement
-   lives in the checks, where the fleet can satisfy it; `require_code_owner_review`
-   still holds the paths in `.github/CODEOWNERS`, which is the intention.
+2. **The `Main` ruleset → required status checks →** `CI` and — now that
+   the fleet is armed — `Fleet review`. Only `CI` is required today, which
+   leaves the review it was all built for unenforced. Not `Build`,
+   `Spelling` or `Outbound links`: those are steps inside the one `CI` job,
+   not check contexts, and a required check that never reports blocks every
+   merge.
+3. **The `Main` ruleset → require approvals: 0.** Done. The review
+   requirement lives in the checks, where the fleet can satisfy it;
+   `require_code_owner_review` still holds the paths in `.github/CODEOWNERS`,
+   which is the intention.
 
 With those, no bypass actor is needed: the fleet opens a pull request, the
 gates and the fleet review run, and a green one squash-merges. Linear history

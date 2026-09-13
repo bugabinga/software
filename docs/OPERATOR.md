@@ -82,13 +82,14 @@ Three parties, and confusing them is the operator's characteristic failure.
 
   What blocks a fleet merge now is that Actions is not permitted to open a
   pull request at all, and, for the paths in `.github/CODEOWNERS`,
-  `require_code_owner_review` -- which does bite at zero required approvals:
-  #78 sits blocked with `CI` green and the owner's review requested.
+  `require_code_owner_review` -- which is why GitHub requests the owner on
+  #78. Whether it refuses a merge at zero approvals is untested: #78 is
+  blocked by the fleet's own standing changes-requested review.
 
-  The author _can_ approve in the meantime -- the fleet's pull requests are
-  authored by `claude[bot]`, so approving them is not approving their own
-  work -- but that is a click per pull request forever, which is the tax this
-  whole arrangement exists to remove.
+  A click is still needed for `.github/` and `.claude/`, and that one is
+  deliberate -- `docs/FLEET.md` calls it the intention, and `.github/CODEOWNERS`
+  says why. What was a click on every pull request is not any more: approvals
+  are zero, so a green branch touching only the book needs nobody.
 
 - **`show_full_output` is off again.** It was on to diagnose four dispatches
   that died in 38ms having called no model; the answer was a line break

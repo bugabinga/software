@@ -19,7 +19,8 @@ name: Fleet respond
 # Three workflows, three verbs, so it stays clear which one to look at:
 #
 #   fleet.yml          -- do work on the book. Pushes a branch.
-#   fleet-review.yml   -- judge a pull request. Read-only, gates the merge.
+#   fleet-review.yml   -- judge a pull request. Read-only, and advisory:
+#                         `Fleet review` is not a required check.
 #   fleet-respond.yml  -- answer feedback. Pushes to the pull request's branch.
 
 on:
