@@ -62,9 +62,11 @@ and the GitHub-side bot all run the same agent rather than improvising.
 | `prose-editor`       | copyediting, terminology drift, terms used before defined, stale cross-references | rewrites for style; changes what a paragraph claims          |
 | `chapter-drafter`    | drafts a chapter from notes, against a named target                               | runs on a schedule; invents citations or uncompiled listings |
 
-Two skills carry the procedures: `.claude/skills/garden` (the maintenance
-sweep, including the merge policy) and `.claude/skills/ingest` (getting
-material into `notes/`).
+Three skills carry the procedures: `.claude/skills/garden` (the maintenance
+sweep, including the merge policy), `.claude/skills/ingest` (getting material
+into `notes/`), and `.claude/skills/workflows` (writing or reviewing a
+workflow -- pinning, caching, minutes, third-party risk, and the
+`GITHUB_TOKEN` rule this repository has now hit in both directions).
 
 ### Triggers
 
