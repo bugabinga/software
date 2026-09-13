@@ -1,0 +1,121 @@
+# What this repository is configured to be.
+#
+# Every value here is a claim about `bugabinga/software` that
+# `tools/repo_state.py` reads back from GitHub's API and fails the build over.
+# Before this file, the same claims lived in prose -- and prose about a
+# setting cannot be checked, so `docs/FLEET.md` spent months asserting a
+# ruleset that had changed under it. A pull request is now how a setting
+# changes, and the diff is the record of who decided what.
+#
+# **This is not a mirror.** The repository object alone returns 96 fields;
+# declaring all of them would mean fighting the API's shape forever and
+# rewriting this file every time GitHub adds a key. What is here is what
+# somebody decided on purpose. Anything absent is unchecked, deliberately.
+
+[repository]
+# Set once and easy to lose: the description and homepage are what the
+# repository looks like to somebody who has not opened it.
+description = "One programmer's thoughts about software. Written in Typst, published as a website, a PDF and an EPUB from one source tree, by a fleet of agents."
+homepage = "https://bugabinga.github.io/software/"
+default_branch = "main"
+
+# Squash only, to match the `Main` ruleset's `allowed_merge_methods`. Rebase
+# stays enabled at the repository level because the ruleset is what enforces
+# the policy on `main`, and turning it off here would only remove a button
+# from branches nobody protects.
+allow_squash_merge = true
+allow_merge_commit = false
+allow_rebase_merge = true
+
+# The commit a squash produces reads as the pull request did: its title, its
+# body. The alternative is a subject that says "Merge pull request #81".
+squash_merge_commit_title = "PR_TITLE"
+squash_merge_commit_message = "PR_BODY"
+
+# `strict_required_status_checks_policy` on the ruleset means a branch behind
+# `main` cannot land until it is updated. `allow_update_branch` is the button
+# that does it -- off, the two settings fight, and every merge after somebody
+# else's is a manual rebase.
+allow_update_branch = true
+allow_auto_merge = true
+delete_branch_on_merge = true
+
+# Issues carry the fleet's tasks and its notices. The other three are surfaces
+# nobody here writes to, and an empty wiki on a public repository is an
+# invitation to wonder what was meant to be in it.
+has_issues = true
+has_wiki = false
+has_projects = false
+has_discussions = false
+
+# Sorted, because GitHub returns them sorted and a diff should not be about
+# ordering.
+topics = [
+  "agents",
+  "book",
+  "ebook",
+  "github-pages",
+  "software-engineering",
+  "static-site-generator",
+  "typst",
+]
+
+[actions]
+# The one field behind "Actions is not permitted to create pull requests",
+# which is why `agent-branches.yml` has never once opened one and why every
+# fleet pull request to date was opened by the operator by hand. The name says
+# approve; the setting governs both.
+can_approve_pull_request_reviews = true
+
+# `GITHUB_TOKEN` starts read-only and each workflow raises what it needs, so
+# a workflow that forgets `permissions:` gets the safe default rather than the
+# convenient one.
+default_workflow_permissions = "read"
+
+# The `Main` ruleset, by name. Only the rules that were decided are listed;
+# `repo_state.py` checks that each is present and configured as stated, and
+# says nothing about rules it was not told to expect.
+[ruleset.Main]
+enforcement = "active"
+bypass_actors = []
+include = ["~DEFAULT_BRANCH"]
+
+# Every one of these was a decision with a reason, and the reasons live in
+# `docs/FLEET.md`. Here they are only true or false.
+rules = [
+  "creation",
+  "deletion",
+  "non_fast_forward",
+  "required_linear_history",
+  "required_signatures",
+  "update",
+]
+
+[ruleset.Main.pull_request]
+allowed_merge_methods = ["squash"]
+# Zero, because the review requirement lives in the checks where the fleet can
+# satisfy it. Raising this to one makes `require_code_owner_review` bite and
+# also means nothing the author opens can merge without a second human.
+required_approving_review_count = 0
+require_code_owner_review = true
+dismiss_stale_reviews_on_push = true
+require_last_push_approval = false
+# False, and the responder's brief is what makes threads end resolved. Turning
+# it on would make a thread no agent can resolve into a merge nothing can
+# complete -- see `docs/FLEET.md`.
+required_review_thread_resolution = false
+
+[ruleset.Main.required_status_checks]
+# `CI` is one job covering build, spelling and links: requiring those three by
+# name would add contexts that never report, which blocks every merge. `Fleet
+# review` is the fleet reading its own work, required since 13 September.
+contexts = ["CI", "Fleet review"]
+strict = true
+
+# The App that may change all of this. Its id and slug are recorded because
+# nothing else in the repository names it: `docs/IDENTITY.md` calls it "the
+# GitHub App" and `tools/check_app.py` reads the name from the API at runtime,
+# so until now a reader had no way to tell which App holds write access to
+# these settings. Filled in by the first `--check` run that has the key.
+[app]
+slug = ""
