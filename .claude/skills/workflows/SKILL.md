@@ -78,6 +78,12 @@ work in one, and a matrix of trivial jobs is the usual way a bill triples
 without anything getting faster. Runner cost varies by platform by roughly an
 order of magnitude; [check before defaulting to macOS][billing].
 
+A public repository is charged nothing for standard runners, which is not the
+same as free. Concurrent jobs are limited **per account**, not per repository,
+so minutes spent here are minutes another of your repositories waits for.
+Optimise them as though they were billed; the discipline is identical and only
+the unit changes.
+
 What saves minutes, in order of effect:
 
 1. **Do not start the run.** Path filters, and a `concurrency` group that
