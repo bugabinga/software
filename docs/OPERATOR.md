@@ -79,17 +79,21 @@ Three parties, and confusing them is the operator's characteristic failure.
   toggle, which is a decision taken once per pull request and remembered by
   nobody.
 
-  What blocks a fleet merge now is that Actions is not permitted to open a
-  pull request at all, and, for the paths in `.github/CODEOWNERS`,
-  `require_code_owner_review` -- which is why GitHub requests the owner on
-  #78. Whether it refuses a merge at zero approvals is untested: #78 is
-  blocked by the fleet's own standing changes-requested review.
+  What blocks a fleet merge is that Actions is not permitted to open a pull
+  request at all. **`require_code_owner_review` is not blocking anything**:
+  #78 touched `.github/` and `.claude/` and merged on 13 September with
+  eleven standing changes-requested reviews and no approving review, under a
+  ruleset with no bypass actors. GitHub requests the owner on those paths and
+  then merges without them. The likely reason is
+  `required_approving_review_count: 0` -- a code-owner review is a
+  qualification on a count of zero -- but nothing in the API says so, and the
+  only measurement available is that merge.
 
-  A click is still needed for `.github/` and `.claude/`, and that one is
-  deliberate -- `docs/FLEET.md` calls it the intention, and `.github/CODEOWNERS`
-  says why. What was a click on every pull request is not any more: approvals
-  are zero, so a green branch touching only the book needs no approving
-  review -- only somebody to open its pull request.
+  That matters more than a stale sentence. `.github/CODEOWNERS` is the gate
+  `docs/IDENTITY.md` rests on: the app may change the work and may never
+  change the rules that govern the work. Right now that gate is a review
+  request, not a refusal, and the thing enforcing it is that the author is the
+  one clicking merge.
 
 - **`show_full_output` is off again.** It was on to diagnose four dispatches
   that died in 38ms having called no model; the answer was a line break

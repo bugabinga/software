@@ -510,11 +510,11 @@ before it lands), and a pull request required -- squash only, **zero**
 required approvals, code-owner review required, stale reviews dismissed on
 push, thread resolution **not** required.
 
-| The fleet tries                  | Result                                                                                                                                                                                         |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                                                    |
-| opening a pull request           | refused — Actions is not permitted to create pull requests; `agent-branches.yml` hit that on `agent/badges` (run 34688705958), and stops earlier on a branch the operator has already opened   |
-| `PUT /pulls/N/merge`             | unexercised — no fleet merge is in the record. `require_code_owner_review` is why GitHub requests the owner on a `.github/` branch; whether it refuses the merge at zero approvals is untested |
+| The fleet tries                  | Result                                                                                                                                                                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                                                                                     |
+| opening a pull request           | refused — Actions is not permitted to create pull requests; `agent-branches.yml` hit that on `agent/badges` (run 34688705958), and stops earlier on a branch the operator has already opened                                    |
+| `PUT /pulls/N/merge`             | goes through — #78 merged on 13 September touching `.github/` and `.claude/`, with eleven standing changes-requested reviews and no approving review, so `require_code_owner_review` refused nothing at zero required approvals |
 
 So the fleet still routes through a human to land anything, and the reason is
 no longer the approval rule: it is that Actions cannot open the pull request.
@@ -549,9 +549,11 @@ So the settings that fit the intention are:
    required check that never reports blocks every merge. The policy is
    strict, so a branch behind `main` has to be updated before it can land.
 3. **The `Main` ruleset → require approvals: 0.** Done. The review
-   requirement lives in the checks, where the fleet can satisfy it;
-   `require_code_owner_review` still holds the paths in `.github/CODEOWNERS`,
-   which is the intention.
+   requirement lives in the checks, where the fleet can satisfy it. The cost
+   was not free: `require_code_owner_review` appears to be a qualification on
+   that count rather than a rule of its own, and at zero it refuses nothing --
+   see the merge row above. The `.github/CODEOWNERS` gate is currently a
+   review request and the author's own restraint.
 
 With those, no bypass actor is needed: the fleet opens a pull request, the
 gates and the fleet review run, and a green one squash-merges. Linear history
