@@ -44,13 +44,13 @@ next reader can tell a deliberate exception from a shrug.
 **The third time is a gate.** Anything corrected by hand twice becomes a check
 that fails on the third. Not a note, not a rule in a document the next worker
 may not reach -- a gate, because a rule nothing enforces is a rule that decays
-into a fact nobody chose. Every gate here started that way: the comment width in
-`tools/check_workflows.py` was three review rounds spent on a line left at 89
-columns; `repo.toml` and `tools/repo_state.py` were nine rounds spent on a
-roster that disagreed with the ruleset; dprint's `textWrap` was every markdown
-wrap in the tree being a human decision without anyone noticing. The evidence is
-review findings, the sweep that reads them is `.claude/skills/garden` step 7,
-and the beat belongs to `pipeline-gardener`.
+into a fact nobody chose. Three gates here started that way: the comment width
+in `tools/check_workflows.py` was one review round spent on a line left at 89
+columns and two more on the gate itself; `repo.toml` and `tools/repo_state.py`
+were nine rounds spent on a roster that disagreed with the ruleset; dprint's
+`textWrap` was every markdown wrap in the tree being a human decision without
+anyone noticing. The evidence is review findings, the sweep that reads them is
+`.claude/skills/garden` step 7, and the beat belongs to `pipeline-gardener`.
 
 The corollary, and it is the harder half: **a fact a program can read is not
 yours to assert.** If the ruleset, the permissions, the triggers or the run

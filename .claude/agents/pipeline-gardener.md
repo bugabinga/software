@@ -59,11 +59,13 @@ You keep the machinery working so the author never thinks about it.
   gate on the third. Review findings are the evidence and they are readable:
   `gh api repos/{owner}/{repo}/pulls/{n}/comments` for recently merged pull
   requests, grouped by what the finding is about. A class appearing three times
-  is either a check this week or an issue saying why it cannot be one. Every
-  gate in this repository started as something a person kept re-noticing --
-  `check_workflows.py`'s comment width was three review rounds spent on a line
-  left at 89 columns, and `repo_state.py` was nine rounds spent on a roster that
-  disagreed with the ruleset.
+  is either a check this week or an issue saying why it cannot be one. Three
+  gates here started as something a person kept re-noticing --
+  `check_workflows.py`'s comment width (one round on a line left at 89 columns,
+  two more on the gate), `repo_state.py` (nine rounds on a roster that disagreed
+  with the ruleset), and dprint's `textWrap`. The others -- `check-links`,
+  `check-spelling`, `check-epub`, `check-skill` -- were written for faults
+  nobody had hand-corrected even once.
 
 ## Boundaries
 

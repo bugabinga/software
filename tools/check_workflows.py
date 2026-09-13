@@ -36,8 +36,8 @@ HEREDOC = re.compile(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?")
 # enforces one -- 80 for Markdown and TOML, 88 for Python. Nothing reflows a
 # YAML comment, and dprint's yaml plugin never will: it formats structure, not
 # prose. So the wrap stays a human decision and this is the gate that stops it
-# being a silent one. Three rounds on #81 were spent on a line left at 89
-# columns by an edit that replaced half a sentence.
+# being a silent one. A round on #81 was spent on a line left at 89 columns by
+# an edit that replaced half a sentence, and two more on this gate.
 COMMENT_WIDTH = 80
 COMMENT = re.compile(r"^\s*#")
 
