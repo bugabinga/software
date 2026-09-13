@@ -26,19 +26,22 @@ Deterministic work that a script does better than a model.
 
 ### What a push costs
 
-Measured, not guessed: one push to a branch with an open pull request used to
-run **nine jobs, 131 seconds of work, nine billed minutes**. GitHub rounds
-every job up to the whole minute, so parallelism across short jobs is bought
-with money and repaid in seconds.
+**Nothing, in money.** This repository is public, so standard runners are
+free: `GET /repos/{owner}/{repo}/actions/runs/{id}/timing` returns
+`billable.UBUNTU.total_ms: 0` on every run, against real durations of nine
+seconds to nine minutes. An earlier version of this section priced a push at
+nine billed minutes and then at four; both were arithmetic performed on a
+number GitHub was never charging.
 
+What a push still costs is **wall-clock and attention**: one push used to run
+nine jobs for 131 seconds, and a reviewer waits for the slowest of them.
 `ci.yml` is one job now instead of three, and `agent-branches.yml` one instead
-of three, each thing gated by the event that wants it. Same work, four billed
-minutes instead of nine.
+of three, each gated by the event that wants it -- fewer jobs, the same work,
+less setup repeated.
 
-Two jobs stay alone, and each is a deliberate purchase. `Fleet review` is a
-model call, which is the only place the minutes are actually being spent on
-thinking. `Preview` is a fifth minute per push, bought for a URL a reviewer
-can open on a phone instead of a zip they cannot.
+The one real budget is the model. `Fleet review` is a model call, billed by
+Anthropic rather than by GitHub, and it is the only thing here that gets more
+expensive the more it is used. Everything else is time.
 
 ## 2. Agents (judgement, on a schedule or on demand)
 
@@ -195,7 +198,7 @@ whole design. The Cloudflare credential is an environment secret and the
 branch would be a stranger's Worker on the author's account. A `workflow_run`
 job executes in `main`'s context, so it satisfies that restriction instead of
 loosening it, and needs no second token. The cost is one extra job per push,
-which is one billed minute.
+and on a public repository that is time rather than money.
 
 Previews delete themselves, but not when the pull request closes: the reaper
 runs inside the next `Preview` job, and that job needs an open pull request
@@ -389,11 +392,12 @@ on would make it real, and would also make a stranded thread unmergeable by
 anything but a human, which is why it is the author's call rather than the
 fleet's.
 
-**Copilot's automated review is off.** It needs a paid Copilot plan, and since
-1 June 2026 each review also bills Actions minutes, which is the budget this
-fleet is built around. The `copilot_code_review` rule was removed from the
+**Copilot's automated review is off.** It needs a paid Copilot plan, which is
+the whole of the reason. The `copilot_code_review` rule was removed from the
 `Main` ruleset on 2026-09-12 rather than paid for; `pr-reviewer` already
 covers the same ground and costs a model call the fleet is paying for anyway.
+The decision was recorded as resting partly on Actions minutes too, and that
+half was wrong: this repository is billed none.
 Nothing here should assume a third reviewer exists.
 
 Three workflows, three verbs, so it is clear which to look at:

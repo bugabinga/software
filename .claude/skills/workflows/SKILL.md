@@ -116,11 +116,12 @@ curls a script at runtime, which makes the pin decorative.
 ## The rule that costs everyone a day
 
 [**Events created with `GITHUB_TOKEN` do not start workflow runs.**][token] A
-review posted or a branch pushed by the workflow token raises an event nothing
-is subscribed to, so a two-workflow loop silently does not exist.
-`workflow_dispatch` and `repository_dispatch` are exceptions. So is a pull
-request the token opens or updates: that run is created but held in an
-approval-required state, which is a different symptom and a different fix.
+review posted by the workflow token raises an event nothing is subscribed to,
+so a two-workflow loop silently does not exist. `workflow_dispatch` and
+`repository_dispatch` are exceptions. So is a pull request the token opens or
+updates -- including by pushing to the branch of one already open: that run is
+created but held in an approval-required state, which is a different symptom
+and a different fix.
 
 Ways out, in order:
 
@@ -175,13 +176,15 @@ absent on a free plan, so check before building a merge rule around it.
 - [ ] If two workflows talk to each other, you have checked the
       `GITHUB_TOKEN` rule.
 
-Two items are standing debt here rather than rules this repository keeps.
-**No job sets `timeout-minutes`**, in any of them. And several `run:` bodies
-still interpolate `${{ }}` -- `release.yml:43` builds a shell string out of a
-tag name, `maintenance.yml:120` out of an upstream release tag. Both stay on
-the list because they are right, and they are named because a checklist every
-existing file fails is one the next worker learns to skip. Fix the workflow
-you are touching; each sweep is its own pull request.
+Three items are standing debt here rather than rules this repository keeps.
+**No job sets `timeout-minutes`**, in any of them. Several `run:` bodies still
+interpolate `${{ }}` -- `release.yml:43` builds a shell string out of a tag
+name, `maintenance.yml:120` out of an upstream release tag. And four
+workflows declare no `concurrency` at all: `agent-branches.yml`,
+`bot-check.yml`, `labels.yml`, `release.yml`. All three stay on the list
+because they are right, and they are named because a checklist every existing
+file fails is one the next worker learns to skip. Fix the workflow you are
+touching; each sweep is its own pull request.
 
 [billing]: https://docs.github.com/en/billing/concepts/product-billing/github-actions
 [cache]: https://docs.github.com/en/actions/reference/dependency-caching-reference
