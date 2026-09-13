@@ -509,73 +509,39 @@ protected set, and it is what makes the delegation above safe to give.
 To take a decision back, do not review harder: change the agent's brief, or
 label a pull request `hold`.
 
-### What branch protection did to this
+### What branch protection does to this
 
-`main` carries an active ruleset. Read from the API rather than remembered, all
-eight rules and no bypass actors: no creation, no deletion, no force-push,
-restricted update, linear history, signed commits, two required checks (`CI` and
-`Fleet review`, strictly -- a branch behind `main` has to be updated before it
-lands), and a pull request required -- squash only, **zero** required approvals,
-code-owner review required, stale reviews dismissed on push, thread resolution
-**not** required.
+`main` carries a ruleset and `repo.toml` is what it says. `mise run check` fails
+when GitHub disagrees, and `settings.yml` makes GitHub agree, so nothing here
+restates it -- read the file.
 
-| The fleet tries                  | Result                                                                                                                                                                                                                          |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                                                                                     |
-| opening a pull request           | refused — Actions is not permitted to create pull requests; `agent-branches.yml` hit that on `agent/badges` (run 34688705958), and stops earlier on a branch the operator has already opened                                    |
-| `PUT /pulls/N/merge`             | goes through — #78 merged on 13 September touching `.github/` and `.claude/`, with eleven standing changes-requested reviews and no approving review, so `require_code_owner_review` refused nothing at zero required approvals |
+Three things the file cannot say, because they are measurements rather than
+settings:
 
-So the fleet still routes through a human to land anything, and the reason is no
-longer the approval rule: it is that Actions cannot open the pull request. What
-the ruleset does enforce is the review itself -- `Fleet review` is a required
-check as of 13 September, so a failing verdict stops the merge rather than
-waiting for somebody to read the red mark.
+| The fleet tries                  | Result                                                                                                                                                                              |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                                         |
+| opening a pull request           | refused — `agent-branches.yml` hit that on `agent/badges` (run 34688705958). `repo.toml` declares the setting that ends it, so this row should stop being true                      |
+| `PUT /pulls/N/merge`             | goes through — #78 merged touching `.github/` and `.claude/` with eleven standing changes-requested reviews and no approving review, so `require_code_owner_review` refused nothing |
 
-#### Review by the fleet, which is what the protection was for
+That last row is the one worth knowing. `.github/CODEOWNERS` is the gate
+`docs/IDENTITY.md` rests on, and at zero required approvals it is a review
+request rather than a refusal: what holds the line is the author being the one
+who clicks merge.
 
-The intention behind the ruleset was not "a human must approve" but "this must
-be reviewed" -- and the reviewer is the fleet. `fleet-review.yml` does that, and
-it is built as a **status check** rather than as an approving review on purpose.
-A check from Actions gates a merge in a way nothing argues with; whether a bot's
-_approval_ satisfies a required-reviews rule is a question about GitHub's
-internals that would have to keep being true.
+#### Why a check and not an approving review
+
+The intention behind the ruleset was never "a human must approve" but "this must
+be reviewed", and the reviewer is the fleet. `fleet-review.yml` is built as a
+**status check** on purpose: a check from Actions gates a merge in a way nothing
+argues with, whereas whether a bot's _approval_ satisfies a required-reviews
+rule is a question about GitHub's internals that would have to keep being true.
 
 `pr-reviewer` reads the diff and checks what the automated gates cannot: whether
-the agent stayed inside its brief, whether cited notes actually say what the
-change claims, whether anything was invented, whether it contradicts the book,
-and whether it is the smallest change that does the job. It writes a verdict
-file; the workflow turns that into the check. No file means failure, because
-silence must never read as approval.
-
-So the settings that fit the intention are:
-
-1. **Settings → Actions → General → Workflow permissions →** allow GitHub
-   Actions to create and approve pull requests. Without this the fleet cannot
-   open a pull request at all, and there is nothing to review.
-2. **The `Main` ruleset → required status checks →** `CI` and `Fleet
-   review`.
-   Done, 13 September. Not `Build`, `Spelling` or `Outbound links`: those are
-   steps inside the one `CI` job, not check contexts, and a required check that
-   never reports blocks every merge. The policy is strict, so a branch behind
-   `main` has to be updated before it can land.
-3. **The `Main` ruleset → require approvals: 0.** Done. The review requirement
-   lives in the checks, where the fleet can satisfy it. The cost was not free:
-   `require_code_owner_review` appears to be a qualification on that count
-   rather than a rule of its own, and at zero it refuses nothing -- see the
-   merge row above. The `.github/CODEOWNERS` gate is currently a review request
-   and the author's own restraint.
-
-With those, no bypass actor is needed: the fleet opens a pull request, the gates
-and the fleet review run, and a green one squash-merges. Linear history intact,
-every rule still enforced.
-
-**Order matters.** Do not make `Fleet review` a required check before an
-`ANTHROPIC_API_KEY` exists and a few real pull requests have been through it. A
-required check that can never pass would brick the repository, which is why the
-workflow passes with a notice when there is no key.
-
-Until then, a green branch the fleet may not merge becomes one issue saying so,
-rather than a red run every time.
+the agent stayed inside its brief, whether cited notes say what the change
+claims, whether anything was invented, whether it is the smallest change that
+does the job. It writes a verdict file; the workflow turns that into the check.
+No file means failure, because silence must never read as approval.
 
 ### How it is actually enforced
 
@@ -595,22 +561,20 @@ touches.
 
 ## Who has to approve what
 
-`.github/CODEOWNERS` names the author as the owner of `.github/` and `.claude/`,
-and the `Main` ruleset requires an owner's approval. Everything else in the tree
-has no owner, which is the point: the author controls the book by controlling
-the fleet, not by reviewing what it writes.
+`.github/CODEOWNERS` names the author as the owner of `.github/` and `.claude/`.
+Everything else in the tree has no owner, which is the point: the author
+controls the book by controlling the fleet, not by reviewing what it writes.
 
-This duplicates a rule `agent-branches.yml` already applies -- it refuses to
-auto-merge anything under those paths -- and the duplication is deliberate. That
-rule is the automation policing itself, in a file the automation can write to.
-It holds only because editing that file is itself a `.github/` change, which is
-an argument rather than a mechanism. CODEOWNERS is the mechanism, and the fleet
-cannot reach the setting that enforces it.
+**It is not a mechanism.** At zero required approvals GitHub requests the owner
+and then merges without them -- #78 is the measurement. So what enforces it is
+`agent-branches.yml` refusing to auto-merge those paths, which is the automation
+policing itself in a file the automation can write, and the author being the one
+who clicks merge.
 
-**The one way it bites:** a pull request the author opens themselves touching
-those paths cannot be approved by them, and there is no second owner. The
-fleet's own pull requests are authored by `claude[bot]`, so those are fine. For
-the rare hand-written one, the bypass toggle is what it is for.
+That was worth accepting when the alternative was a second human on every
+hand-written pull request. It is worth revisiting now that `repo.toml` exists:
+raising `required_approving_review_count` to one is a line in that file, and the
+fleet applies it.
 
 ## Boundaries that hold for every worker
 

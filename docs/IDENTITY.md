@@ -64,32 +64,24 @@ by its own `permissions:` block. Separate apps per agent would mean separate
 keys to rotate for a distinction that commit trailers make better. It costs
 nothing, on every plan.
 
-### Permissions: set these once
+### Permissions
 
-Everything a book pipeline can want, and nothing that would let the fleet change
-its own guardrails.
+**Every repository permission, and no organization permission.** That is the
+whole of it, and it is deliberate: the app manages the author's repositories and
+nobody can predict what the fleet will need next, so a per-feature grant means
+another trip to a settings page for every improvement.
 
-**Grant, all at write** — Contents, Issues, Pull requests, Actions, Checks,
-Commit statuses, Deployments, Workflows. Plus **Metadata: read**, which GitHub
-ticks for you.
+An earlier version of this file listed each permission and forbade
+Administration, Secrets, Variables and Environments, on the argument that an
+agent holding them could widen its own authority. The argument was right and the
+remedy was in the wrong place. What replaced it is `repo.toml`: the rules the
+app may change are declared in a file, changed by a pull request, applied by
+`settings.yml`, and read back by `mise run check`. The ceiling moved from a
+settings page with no history to a diff with one.
 
-**Never grant** — Administration, Secrets, Variables, Environments, Codespaces
-secrets, Organization anything. These are the guardrails: repository settings,
-the credentials themselves, the environment rules that gate them. An agent
-holding these could quietly widen its own authority, and no review after the
-fact would catch it.
-
-Everything else — Pages, Packages, Projects, Discussions, Security events,
-Dependabot secrets — is neither useful here nor dangerous. Leave it at _No
-access_ and do not think about it again.
-
-`Workflows: write` is in the grant list and deserves a word, because it is the
-one people leave out. Without it, a token cannot push or merge any change under
-`.github/workflows/`, and this repository's fleet edits its workflows
-constantly. Policy still says `.github/` changes need a human — that is enforced
-by `agent-branches.yml`, in the repository, where it can be read. Enforcing it a
-second time by withholding a permission would mean the fleet fails confusingly
-instead of stopping deliberately.
+So the app can now change the rules that govern it -- and that is the point. A
+fleet that cannot fix the rule blocking it stays blocked, and every week of this
+repository's life has been somebody unblocking it by hand.
 
 ### Doing it
 
@@ -119,16 +111,9 @@ Then say so. Wiring the workflows is a pull request, not your job.
 
 ### Checking it
 
-`repo.toml` records what the app may change and `tools/repo_state.py` reads it
-back against the list above — on demand, when the check itself changes, and on
-the first of each month. An app can declare a permission and be installed
-without it, and permissions are edited on a web page months apart, so the
-failure mode is silence until the one call that needed the thing that went away.
-
-It fails on a missing essential, notes anything below the ceiling with what it
-would cost, and fails on anything in the _never grant_ list. That last one is
-the check worth having: it is the only thing standing between a slip on that
-settings page and a fleet that can rewrite its own rules.
+`repo.toml` and `tools/repo_state.py`. The file says what the repository is
+configured to be; `mise run check` fails when GitHub disagrees. There is no
+separate check of the grant, because the grant is no longer the boundary.
 
 ---
 

@@ -72,26 +72,17 @@ Three parties, and confusing them is the operator's characteristic failure.
 - **Pages is live** at <https://bugabinga.github.io/software/>, serving the
   `gh-pages` branch. Verified: index, a chapter, the PDF and the single-file
   build all return 200.
-- **Required approvals are zero, and `Fleet review` is a required check.** Both
-  done, the second on 13 September. The reviewer that requested changes on every
-  round of #72 and on eight of #73's ten now stops a merge rather than asking
-  someone to notice. Not a bypass actor, and not the bypass toggle, which is a
-  decision taken once per pull request and remembered by nobody.
+- **The settings are a file now.** `repo.toml` says what this repository is
+  configured to be, `mise run check` fails when GitHub disagrees, and
+  `settings.yml` makes GitHub agree. Do not read a setting out of a document and
+  do not change one in a web page: read the file, and change it with a pull
+  request.
 
-  What blocks a fleet merge is that Actions is not permitted to open a pull
-  request at all. **`require_code_owner_review` is not blocking anything**: #78
-  touched `.github/` and `.claude/` and merged on 13 September with eleven
-  standing changes-requested reviews and no approving review, under a ruleset
-  with no bypass actors. GitHub requests the owner on those paths and then
-  merges without them. The likely reason is `required_approving_review_count: 0`
-  -- a code-owner review is a qualification on a count of zero -- but nothing in
-  the API says so, and the only measurement available is that merge.
-
-  That matters more than a stale sentence. `.github/CODEOWNERS` is the gate
-  `docs/IDENTITY.md` rests on: the app may change the work and may never change
-  the rules that govern the work. Right now that gate is a review request, not a
-  refusal, and the thing enforcing it is that the author is the one clicking
-  merge.
+  The one thing the file cannot enforce is the gate `docs/IDENTITY.md` rests on.
+  At zero required approvals `require_code_owner_review` requests the owner and
+  then merges without them -- #78 is the measurement -- so `.github/CODEOWNERS`
+  is a request rather than a refusal, and what holds the line is the author
+  being the one who clicks merge.
 
 - **`show_full_output` is off again.** It was on to diagnose four dispatches
   that died in 38ms having called no model; the answer was a line break inside
