@@ -10,6 +10,14 @@ inputs:
   private-key:
     description: The app's PEM private key
     required: true
+  permissions:
+    description: >-
+      The permissions to mint the token with, as a JSON object. Required and
+      without a default on purpose: the App holds every repository permission,
+      so a caller that forgets this would get a token that can push, merge and
+      read every secret. The scope belongs at the call site, where the reader
+      of the workflow can see it.
+    required: true
 
 outputs:
   token:
@@ -30,6 +38,7 @@ runs:
         APP_ID: ${{ inputs.app-id }}
         KEY: ${{ inputs.private-key }}
         REPO: ${{ github.repository }}
+        PERMISSIONS: ${{ inputs.permissions }}
       run: |
         set -euo pipefail
 
@@ -75,9 +84,16 @@ runs:
         fi
         id=$(python3 -c 'import json,sys; print(json.load(open("/tmp/i.json"))["id"])')
 
-        if ! api -X POST \
+        # Scoped down from everything the App holds, and to this repository.
+        # A POST with no body mints a token carrying every permission the
+        # installation has, which here is all of them -- push, merge, secrets
+        # -- for a job that PUTs a handful of settings. Built with python
+        # rather than string-spliced into the JSON so the repository name
+        # cannot end the quote.
+        body=$(python3 -c 'import json, os; print(json.dumps({"repositories": [os.environ["REPO"].split("/", 1)[1]], "permissions": json.loads(os.environ["PERMISSIONS"])}))')
+        if ! api -X POST -H "Content-Type: application/json" -d "$body" \
           "https://api.github.com/app/installations/$id/access_tokens" > /tmp/t.json; then
-          echo "::error::The app authenticated but would not issue an installation token."
+          echo "::error::The app authenticated but would not issue an installation token. A permission the caller asked for that the installation does not hold is answered 422."
           cat /tmp/t.json >&2 || true
           exit 1
         fi

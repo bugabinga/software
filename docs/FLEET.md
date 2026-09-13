@@ -507,14 +507,16 @@ brief, or its own merge rule, is supervised by nothing. That is the whole of the
 protected set (`agent-branches.yml`'s `protected`), and it is what makes the
 delegation above safe to give.
 
-`repo.toml` is deliberately **not** in it, and that is the exposure worth
-naming: it holds the required checks, the approval count and the bypass actors,
-so a green fleet branch touching only that file merges itself and `settings.yml`
-writes it to the live repository. The alternative is a fleet that cannot fix the
-rule blocking it, which is the arrangement this replaced -- every week of this
-repository's life so far has been somebody unblocking it by hand. What bounds it
-instead is that the change is a diff on `main`, and that `settings.yml` has no
-judgement in it: it reads the file and PUTs the difference.
+`repo.toml` and `tools/repo_state.py` are deliberately **not** in it, and that
+is the exposure worth naming: the file holds the required checks, the approval
+count and the bypass actors, the program is what writes them, `settings.yml`
+triggers on both, and a green fleet branch touching either merges itself. The
+alternative is a fleet that cannot fix the rule blocking it, which is the
+arrangement this replaced -- every week of this repository's life so far has
+been somebody unblocking it by hand. What bounds it instead is that the change
+is a diff on `main`; that `settings.yml` has no judgement in it, reading the
+file and PUTting the difference; and that the token it mints asks for
+administration, actions and metadata rather than everything the App holds.
 
 To take a decision back, do not review harder: change the agent's brief, or
 label a pull request `hold`.

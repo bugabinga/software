@@ -351,8 +351,29 @@ def apply_state(repo: str, declared_path: Path = DECLARED) -> int:
         else:
             by_name = {entry.get("name"): entry.get("id") for entry in listing}
             for name, want in rulesets.items():
+                unknown = sorted(
+                    rule for rule in want.get("rules", []) if rule not in PLAIN_RULES
+                )
+                if unknown:
+                    # Silently dropping it would write a ruleset without the
+                    # rule while `--check` reported it missing forever: the
+                    # gate would be permanently red and the apply would never
+                    # fix it. A typo in `repo.toml` has to fail here.
+                    failures.append(
+                        f"ruleset {name}: {unknown} is declared and this program "
+                        "does not know how to write it -- add it to PLAIN_RULES "
+                        "or give it a parameters section"
+                    )
+                    continue
                 payload = ruleset_payload(name, want)
                 if name in by_name:
+                    # Compared first, like the two sections above: a PUT that
+                    # sends what is already there is not a change, and a log
+                    # that says it changed the ruleset on every run is a log
+                    # nobody can read a real change out of.
+                    actual = fetch(f"repos/{repo}/rulesets/{by_name[name]}")
+                    if actual is not None and not _compare_ruleset(name, want, actual):
+                        continue
                     error = write(
                         "PUT", f"repos/{repo}/rulesets/{by_name[name]}", payload
                     )

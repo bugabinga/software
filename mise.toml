@@ -244,8 +244,13 @@ run = ["python3 tools/prose_scan.py --self-test", "python3 tools/prose_scan.py"]
 [tasks.check-settings]
 description = "The repository's settings, against what repo.toml declares"
 # Reads GitHub and compares; it never writes. A section the token cannot see
-# is reported as unread rather than as agreement, so this is honest in a
-# session behind a proxy and authoritative in CI, and says which it was.
+# is reported as unread rather than as agreement, so it is honest about what
+# it managed to look at -- and today, in CI, that is nothing: `ci.yml`'s
+# Check step sets no `GH_TOKEN`, every call fails, all three sections read
+# unread and the task passes. Arming it is one `env:` line there, and it
+# cannot be added until `settings.yml` has applied `repo.toml` once, or the
+# gate blocks the merge that would satisfy it. Until then this gate is real
+# only where somebody holds a credential.
 run = [
   "python3 tools/repo_state.py --self-test",
   "python3 tools/repo_state.py --check",

@@ -56,6 +56,13 @@ jobs:
         with:
           app-id: ${{ vars.FLEET_APP_ID || secrets.FLEET_APP_ID }}
           private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          # The three endpoints `repo_state.py` touches, and nothing else:
+          # administration for the repository object, its topics and the
+          # ruleset; actions for `actions/permissions/workflow`; metadata
+          # because every call needs it. The App holds far more than this.
+          permissions: >-
+            {"administration": "write", "actions": "write",
+             "metadata": "read"}
 
       - name: Apply repo.toml
         env:
