@@ -363,15 +363,16 @@ arithmetic, which is the part that silently misplaces a comment.
 Two reviewers, and neither of them is Copilot.
 
 `pr-reviewer` judges every pull request. The author reviews what they choose
-to. `fleet-respond.yml` is meant to wake `review-responder` on either, and
-wakes on neither: a review posted with the workflow token starts no run, so
-every fleet review to date has been answered by the operator by hand (#75).
+to. `fleet-respond.yml` wakes on the author's review -- it ran on #66 on
+12 September -- and not on the fleet's own: a review posted with the workflow
+token starts no run, so every fleet review to date has been answered by the
+operator by hand (#75).
 
 So two things the roster used to claim are off. The review does not gate the
 merge -- `Fleet review` is not a required check. And nothing makes a thread
 end resolved: `required_review_thread_resolution` is `false` on `Main`, and
-the rule lives in `.claude/agents/review-responder.md`, which is not handed
-out on the occasion it is written for. Turning the ruleset rule on would make
+the rule lives in `.claude/agents/review-responder.md`, which is handed out
+when the author reviews and not when the fleet does. Turning the ruleset rule on would make
 it real, and would also make a stranded thread unmergeable by anything but a
 human, which is why it is the author's call rather than the fleet's.
 
@@ -498,7 +499,7 @@ code-owner review required, stale reviews dismissed on push, thread resolution
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                                                  |
 | opening a pull request           | refused — Actions is not permitted to create pull requests; `agent-branches.yml` hit that on `agent/badges` (run 34688705958), and stops earlier on a branch the operator has already opened |
-| `PUT /pulls/N/merge`             | unexercised — every merged pull request was merged by the author, so what `require_code_owner_review` does at zero required approvals is inference                                           |
+| `PUT /pulls/N/merge`             | blocked for the paths in `.github/CODEOWNERS` — `require_code_owner_review` bites at zero required approvals, which #78 shows: green `CI`, and GitHub requesting the owner's review          |
 
 So the fleet still routes through a human to land anything, and the reason is
 no longer the approval rule: it is that Actions cannot open the pull request.
