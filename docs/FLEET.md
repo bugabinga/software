@@ -342,9 +342,10 @@ fired:
 - **Three rounds.** `fleet-respond.yml` counts the fleet's own
   changes-requested reviews. On the fourth it does not run the agent at all:
   it labels the pull request `hold`, says once why, and leaves it. Two agents
-  disagreeing is the author's to settle. **That step has never executed**,
-  because a review posted with the workflow token wakes nothing (#75), so the
-  count is never taken -- #78 reached nine rounds with no `hold` label.
+  disagreeing is the author's to settle. **The `hold` has never been
+  applied**: a review posted with the workflow token wakes nothing (#75), so
+  on a pull request only the fleet has reviewed the count is never taken --
+  #78 reached nine rounds with no `hold` label.
 - **The responder does not answer itself.** It wakes on a
   `pull_request_review` that requests changes, never on a
   `pull_request_review_comment`, which is what its own replies are.
