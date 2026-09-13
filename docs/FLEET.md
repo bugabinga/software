@@ -266,10 +266,12 @@ about whether the book publishes.
 **Arm the GitHub bot, if you want it** (see section 3): add an
 `ANTHROPIC_API_KEY` secret. Nothing else depends on it.
 
-Dependabot's pull requests wait for a human. The actions here are pinned to
-major versions, so every bump Dependabot opens is a major-version bump --
-exactly the kind that changes behaviour and deserves a reading. They show up
-in the daily sweep's report rather than being merged by it.
+Dependabot's pull requests wait for a human: every one of them touches
+`.github/`, which is not a chore, so nothing merges it. The actions are
+pinned to commits rather than tags -- `.github/dependabot.yml` says why -- so
+a bump is a new SHA, and the version in its trailing comment is the only
+thing that says what moved. The weekly sweep reads them and leaves them
+(`.claude/skills/garden`, step 2).
 
 ## Issues: how the fleet is asked for things
 
