@@ -23,7 +23,7 @@ Knowledge · Software and its forms · Operating systems
 The cycle and its costs · The practices · Intent and product engineering
 
 Then four appendices — the questions still open, agents, citations, a
-glossary — and a fifth that is not part of the book: a live reference for the
+glossary — and a fifth not part of that outline: a live reference for the
 Typst prelude, which stays until the same material lands in
 [docs/AUTHORING.md](docs/AUTHORING.md).
 
