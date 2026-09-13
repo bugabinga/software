@@ -6,10 +6,11 @@
 
 [book]
 # PLACEHOLDER. The real title is not decided yet, and this one was invented
-# by the pipeline to have something to render. Changing it is one line here
-# plus the heading of README.md, and nothing else in the tree hardcodes it --
-# the website, the PDF, the Open Graph tags, the search index and the social
-# card all read this value. Do not let it become the title by inertia.
+# by the pipeline to have something to render. The website, the PDF, the Open
+# Graph tags, the search index and the social card all read this value, so
+# changing it is this line plus the two places that write the string out
+# rather than read it: the heading of README.md and the paragraph in CLAUDE.md
+# that calls it a placeholder. Do not let it become the title by inertia.
 title = "A Book Written in Types"
 subtitle = "Working title"
 authors = ["bugabinga"]
