@@ -7,8 +7,8 @@ name: Fleet respond
 # reply saying why not, and `review-responder` is the agent that does it.
 #
 # Nothing enforces that. `required_review_thread_resolution` is `false` on the
-# `Main` ruleset, so an open thread does not block the merge -- it is the
-# responder's brief that makes it absolute, and a reviewer noticing.
+# `Main` ruleset, so an open thread does not block the merge; the responder's
+# brief is the whole of the rule.
 #
 # The reviews it answers are the author's and the fleet's own. Copilot's
 # automated review is not among them: it needs a paid Copilot plan, and since

@@ -483,17 +483,22 @@ label a pull request `hold`.
 
 ### What branch protection did to this
 
-`main` carries an active ruleset. Measured against it, the fleet currently
-**cannot land anything**:
+`main` carries an active ruleset. Read from the API rather than remembered:
+squash only, linear history, signed commits, no deletion and no force-push,
+one required check (`CI`), **zero** required approvals, code-owner review
+required, stale reviews dismissed on push, and thread resolution **not**
+required.
 
-| The fleet tries                  | Result                                                                        |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                   |
-| opening a pull request           | refused — Actions is not permitted to create pull requests                    |
-| `PUT /pulls/N/merge`             | would be blocked — one approving review is required and Actions has no bypass |
+| The fleet tries                  | Result                                                                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                              |
+| opening a pull request           | never exercised — `agent-branches.yml` has not once reached its create call, because the operator had already opened one |
+| `PUT /pulls/N/merge`             | squash-merges a green branch, and is blocked by `require_code_owner_review` for the paths in `.github/CODEOWNERS`        |
 
-The owner can still merge, so nothing is stuck permanently; it just all
-routes through a human, which is the opposite of the delegation above.
+So the delegation works for the book and stops at the automation, which is
+what `.github/CODEOWNERS` is for. What does not work is narrower and worse:
+`Fleet review` is not a required check, so a failing review does not stop a
+merge by itself -- a human reading the red mark is the whole of it.
 
 #### Review by the fleet, which is what the protection was for
 
@@ -517,13 +522,12 @@ So the settings that fit the intention are:
    Actions to create and approve pull requests. Without this the fleet cannot
    open a pull request at all, and there is nothing to review.
 2. **The `Main` ruleset → required status checks →** `Build`, `Spelling`,
-   `Outbound links`, and — once the fleet is armed — `Fleet review`. Only
-   `Spelling` is required today, so the gate that matters least is the only
-   one enforced.
-3. **The `Main` ruleset → require approvals: 0.** The review requirement moves
-   into the checks, where the fleet can satisfy it. Leave it at 1 and only a
-   second human can ever merge, since GitHub does not let an author approve
-   their own pull request.
+   `Outbound links`, and — now that the fleet is armed — `Fleet review`. Only
+   `CI` is required today, which covers the first three as one check and
+   leaves the review it was all built for unenforced.
+3. **The `Main` ruleset → require approvals: 0.** Done. The review requirement
+   lives in the checks, where the fleet can satisfy it; `require_code_owner_review`
+   still holds the paths in `.github/CODEOWNERS`, which is the intention.
 
 With those, no bypass actor is needed: the fleet opens a pull request, the
 gates and the fleet review run, and a green one squash-merges. Linear history
