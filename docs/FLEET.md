@@ -35,16 +35,18 @@ was charging.
 
 Minutes are still scarce, for two reasons that have nothing to do with
 invoices. **Concurrent jobs are an account-wide limit**, not a repository one,
-so a run here is a run some other repository of the author's is waiting
-behind. And this fleet is a pattern the author repeats: a habit that holds a
-slot on every push is affordable once and not fifteen times. Spend them as
-though they were billed.
+so every job here takes one of a ceiling the whole account shares -- something
+to stay clear of rather than a queue anyone here has measured. And this fleet
+is a pattern the author repeats: a habit that holds a slot on every push is
+affordable once and not fifteen times. Spend them as though they were billed.
 
-The model is what is billed, to Anthropic: `Fleet review` on every push to an
-open pull request, and `fleet.yml` and `fleet-respond.yml` whenever they fire.
-That is the cost that grows with use -- the review loop ran twelve rounds on
-#78. The cost nobody itemises is a reviewer's wall-clock: one push used to run
-nine jobs for 131 seconds, and a person waits for the slowest. `ci.yml` is one
+The model is the cost that grows with use: `Fleet review` on every push to an
+open pull request, and `fleet.yml` and `fleet-respond.yml` whenever they fire
+-- the review loop ran twelve rounds on #78. Whether that arrives as an
+invoice depends on which credential is set: the OAuth token is a subscription
+and the API key bills separately (`fleet-review.yml:144`). The cost nobody
+itemises is a reviewer's wall-clock: one push used to run nine jobs for 131
+seconds, and a person waits for the slowest. `ci.yml` is one
 job now instead of three, and `agent-branches.yml` one instead of three, each
 gated by the event that wants it.
 

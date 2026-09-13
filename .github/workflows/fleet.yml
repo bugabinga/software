@@ -378,8 +378,8 @@ jobs:
           # real delivery sat unchecked and unmergeable for exactly this
           # reason.
           #
-          # workflow_dispatch is one of the two exceptions, so asking for the
-          # run explicitly is the way through. Nothing else about the design
+          # workflow_dispatch is an exception the token may still raise, so
+          # asking for the run explicitly is the way through. Nothing else about the design
           # changes: CI runs, its completion fires agent-branches.yml, and
           # the merge decision is still made by rules in the repository.
           if gh workflow run ci.yml --ref "$BRANCH" 2>/tmp/dispatch-error; then

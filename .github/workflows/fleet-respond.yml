@@ -342,11 +342,14 @@ jobs:
             --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
 
       # The other half of the same rule. The agent pushes with the credential
-      # `actions/checkout` persisted, which is the workflow token, so its push
-      # starts no `pull_request` run: no CI, and no new verdict on the fixes
-      # it just made. `fleet.yml` hit this first and worked around it the same
-      # way, because `workflow_dispatch` is one of the two exceptions to the
-      # rule -- see the comment at `fleet.yml`'s "Say where it went".
+      # `actions/checkout` persisted, which is the workflow token. That push
+      # updates a pull request, so the `pull_request` runs it raises are
+      # created and then held in an approval-required state -- runs
+      # 34760403200 and 34760403209 -- which is silence with extra steps: no
+      # CI and no new verdict on the fixes just made. `workflow_dispatch` is
+      # an exception the token may still raise, so asking explicitly is the
+      # way through; `fleet.yml` hit the same wall from the other side, at
+      # its "Say where it went".
       #
       # Both are asked for, not just CI: `Fleet review` is a required check
       # now, so a pull request whose verdict is never re-run is a pull request
