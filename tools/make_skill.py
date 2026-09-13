@@ -150,7 +150,7 @@ def self_test() -> int:
     # around them, which is the page's to change.
     assert "notes-intake.example.workers.dev/note" in skill
     assert "a-very-long-random-intake-token" in skill
-    print("make_skill: the deploy's zip is the page's zip")
+    print("make_skill: this tool's zip is the page's zip")
     return 0
 
 

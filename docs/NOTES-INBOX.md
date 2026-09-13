@@ -82,9 +82,9 @@ which is how to check the URL is right before wiring anything to it.
 The note-taker is told all of this by a skill: `file-note`, one `SKILL.md` in
 a zip. Two ways to get one, and they are the same generator --
 `site/skill/index.html` builds the zip in the browser, and
-`tools/make_skill.py` runs that same script under node so the deploy can build
-it too. A second implementation would drift, and the drift would show up as a
-note-taking session behaving oddly rather than as a failing test.
+`tools/make_skill.py` runs that same script under node for anyone with a
+checkout. A second implementation would drift, and the drift would show up as
+a note-taking session behaving oddly rather than as a failing test.
 
 - **From the page.** `<site>/skill/`. The deploy's summary links to it with
   `?inbox=` already filled in, so only the token is typed.
