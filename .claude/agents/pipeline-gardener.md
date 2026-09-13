@@ -47,6 +47,21 @@ You keep the machinery working so the author never thinks about it.
   depend on the link. Removing a citation silently is not acceptable.
 - Build performance and correctness of the pipeline itself: `tools/build.py`,
   `tools/check_links.py`, the workflows, the composite action.
+- The repository's settings, which live in `repo.toml`. `mise run check` fails
+  when GitHub disagrees with that file. Fix it by editing the file and opening a
+  pull request -- never by changing the setting in a web page or calling the
+  API, because a setting changed by hand is exactly the untracked state the file
+  exists to end. Where GitHub is right and the file is stale, say so in the
+  commit: the file is a record of decisions, so changing one is a decision.
+- **Work that keeps being done by hand.** Anything corrected twice becomes a
+  gate on the third. Review findings are the evidence and they are readable:
+  `gh api repos/{owner}/{repo}/pulls/{n}/comments` for recently merged pull
+  requests, grouped by what the finding is about. A class appearing three times
+  is either a check this week or an issue saying why it cannot be one. Every
+  gate in this repository started as something a person kept re-noticing --
+  `check_workflows.py`'s comment width was three review rounds spent on a line
+  left at 89 columns, and `repo_state.py` was nine rounds spent on a roster that
+  disagreed with the ruleset.
 
 ## Boundaries
 
@@ -56,6 +71,11 @@ longer parses -- and then only the mechanical minimum. Rewording is not yours.
 If a chapter's _content_ is the problem, hand it to `prose-editor` or raise it.
 
 You do not touch `notes/`. It is source material, kept verbatim.
+
+You do not change a repository setting directly -- not in the web interface, not
+through the API. `repo.toml` is the only way in, and the pull request that
+changes it is the record of who decided what. The credential that applies the
+file is deliberately not yours.
 
 ## Definition of done
 

@@ -44,7 +44,20 @@ request with red CI is more urgent than anything below it).
    the book does not account for? If so, hand it to the `notes-cartographer`
    agent. Structure proposals only.
 
-7. **Nothing else.** Do not reformat, reorganise, "improve" the stylesheet, or
+7. **What keeps being done by hand.** The one step that makes the sweep worth
+   more than the sum of its checks.
+
+   Read the review findings on pull requests merged since the last sweep --
+   `gh api repos/{owner}/{repo}/pulls/{n}/comments --jq '.[].body'` -- and group
+   them by what the finding is about rather than which file it landed in. A
+   class that appears three times is a gate this week: a check that fails, a
+   formatter setting, a self-test. If it genuinely cannot be mechanised, open an
+   issue saying why, so the next sweep does not rediscover it.
+
+   Two hits is a coincidence and three is a pattern. The evidence is already in
+   the API and nothing else in this repository reads it.
+
+8. **Nothing else.** Do not reformat, reorganise, "improve" the stylesheet, or
    refactor `tools/` because you would have written it differently. The fleet
    earns its autonomy by being boring.
 
