@@ -336,8 +336,7 @@ same branch, or a reply saying what the finding missed -- and **resolves it**.
 Its push runs the reviewer again on the new head. That is the loop, and it is
 the point: a review that nothing has to answer decays into a note.
 
-Three things are meant to keep it from running forever. The first has never
-fired:
+Three things are meant to keep it from running forever:
 
 - **Three rounds.** `fleet-respond.yml` counts the fleet's own
   changes-requested reviews. On the fourth it does not run the agent at all:
@@ -345,10 +344,11 @@ fired:
   disagreeing is the author's to settle. **The `hold` has never been
   applied**: a review posted with the workflow token wakes nothing (#75), so
   on a pull request only the fleet has reviewed the count is never taken --
-  #78 reached nine rounds with no `hold` label.
-- **The responder does not answer itself.** It wakes on a
+  #78 passed the third round with no `hold` label, and kept going.
+- **The responder does not answer itself.** The bot comes through only on a
   `pull_request_review` that requests changes, never on a
-  `pull_request_review_comment`, which is what its own replies are.
+  `pull_request_review_comment`, which is what its own replies are. The
+  author comes through on either.
 - **A pass dismisses the objection.** The reviewer never approves -- whether a
   bot's approval satisfies a rule is a question about GitHub's internals, and
   a check is the answer that does not depend on one. `Fleet review` is not a
