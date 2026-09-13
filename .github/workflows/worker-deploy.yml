@@ -118,6 +118,11 @@ jobs:
           if name=$(python3 tools/cloudflare.py --subdomain --status "$status" \
                       < /tmp/subdomain.json 2> /tmp/subdomain.why); then
             echo "present=true" >> "$GITHUB_OUTPUT"
+            # Carried out of the step because it is the one place the real
+            # address is known: nothing in the repository records which
+            # account this is, deliberately, so a checked-in copy cannot go
+            # stale against it.
+            echo "name=${name}" >> "$GITHUB_OUTPUT"
             echo "::notice::deploying to ${name}.workers.dev"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
@@ -165,18 +170,40 @@ jobs:
             | mise exec -- wrangler secret put GITHUB_TOKEN
           echo "::notice::secrets set from repository secrets"
 
+      # Asked for rather than assembled here, so the worker's name stays in
+      # `wrangler.jsonc` alone. A copy in this file would be a second place to
+      # get it wrong, and the deploy above is the thing that would keep
+      # working while the summary pointed somewhere that does not exist.
+      - name: The inbox's address
+        id: inbox
+        if: steps.subdomain.outputs.present == 'true'
+        env:
+          SUBDOMAIN: ${{ steps.subdomain.outputs.name }}
+        run: |
+          set -euo pipefail
+          url=$(python3 tools/make_skill.py --subdomain "$SUBDOMAIN" --print-endpoint)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
       - name: Say where it is
         # The same condition as the two steps it reports on. Gated on the
         # credential alone, it wrote "Notes inbox deployed" whenever the
         # subdomain check had stopped the deploy -- one inaccurate sentence
         # in place of the red wall, which is not the trade that was wanted.
         if: steps.subdomain.outputs.present == 'true'
+        env:
+          INBOX: ${{ steps.inbox.outputs.url }}
+          PAGES: https://bugabinga.github.io/software
         run: |
           {
             echo "### Notes inbox deployed"
             echo
+            echo "The note-taker POSTs to \`$INBOX/note\`. See \`docs/NOTES-INBOX.md\`."
+            echo
+            # The generator, with the address filled in. The token is typed
+            # there and not carried here: this repository is public, so a
+            # workflow artifact holding one would publish it, and a stranger
+            # who files a note gets it merged without anyone reading it.
+            echo "The note-taker's skill: [generate it]($PAGES/skill/?inbox=$INBOX),"
             # shellcheck disable=SC2016  # backticks are markdown here.
-            echo 'The note-taker POSTs to `/note` on the workers.dev URL in the'
-            # shellcheck disable=SC2016
-            echo 'deploy output above. See `docs/NOTES-INBOX.md`.'
+            echo 'or run `tools/make_skill.py` if you have a checkout.'
           } >> "$GITHUB_STEP_SUMMARY"

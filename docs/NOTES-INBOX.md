@@ -77,6 +77,31 @@ for a malformed note, `413` over 512 KB, `502` when GitHub refused.
 `GET /` answers `{"service":"notes-intake","ok":true}` and needs no token,
 which is how to check the URL is right before wiring anything to it.
 
+## Getting the skill into the note-taker
+
+The note-taker is told all of this by a skill: `file-note`, one `SKILL.md` in
+a zip. Two ways to get one, and they are the same generator --
+`site/skill/index.html` builds the zip in the browser, and
+`tools/make_skill.py` runs that same script under node so the deploy can build
+it too. A second implementation would drift, and the drift would show up as a
+note-taking session behaving oddly rather than as a failing test.
+
+- **From the page.** `<site>/skill/`. The deploy's summary links to it with
+  `?inbox=` already filled in, so only the token is typed.
+- **From a checkout.** `tools/make_skill.py --subdomain NAME --out PATH`, with
+  the token on stdin.
+
+Neither route is the deploy handing you the finished zip, which is what this
+wanted to be. The deploy holds the token already, but **this repository is
+public**: a workflow artifact is downloadable by anyone who can see the run,
+so shipping the token in one would publish it. That matters more than the
+token's own value, because a note files itself -- `agent-branches.yml` merges
+a green `notes/` branch without a human reading it, and `notes/` is never
+edited afterwards. Rotating means changing `NOTES_INTAKE_TOKEN`, redeploying,
+and generating a new skill.
+
+The zip holds a live token either way. Treat it as a credential.
+
 ## The credentials
 
 | Secret                  | Where                                              | What it is                                                                      |
