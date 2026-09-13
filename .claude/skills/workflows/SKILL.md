@@ -192,16 +192,15 @@ absent on a free plan, so check before building a merge rule around it.
 
 Three items are standing debt here rather than rules this repository keeps.
 `settings.yml` is the only job in the tree that sets **`timeout-minutes`**.
-Seven `run:` bodies interpolate `${{ }}`: `release.yml:43` and
-`maintenance.yml:120` build a shell string out of a tag name,
-`maintenance.yml:227` an issue body, and `fleet.yml:313`,
-`fleet-review.yml:214`, `fleet-review.yml:291` and `fleet-respond.yml:401` pass
-step outputs and a dispatch input straight into a command line. And three
-workflows declare no `concurrency` at all: `agent-branches.yml`, `labels.yml`
-and `release.yml`. All three stay on the list because they are right, and they
-are named because a checklist every existing file fails is one the next worker
-learns to skip. Fix the workflow you are touching; each sweep is its own pull
-request.
+Seven `run:` bodies interpolate `${{ }}`: `release.yml:43` builds a shell string
+out of a tag name, `maintenance.yml:120` out of a step output,
+`maintenance.yml:227` an issue body, and `fleet.yml:313`, `fleet-review.yml:214`
+and `fleet-respond.yml:401` pass `runner.temp` while `fleet-review.yml:291`
+passes a pull request number or a dispatch input. And three workflows declare no
+`concurrency` at all: `agent-branches.yml`, `labels.yml` and `release.yml`. All
+three stay on the list because they are right, and they are named because a
+checklist every existing file fails is one the next worker learns to skip. Fix
+the workflow you are touching; each sweep is its own pull request.
 
 [billing]: https://docs.github.com/en/billing/concepts/product-billing/github-actions
 [rates]: https://docs.github.com/en/billing/reference/actions-runner-pricing

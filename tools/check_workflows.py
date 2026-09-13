@@ -242,13 +242,21 @@ def check_comment_width(path: Path) -> list[str]:
     and always wrappable. A line whose overflow is one unbroken token -- a URL,
     a SHA, a long identifier -- is left alone, because breaking it would be
     worse than the overflow and no wrap could have avoided it.
+
+    The escape hatch asks whether the longest token could have fitted on a
+    line of its own, not whether deleting it would bring this line under the
+    limit. The second question is the one this first asked, and almost every
+    line slightly over the limit answers it yes: an 89-column comment
+    containing `concurrency` was skipped, which is the exact line the rule was
+    written for.
     """
     problems: list[str] = []
     for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not COMMENT.match(line) or len(line) <= COMMENT_WIDTH:
             continue
         longest = max((len(word) for word in line.split()), default=0)
-        if len(line) - longest < COMMENT_WIDTH:
+        marker = line.index("#") + 2  # the indent, the "#" and the space
+        if marker + longest > COMMENT_WIDTH:
             continue  # one long token; no wrapping would have helped
         problems.append(
             f"{path.relative_to(ROOT)}:{number}: comment is {len(line)} columns, "

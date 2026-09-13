@@ -35,8 +35,7 @@ You keep the machinery working so the author never thinks about it.
   export is experimental. To upgrade: bump the pin, `mise install`,
   `mise run check`, then read a built chapter and compare it against what the
   shell expects (`<head>`/`<body>`, headings shifted down one level,
-  `<math
-  display="block">`). Report what changed in the exported markup, not
+  `<math display="block">`). Report what changed in the exported markup, not
   just that the build passed.
 - CI failures. Reproduce locally first -- `mise run check` runs the same gates
   -- then fix the cause. Never skip a check, loosen a gate, or add an exclusion

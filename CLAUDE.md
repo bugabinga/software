@@ -28,10 +28,8 @@ toolchain.
 build like an error does. Suppress only where the tool is wrong about this
 repository, only at the line or the file it is wrong about, and always with the
 reason written next to it --
-`# noqa: RUF001 - an en dash is the right
-character in a range`,
-`# shellcheck disable=SC2016  # backticks are markdown
-here`, an `overrides`
+`# noqa: RUF001 - an en dash is the right character in a range`,
+`# shellcheck disable=SC2016  # backticks are markdown here`, an `overrides`
 entry in `biome.jsonc`. A blanket severity filter or a project-wide `off` hides
 the next finding too, which is the failure this rule exists to prevent.
 `ruff.toml` states how many findings its one remaining exception covers; recount
@@ -60,8 +58,7 @@ record can answer a question, link the answer and do not restate it. Prose about
 a setting cannot be checked, so it rots silently, and the rot is found one claim
 at a time by whoever reads it next.
 
-**Formatting is mandatory, and it is never yours to decide.** `mise run
-format`
+**Formatting is mandatory, and it is never yours to decide.** `mise run format`
 before you push; `mise run check` fails if you did not. One formatter per
 language and no language without one -- typstyle for `.typ`, ruff for `.py`,
 biome for `.js`/`.json`/`.css`, dprint for `.md`/`.toml`/`.yml`, shfmt for
@@ -229,8 +226,7 @@ lengths. Different readers, at different moments, holding different things.
 Writing one and pasting it into the others is the characteristic failure, and it
 happens because it feels efficient.
 
-**Commit — what and why, technical.** The reader is in `git log` or `git
-blame`,
+**Commit — what and why, technical.** The reader is in `git log` or `git blame`,
 months from now, with the diff already in front of them, asking why this line is
 like this. Never narrate the diff. Say what it cannot: the constraint you hit,
 the alternative you rejected and why, the fact that will have been forgotten.

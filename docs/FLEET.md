@@ -412,8 +412,7 @@ Three workflows, three verbs, so it is clear which to look at:
 are held in an approval-required state and never execute -- runs 34760403200 and
 34760403209 are the record. It therefore asks for `ci.yml` and
 `fleet-review.yml` by dispatch afterwards, which a `GITHUB_TOKEN` may raise.
-Without that the fixes would carry the verdict they answered, and `Fleet
-review`
+Without that the fixes would carry the verdict they answered, and `Fleet review`
 is required.
 
 ## Which model runs which agent
@@ -537,14 +536,21 @@ settings:
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                    |
 | opening a pull request           | refused — `agent-branches.yml` hit that on `agent/badges` (run 34688705958). `repo.toml` declares the setting that ends it, so this row should stop being true |
-| `PUT /pulls/N/merge`             | goes through — #78 merged touching `.github/` and `.claude/` with eleven standing changes-requested reviews and no approving review                            |
+| `PUT /pulls/N/merge`             | goes through, for the author — #78 merged touching `.github/` and `.claude/` with eleven standing changes-requested reviews and no approving review            |
 
-That last row is why there is no `CODEOWNERS` file any more. At zero required
-approvals `require_code_owner_review` requested the owner and merged without
-them, so the file named a gate that refused nothing while three documents
-described it as the thing holding the line. What refuses is
-`agent-branches.yml`, on the paths it names, plus the author being the one who
-clicks merge.
+That last row is why there is no `CODEOWNERS` file any more, and it is weaker
+evidence than it looks: `merged_by` on #78 is `bugabinga`, the code owner
+merging by hand, who is the actor a code-owner rule is least likely to stop. The
+fleet never tried it and could not have -- `agent-branches.yml` refuses
+`.github/` and `.claude/` before the API is reached. What the measurement does
+show is that at zero required approvals the rule requested a reviewer and did
+not wait for one, which is not the gate three documents called it; whether it
+would have refused an agent was never tested, and the file also owned
+`tools/prose_scan.py` and `book/terms.toml`, which are outside `protected` and
+which the fleet can touch. Those two are now conventions in the briefs
+(`.claude/agents/prose-editor.md`) rather than a rule, deliberately. What
+refuses is `agent-branches.yml`, on the paths it names, plus the author being
+the one who clicks merge.
 
 #### Why a check and not an approving review
 

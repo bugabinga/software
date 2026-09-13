@@ -81,9 +81,11 @@ Three parties, and confusing them is the operator's characteristic failure.
 
   `.github/CODEOWNERS` is gone with it: at zero required approvals
   `require_code_owner_review` requested the owner and merged without them (#78),
-  so it was a file three documents called a gate. What refuses a change to the
-  machinery is `agent-branches.yml`, and the author being the one who clicks
-  merge.
+  so it was a file three documents called a gate. Nothing in the API says so
+  outright, and that merge is the only measurement available -- by the code
+  owner, by hand, which is the actor such a rule is least likely to stop. What
+  refuses a change to the machinery is `agent-branches.yml`, and the author
+  being the one who clicks merge.
 
 - **`show_full_output` is off again.** It was on to diagnose four dispatches
   that died in 38ms having called no model; the answer was a line break inside

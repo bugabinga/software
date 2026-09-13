@@ -45,8 +45,7 @@ Try these in order and stop at the first that works.
    - `Artifact` with `action: "list"` to find it, or use the URL given;
    - `Artifact` with `action: "read"` and that URL;
    - save what comes back to a file, then
-     `tools/ingest_notes.py --from-file <file> --source <artifact url>
-     --title "<what it is>"`.
+     `tools/ingest_notes.py --from-file <file> --source <artifact url>      --title "<what it is>"`.
 
    This is the route to prefer for conversations: one step for the author, and
    fully automatic afterwards.
