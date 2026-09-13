@@ -1,6 +1,6 @@
 ---
 name: workflows
-description: Write or review a GitHub Actions workflow - pinning, where the logic lives, caching, CI minutes, third-party action risk, auditability, and what each plan actually gives you. Use when adding a workflow, changing one, debugging a red or silent run, or asking why CI is slow or expensive.
+description: GitHub Actions and CI. Use when writing or reviewing a workflow, pinning an action, caching, spending runner minutes, or when a run is red, slow, or never started.
 ---
 
 # Building a CI workflow that is worth having
