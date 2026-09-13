@@ -1038,9 +1038,9 @@ def prune_stale_pages(book: Book, out_dir: Path) -> list[str]:
     # immediately before this runs, and it is exactly the shape this deletes:
     # one `index.html`, directly under the output, no chapter.
     #
-    # Keeping them separate is what made `fleet/` survive on a hardcoded name
-    # rather than on being listed. The next generated page would have been
-    # deleted by the build that wrote it and reported as stale.
+    # Reading `STANDALONE` here is what the pruner lacked: `fleet/` survived on
+    # a hardcoded "fleet" in the keep set, so the next generated page would have
+    # been deleted by the build that wrote it and reported as stale.
     from_site = {
         entry.name
         for entry in SITE_DIR.iterdir()
