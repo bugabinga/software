@@ -489,16 +489,17 @@ one required check (`CI`), **zero** required approvals, code-owner review
 required, stale reviews dismissed on push, and thread resolution **not**
 required.
 
-| The fleet tries                  | Result                                                                                                                   |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                              |
-| opening a pull request           | never exercised — `agent-branches.yml` has not once reached its create call, because the operator had already opened one |
-| `PUT /pulls/N/merge`             | squash-merges a green branch, and is blocked by `require_code_owner_review` for the paths in `.github/CODEOWNERS`        |
+| The fleet tries                  | Result                                                                                                                                                                                       |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                                                  |
+| opening a pull request           | refused — Actions is not permitted to create pull requests; `agent-branches.yml` hit that on `agent/badges` (run 34688705958), and stops earlier on a branch the operator has already opened |
+| `PUT /pulls/N/merge`             | unexercised — every merged pull request was merged by the author, so what `require_code_owner_review` does at zero required approvals is inference                                           |
 
-So the delegation works for the book and stops at the automation, which is
-what `.github/CODEOWNERS` is for. What does not work is narrower and worse:
-`Fleet review` is not a required check, so a failing review does not stop a
-merge by itself -- a human reading the red mark is the whole of it.
+So the fleet still routes through a human to land anything, and the reason is
+no longer the approval rule: it is that Actions cannot open the pull request.
+What is worse and quieter: `Fleet review` is not a required check, so a
+failing review does not stop a merge by itself -- a human reading the red mark
+is the whole of it.
 
 #### Review by the fleet, which is what the protection was for
 
@@ -521,10 +522,11 @@ So the settings that fit the intention are:
 1. **Settings → Actions → General → Workflow permissions →** allow GitHub
    Actions to create and approve pull requests. Without this the fleet cannot
    open a pull request at all, and there is nothing to review.
-2. **The `Main` ruleset → required status checks →** `Build`, `Spelling`,
-   `Outbound links`, and — now that the fleet is armed — `Fleet review`. Only
-   `CI` is required today, which covers the first three as one check and
-   leaves the review it was all built for unenforced.
+2. **The `Main` ruleset → required status checks →** `CI` and — now that the
+   fleet is armed — `Fleet review`. Only `CI` is required today, which leaves
+   the review it was all built for unenforced. Not `Build`, `Spelling` or
+   `Outbound links`: those are steps inside the one `CI` job, not check
+   contexts, and a required check that never reports blocks every merge.
 3. **The `Main` ruleset → require approvals: 0.** Done. The review requirement
    lives in the checks, where the fleet can satisfy it; `require_code_owner_review`
    still holds the paths in `.github/CODEOWNERS`, which is the intention.

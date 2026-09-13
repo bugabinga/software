@@ -72,13 +72,17 @@ Three parties, and confusing them is the operator's characteristic failure.
 - **Pages is live** at <https://bugabinga.github.io/software/>, serving the
   `gh-pages` branch. Verified: index, a chapter, the PDF and the single-file
   build all return 200.
-- **The `Main` ruleset still requires an approving review**, and that is now
-  the only thing standing between a green pull request and `main`. It was
-  right to wait: `Fleet review` had to be armed and seen working first, and it
-  is -- it passes on every branch and it caught a real bug in #63 that a local
-  dry run could not. So the change is ripe: **required approvals to zero,
-  `Fleet review` required.** Not a bypass actor, and not the bypass toggle,
-  which is a decision taken once per pull request and remembered by nobody.
+- **Required approvals are zero**, done. What was asked for alongside it was
+  not: **`Fleet review` is still not a required check.** The one required
+  check on `Main` is `CI`, so a reviewer that has caught real faults on every
+  round of every pull request this week gates nothing -- a human reading the
+  red mark is the whole of the enforcement. Not a bypass actor, and not the
+  bypass toggle, which is a decision taken once per pull request and
+  remembered by nobody.
+
+  What blocks a fleet merge now is `require_code_owner_review` on the paths in
+  `.github/CODEOWNERS`, which is the intention, and that Actions is not
+  permitted to open a pull request at all, which is not.
 
   The author _can_ approve in the meantime -- the fleet's pull requests are
   authored by `claude[bot]`, so approving them is not approving their own
