@@ -362,13 +362,17 @@ arithmetic, which is the part that silently misplaces a comment.
 
 Two reviewers, and neither of them is Copilot.
 
-`pr-reviewer` judges every pull request and gates the merge. The author
-reviews what they choose to. `fleet-respond.yml` wakes `review-responder` on
-either, and every comment ends in a fix or in a reply saying what the finding
-missed. That is a rule in `.claude/agents/review-responder.md` and nothing
-else: `required_review_thread_resolution` is `false` on the `Main` ruleset, so
-an unanswered thread does not block a merge. Turning it on would make the rule
-real, and would also make a stranded thread unmergeable by anything but a
+`pr-reviewer` judges every pull request. The author reviews what they choose
+to. `fleet-respond.yml` is meant to wake `review-responder` on either, and
+wakes on neither: a review posted with the workflow token starts no run, so
+every fleet review to date has been answered by the operator by hand (#75).
+
+So two things the roster used to claim are off. The review does not gate the
+merge -- `Fleet review` is not a required check. And nothing makes a thread
+end resolved: `required_review_thread_resolution` is `false` on `Main`, and
+the rule lives in `.claude/agents/review-responder.md`, which is not handed
+out on the occasion it is written for. Turning the ruleset rule on would make
+it real, and would also make a stranded thread unmergeable by anything but a
 human, which is why it is the author's call rather than the fleet's.
 
 **Copilot's automated review is off.** It needs a paid Copilot plan, and since
@@ -483,11 +487,12 @@ label a pull request `hold`.
 
 ### What branch protection did to this
 
-`main` carries an active ruleset. Read from the API rather than remembered:
-squash only, linear history, signed commits, no deletion and no force-push,
-one required check (`CI`), **zero** required approvals, code-owner review
-required, stale reviews dismissed on push, and thread resolution **not**
-required.
+`main` carries an active ruleset. Read from the API rather than remembered,
+all eight rules and no bypass actors: no creation, no deletion, no force-push,
+restricted update, linear history, signed commits, one required check (`CI`),
+and a pull request required -- squash only, **zero** required approvals,
+code-owner review required, stale reviews dismissed on push, thread resolution
+**not** required.
 
 | The fleet tries                  | Result                                                                                                                                                                                       |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

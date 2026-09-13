@@ -74,15 +74,16 @@ Three parties, and confusing them is the operator's characteristic failure.
   build all return 200.
 - **Required approvals are zero**, done. What was asked for alongside it was
   not: **`Fleet review` is still not a required check.** The one required
-  check on `Main` is `CI`, so a reviewer that has caught real faults on every
-  round of every pull request this week gates nothing -- a human reading the
+  check on `Main` is `CI`, so a reviewer that requested changes on every round
+  of #72, #73 and #78 gates nothing -- a human reading the
   red mark is the whole of the enforcement. Not a bypass actor, and not the
   bypass toggle, which is a decision taken once per pull request and
   remembered by nobody.
 
-  What blocks a fleet merge now is `require_code_owner_review` on the paths in
-  `.github/CODEOWNERS`, which is the intention, and that Actions is not
-  permitted to open a pull request at all, which is not.
+  What blocks a fleet merge now is that Actions is not permitted to open a
+  pull request at all. Whether `require_code_owner_review` on the paths in
+  `.github/CODEOWNERS` blocks one as well is untested at zero required
+  approvals -- every merged pull request here was merged by the author.
 
   The author _can_ approve in the meantime -- the fleet's pull requests are
   authored by `claude[bot]`, so approving them is not approving their own
