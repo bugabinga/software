@@ -33,6 +33,10 @@ permissions:
   pull-requests: write
   issues: write
   checks: read
+  # To dispatch `fleet-review.yml` on a pull request this workflow opened.
+  # See "Ask for the verdict the open will not start" below for why that is
+  # not optional.
+  actions: write
 
 jobs:
   branches:
@@ -112,6 +116,29 @@ jobs:
               -F body=@/tmp/pr-body.md \
               --jq .number 2>/tmp/pr-error); then
             echo "::notice::opened #$number for $BRANCH"
+
+            # Ask for the verdict the open will not start.
+            #
+            # This POST is made with the workflow token, so the
+            # `pull_request` runs it raises are created and then held in an
+            # approval-required state -- the same wall `fleet-respond.yml`
+            # hit from the other side (runs 34760403200, 34760403209).
+            # `ci.yml` survives it because it also triggers on `agent/**`
+            # pushes; `fleet-review.yml` has no push trigger, because a push
+            # carries no pull request to review. So `Fleet review` -- a
+            # required check -- would never report, and every pull request
+            # this step opens would be unmergeable.
+            #
+            # `workflow_dispatch` is one of the events a `GITHUB_TOKEN` may
+            # still raise, and a dispatch carries no pull request either, so
+            # the number goes in as an input.
+            if gh workflow run fleet-review.yml --ref "$BRANCH" \
+                -f pr="$number" 2>/tmp/dispatch-error; then
+              echo "::notice::dispatched fleet-review.yml for #$number"
+            else
+              cat /tmp/dispatch-error >&2
+              echo "::warning::#$number is open but Fleet review could not be started on it, so it cannot merge until somebody runs that workflow from the Actions tab with pr=$number."
+            fi
             exit 0
           fi
 

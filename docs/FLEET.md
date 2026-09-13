@@ -544,11 +544,11 @@ and CI cannot see the settings at all, so no gate enforces the file today.
 Three things the file cannot say, because they are measurements rather than
 settings:
 
-| The fleet tries                  | Result                                                                                                                                                         |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                    |
-| opening a pull request           | refused — `agent-branches.yml` hit that on `agent/badges` (run 34688705958). `repo.toml` declares the setting that ends it, so this row should stop being true |
-| `PUT /pulls/N/merge`             | goes through, for the author — #78 merged touching `.github/` and `.claude/` with eleven standing changes-requested reviews and no approving review            |
+| The fleet tries                  | Result                                                                                                                                                                                                                                                                                                                 |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /merges` (no pull request) | rejected — `required_linear_history` forbids a merge commit                                                                                                                                                                                                                                                            |
+| opening a pull request           | refused — `agent-branches.yml` hit that on `agent/badges` (run 34688705958). `repo.toml` declares the setting that ends it, so this row should stop being true. The workflow dispatches `Fleet review` after the POST, because a pull request the token opens starts no `pull_request` runs and that check is required |
+| `PUT /pulls/N/merge`             | goes through, for the author — #78 merged touching `.github/` and `.claude/` with eleven standing changes-requested reviews and no approving review                                                                                                                                                                    |
 
 That last row is why there is no `CODEOWNERS` file any more, and it is weaker
 evidence than it looks: `merged_by` on #78 is `bugabinga`, the code owner
