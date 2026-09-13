@@ -62,8 +62,8 @@ Caching is not free and not always a win. The rules that outlive the numbers:
 - **Scope runs downhill.** A branch reads its own caches, its base's and the
   default branch's; the default branch cannot read a feature branch's. Warm
   the cache on `main` if pull requests are to hit it.
-- A pull request's cache is scoped to its merge ref and only its own re-runs
-  restore it.
+- A pull request's cache is scoped to its merge ref, so every later run of
+  that pull request restores it and nothing outside the pull request can.
 - The key is exact; `restore-keys` is the prefix ladder below it.
 
 Do not cache what is cheap to fetch. A toolchain cache saving forty seconds is

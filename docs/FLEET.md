@@ -404,10 +404,12 @@ Three workflows, three verbs, so it is clear which to look at:
 | `fleet-review.yml`  | judge it        | a check, and a comment        |
 | `fleet-respond.yml` | answer feedback | the pull request's own branch |
 
-`fleet-respond.yml` pushes with the workflow token, so its push starts
-nothing; it asks for `ci.yml` and `fleet-review.yml` by dispatch afterwards,
-which is the one thing a `GITHUB_TOKEN` may still raise. Without that the
-fixes would carry the verdict they answered, and `Fleet review` is required.
+`fleet-respond.yml` pushes with the workflow token, so the runs that push
+raises are held in an approval-required state and never execute -- runs
+34760403200 and 34760403209 are the record. It therefore asks for `ci.yml` and
+`fleet-review.yml` by dispatch afterwards, which a `GITHUB_TOKEN` may raise.
+Without that the fixes would carry the verdict they answered, and `Fleet
+review` is required.
 
 ## Which model runs which agent
 
