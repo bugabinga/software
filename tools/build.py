@@ -1116,10 +1116,9 @@ def copy_assets(out_dir: Path) -> None:
 
     # Standalone pages: reachable on the site, and deliberately not part of
     # the book. Not in the book's navigation, no sitemap entry, no search
-    # index, `noindex` in
-    # their own head. `site/skill/` is the generator that builds the
-    # note-taker's skill; `/fleet/` arrives by another route because it is
-    # generated weekly rather than checked in.
+    # index, `noindex` in their own head. `site/skill/` is the generator
+    # that builds the note-taker's skill; `/fleet/` arrives by another route
+    # because it is generated weekly rather than checked in.
     for page in sorted((SITE_DIR).iterdir()):
         if not page.is_dir() or page.name in {"assets", "templates"}:
             continue

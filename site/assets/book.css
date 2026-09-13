@@ -919,8 +919,8 @@ ol.contents > li {
 
 /* The pages that are on the site and are not the book. Deliberately quiet:
    below the contents, smaller than it, and not in the book's navigation.
-   Somebody
-   looking for them finds them; somebody reading the book does not trip. */
+   Somebody looking for them finds them; somebody reading the book does not
+   trip. */
 .aside-pages {
 	margin: 3rem auto 0;
 	max-width: var(--measure);
