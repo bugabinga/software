@@ -10,7 +10,12 @@ own, triggered by things other people can cause. Most advice about Actions is
 about YAML. Almost none of what goes wrong here is YAML.
 
 Numbers below are from GitHub's own reference pages and were read on
-2026-09-13. They change; re-read them before relying on one.
+2026-09-13. They change; re-read them before relying on one:
+[billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions),
+[runner rates](https://docs.github.com/en/billing/reference/actions-runner-pricing),
+[limits](https://docs.github.com/en/actions/reference/limits),
+[caching](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching),
+[secure use](https://docs.github.com/en/actions/reference/security/secure-use).
 
 ## Before the first line
 
@@ -113,10 +118,11 @@ What actually saves minutes, roughly in order of effect:
    required check that reads _Canceled_ is not a check that passed. Key on the
    event too.
 3. **Fewer, longer jobs beat many short ones.** Every job pays its own setup:
-   runner allocation, checkout, toolchain install. Billing is measured per
-   job, so ten one-minute jobs are not the same as one ten-minute job -- and a
-   matrix of trivial jobs is the usual way a bill triples without anything
-   getting faster.
+   runner allocation, checkout, toolchain install. GitHub "rounds the minutes
+   and partial minutes each job uses up to the nearest whole minute", so ten
+   one-minute jobs are not the same as one ten-minute job -- and a matrix of
+   trivial jobs is the usual way a bill triples without anything getting
+   faster.
 4. **Split only for parallelism you will actually wait on**, or for a check
    name a rule needs. Not for tidiness.
 5. **`timeout-minutes` on every job.** The default ceiling is **6 hours** on a
@@ -144,8 +150,8 @@ Decide per action, and write the decision down:
 - **Is it pinned, and did you read the diff at that SHA?** A pin to code you
   have not looked at is a pin to a stranger's future self.
 - **Can the repository restrict it centrally?** Settings → Actions → General
-  → allowed actions (`actions: write` at the org level for a policy). An
-  allowlist beats a convention.
+  → allowed actions. The same policy exists at the organization level, where
+  it is an owner's to set. An allowlist beats a convention.
 
 The asymmetric ones to be most careful with: anything that runs on
 `pull_request_target` or `workflow_run`, because those are privileged for
@@ -208,10 +214,10 @@ A run that fails and says nothing costs more than a run that does not exist.
 - **Public repositories**: standard runners are free, on every plan. This is
   the single biggest lever on cost and it is a repository setting.
 - **Larger runners** are billed always, public or not.
-- **Rulesets** are documented as a Team and Enterprise feature, with
-  organization-level rulesets Enterprise-only. Branch protection on a private
-  repository is the thing most likely to be missing on a Free plan -- check
-  before designing a gate around it.
+- **Rulesets** are available on every plan in a **public** repository, and in
+  a private one from Pro upwards -- the same line protected branches draw. A
+  gate on a private repository is the thing most likely to be missing on a
+  Free plan; check before designing one around it.
 - **Without a payment method, usage is blocked once the quota is spent.** On a
   private repository that means CI stops mid-month.
 
