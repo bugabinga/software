@@ -1,0 +1,108 @@
+{
+  "title": "A Book Written in Types",
+  "edition": "draft",
+  "base_path": "/software/",
+  "base_url": "https://bugabinga.github.io/software/",
+  "built": "2026-09-13T07:27:28Z",
+  "typst": "0.15.1",
+  "chapters": [
+    {
+      "slug": "preface",
+      "title": "Preface",
+      "number": null,
+      "words": 92
+    },
+    {
+      "slug": "machine-and-program",
+      "title": "Machine and program",
+      "number": 1,
+      "words": 140
+    },
+    {
+      "slug": "information-and-entropy",
+      "title": "Information and entropy",
+      "number": 2,
+      "words": 86
+    },
+    {
+      "slug": "knowledge",
+      "title": "Knowledge",
+      "number": 3,
+      "words": 141
+    },
+    {
+      "slug": "software-and-its-forms",
+      "title": "Software and its forms",
+      "number": 4,
+      "words": 123
+    },
+    {
+      "slug": "operating-systems",
+      "title": "Operating systems",
+      "number": 5,
+      "words": 156
+    },
+    {
+      "slug": "learning-the-craft",
+      "title": "Learning the craft",
+      "number": 6,
+      "words": 143
+    },
+    {
+      "slug": "beauty-and-mechanical-sympathy",
+      "title": "Beauty and mechanical sympathy",
+      "number": 7,
+      "words": 187
+    },
+    {
+      "slug": "the-cycle-and-its-costs",
+      "title": "The cycle and its costs",
+      "number": 8,
+      "words": 171
+    },
+    {
+      "slug": "the-practices",
+      "title": "The practices",
+      "number": 9,
+      "words": 149
+    },
+    {
+      "slug": "intent-and-product-engineering",
+      "title": "Intent and product engineering",
+      "number": 10,
+      "words": 142
+    },
+    {
+      "slug": "open-questions",
+      "title": "Open questions",
+      "number": null,
+      "words": 121
+    },
+    {
+      "slug": "agents",
+      "title": "Agents",
+      "number": null,
+      "words": 131
+    },
+    {
+      "slug": "citations",
+      "title": "Citations",
+      "number": null,
+      "words": 48
+    },
+    {
+      "slug": "glossary",
+      "title": "Glossary",
+      "number": null,
+      "words": 54
+    },
+    {
+      "slug": "prelude-reference",
+      "title": "Prelude reference",
+      "number": null,
+      "words": 187
+    }
+  ],
+  "words": 2071,
+  "pdf": true
+}

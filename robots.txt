@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://bugabinga.github.io/software/sitemap.xml
