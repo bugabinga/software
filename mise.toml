@@ -228,7 +228,10 @@ run = [
 
 [tasks.check-skill]
 description = "The skill generator's page builds a zip both node and Python read"
-run = "python3 tools/check_skill_page.py"
+run = [
+  "python3 tools/check_skill_page.py",
+  "python3 tools/make_skill.py --self-test",
+]
 
 [tasks.check-review]
 description = "The review builder's line arithmetic"

@@ -118,6 +118,11 @@ jobs:
           if name=$(python3 tools/cloudflare.py --subdomain --status "$status" \
                       < /tmp/subdomain.json 2> /tmp/subdomain.why); then
             echo "present=true" >> "$GITHUB_OUTPUT"
+            # Carried out of the step because it is the one place the real
+            # address is known: nothing in the repository records which
+            # account this is, deliberately, so a checked-in copy cannot go
+            # stale against it.
+            echo "name=${name}" >> "$GITHUB_OUTPUT"
             echo "::notice::deploying to ${name}.workers.dev"
           else
             echo "present=false" >> "$GITHUB_OUTPUT"
@@ -165,18 +170,83 @@ jobs:
             | mise exec -- wrangler secret put GITHUB_TOKEN
           echo "::notice::secrets set from repository secrets"
 
+      # The generator at /skill/ exists so the token never leaves the machine
+      # that types it, which is right for anyone setting this up from a phone
+      # and leaves the author typing a token the repository already holds.
+      # Here it does not have to: the same script that runs in the page runs
+      # under node, so this is the page's zip rather than a second skill that
+      # could drift from it.
+      #
+      # The artifact carries a live token. The notes are not secret and a
+      # leaked intake token is an annoyance rather than an emergency -- the
+      # worst it buys is filing junk notes, which arrive as pull requests that
+      # a human merges -- so one day of retention against a repository only
+      # the author can read is the proportionate answer, not an argument for
+      # not doing it.
+      - name: Build the note-taker's skill
+        id: skill
+        if: steps.subdomain.outputs.present == 'true'
+        env:
+          INTAKE_TOKEN: ${{ secrets.NOTES_INTAKE_TOKEN }}
+          SUBDOMAIN: ${{ steps.subdomain.outputs.name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${INTAKE_TOKEN:-}" ]; then
+            echo "::notice::no NOTES_INTAKE_TOKEN, so there is no skill to build"
+            exit 0
+          fi
+          # On stdin, for the same reason the secrets above are piped.
+          printf '%s' "$INTAKE_TOKEN" \
+            | python3 tools/make_skill.py \
+                --subdomain "$SUBDOMAIN" \
+                --out "$RUNNER_TEMP/file-note-skill.zip"
+          echo "built=true" >> "$GITHUB_OUTPUT"
+
+      - name: Keep it for one day
+        if: steps.skill.outputs.built == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: file-note-skill
+          path: ${{ runner.temp }}/file-note-skill.zip
+          retention-days: 1
+
+      # Asked for rather than assembled here, so the worker's name stays in
+      # `wrangler.jsonc` alone. A copy in this file would be a second place to
+      # get it wrong, and the deploy above is the thing that would keep
+      # working while the summary pointed somewhere that does not exist.
+      - name: The inbox's address
+        id: inbox
+        if: steps.subdomain.outputs.present == 'true'
+        env:
+          SUBDOMAIN: ${{ steps.subdomain.outputs.name }}
+        run: |
+          set -euo pipefail
+          url=$(python3 tools/make_skill.py --subdomain "$SUBDOMAIN" --print-endpoint)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
       - name: Say where it is
         # The same condition as the two steps it reports on. Gated on the
         # credential alone, it wrote "Notes inbox deployed" whenever the
         # subdomain check had stopped the deploy -- one inaccurate sentence
         # in place of the red wall, which is not the trade that was wanted.
         if: steps.subdomain.outputs.present == 'true'
+        env:
+          INBOX: ${{ steps.inbox.outputs.url }}
+          PAGES: https://bugabinga.github.io/software
+          BUILT: ${{ steps.skill.outputs.built }}
         run: |
           {
             echo "### Notes inbox deployed"
             echo
-            # shellcheck disable=SC2016  # backticks are markdown here.
-            echo 'The note-taker POSTs to `/note` on the workers.dev URL in the'
-            # shellcheck disable=SC2016
-            echo 'deploy output above. See `docs/NOTES-INBOX.md`.'
+            echo "The note-taker POSTs to \`$INBOX/note\`. See \`docs/NOTES-INBOX.md\`."
+            echo
+            if [ "$BUILT" = "true" ]; then
+              echo "The skill is the **file-note-skill** artifact on this run,"
+              echo "with the token already in it. It is deleted after a day."
+              echo
+            fi
+            # The generator, with the address filled in, for a rotation or a
+            # second note-taker. The token is still typed there: this page is
+            # on GitHub Pages and anything prefilled into it is published.
+            echo "[Generate one instead]($PAGES/skill/?inbox=$INBOX)"
           } >> "$GITHUB_STEP_SUMMARY"
