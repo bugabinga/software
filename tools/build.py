@@ -568,9 +568,9 @@ def head_meta_html(book: Book, title: str, description: str, path: str) -> str:
 #
 # A list rather than a scan of `site/`, because a blurb cannot be derived from
 # a directory name and a page nobody can describe is not worth linking. The
-# cost of a list is that it drifts, which `prune_stale_pages` says of its own
-# set further down -- so `check_standalone` below makes drift a build failure
-# instead of a promise.
+# cost of a list is that it drifts -- so `check_standalone` below makes drift
+# a build failure instead of a promise, and `prune_stale_pages` further down
+# keeps what this list names rather than a hardcoded set of its own.
 STANDALONE = [
     {
         "url": "skill/",
