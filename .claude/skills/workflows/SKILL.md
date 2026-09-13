@@ -233,3 +233,10 @@ A run that fails and says nothing costs more than a run that does not exist.
 - [ ] You can name who can trigger this and what they get access to.
 - [ ] If two workflows talk to each other, you have checked the
       `GITHUB_TOKEN` rule above.
+
+One item on that list is standing debt here rather than a rule this repository
+keeps: **no job sets `timeout-minutes`** -- none of the eighteen, across
+fifteen workflows. It stays on the list because it is right, and it is named
+here because a checklist every existing file fails is one the next worker
+learns to skip. Fix the workflow you are already touching; a sweep of the rest
+is its own pull request.
