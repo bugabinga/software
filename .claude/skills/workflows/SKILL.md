@@ -24,7 +24,7 @@ the judgement, which does not.
    job. The default is what an attacker inherits.
 3. **What is its output?** A check name, an artifact, a comment, a branch.
    Name it now: a required check's _name_ is the contract with the ruleset, so
-   renaming a job silently un-gates the merge.
+   renaming a job wedges every merge until the rule is renamed with it.
 4. **What does it cost?** See _Minutes_.
 
 ## Pin every action to a full commit SHA

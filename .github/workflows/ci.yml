@@ -32,8 +32,8 @@ concurrency:
   # It did not block that merge, because the successful run was the later
   # one. That is a race, not a design: the day a pull request run finishes
   # first, the cancelled push run is the most recent check of that name and
-  # the merge is stuck with no way to satisfy it. Two runs cost a minute;
-  # this costs an afternoon.
+  # the merge is stuck with no way to satisfy it. Two runs cost two slots for
+  # a few seconds; this costs an afternoon.
   #
   # Superseding still works where it matters -- pushing twice to a branch
   # cancels the first run, because those share both event and branch.
