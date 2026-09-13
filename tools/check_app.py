@@ -30,57 +30,33 @@ import os
 import pathlib
 import sys
 
-# Three lists, and the middle one is the point.
+# One boundary, and everything else is a statement rather than a grade.
 #
-# ESSENTIAL is what the fleet cannot run without: a gap here is a failure.
-# CEILING is everything a book pipeline could ever want, granted once so
-# that improving the fleet never means another trip to a settings page --
-# a gap here is a note, naming what it would cost, not a failure.
-# FORBIDDEN is the guardrails: repository settings, the credentials
-# themselves, the environment rules that gate them. An agent holding any
-# of these could widen its own authority, and no review after the fact
-# would catch it. A grant here fails, loudly.
+# The app is the author's own, installed on their own repositories, granted
+# every **repository** permission on purpose: they cannot predict what the
+# fleet will need, and an earlier version of this file made the grant a
+# per-feature decision, so every improvement meant another trip to a settings
+# page. What replaced the old ceiling is `repo.toml`: the rules the app may
+# change are declared in a file, changed by a pull request, and checked by
+# `tools/repo_state.py`. The gate moved from the grant to the diff.
+#
+# So ESSENTIAL still fails when missing -- the fleet cannot work without it.
+# FORBIDDEN is now only what reaches **beyond this repository**, because that
+# is the line the author drew and the one `repo.toml` cannot police. Anything
+# repository-scoped and not essential is neither: it is reported, ungraded,
+# because a warning that fires forever on a deliberate decision is how a
+# checker teaches people to ignore it.
 ESSENTIAL = {
     "contents": ("write", "push branches, read the tree"),
     "pull_requests": ("write", "open, comment on and merge pull requests"),
     "issues": ("write", "the task and tracking issues"),
     "metadata": ("read", "mandatory for everything else"),
 }
-CEILING = {
-    "actions": ("write", "start CI on a pushed branch; read runs for the report"),
-    "checks": ("write", "decide whether a branch is green; post verdicts"),
-    "statuses": ("write", "report a verdict as a commit status"),
-    "deployments": ("write", "record what went live and when"),
-    "workflows": ("write", "push or merge a change under .github/workflows/"),
-}
-# Read and write are not the same finding, and saying so matters: the
-# first report this produced called `secrets` at read "the credentials
-# themselves", which is not true. GitHub never returns a secret's value
-# through the API -- reading lists names and dates. It is writing that is
-# dangerous, because overwriting a credential is how an agent would hand
-# itself a different one.
-#
-# So each entry says what read exposes and what write allows. Write fails
-# the check; read is reported and does not, because a permission that
-# cannot change anything is untidy rather than unsafe, and a check that
-# cries wolf about it will be ignored when it has something to say.
+# Beyond the repository. Each entry says what read exposes and what write
+# allows, because they are not the same finding -- GitHub never returns a
+# secret's value, so reading lists names and writing hands the fleet a
+# different credential.
 FORBIDDEN = {
-    "administration": (
-        "sees repository settings, including the branch rules",
-        "changes those settings, and can delete the repository",
-    ),
-    "secrets": (
-        "lists which secrets exist, not their values -- the API never returns those",
-        "overwrites a credential, which is how an agent hands itself a different one",
-    ),
-    "actions_variables": (
-        "reads the variables the workflows read",
-        "changes what the workflows read",
-    ),
-    "environments": (
-        "sees the environment rules that gate every secret",
-        "edits them, which is the stop button and the branch policy",
-    ),
     "organization_administration": (
         "sees the account around the repository",
         "changes the account around the repository",
@@ -88,6 +64,10 @@ FORBIDDEN = {
     "organization_secrets": (
         "lists credentials beyond this repository",
         "overwrites credentials beyond this repository",
+    ),
+    "organization_self_hosted_runners": (
+        "sees runners other repositories share",
+        "changes runners other repositories share",
     ),
 }
 RANK = {"read": 1, "write": 2, "admin": 3}
@@ -114,15 +94,13 @@ def main() -> int:
             return "too low", have
         return "ok", have
 
-    rows, blocking, soft = [], [], []
-    for name, (level, why) in {**ESSENTIAL, **CEILING}.items():
+    rows, blocking = [], []
+    for name, (level, why) in ESSENTIAL.items():
         state, have = verdict(name, level)
         mark = {"ok": "yes", "too low": "TOO LOW", "missing": "MISSING"}[state]
         rows.append(f"| `{name}` | {level} | {have or '—'} | {mark} | {why} |")
         if state != "ok":
-            (blocking if name in ESSENTIAL else soft).append(
-                f"{name} ({have or 'not granted'}, needs {level})"
-            )
+            blocking.append(f"{name} ({have or 'not granted'}, needs {level})")
 
     # A permission that should never have been granted is a finding whichever
     # way the rest of the report goes -- but only write can actually do the
@@ -137,7 +115,7 @@ def main() -> int:
         else:
             untidy.append(f"`{name}` ({level}) -- {reading}")
 
-    extra = sorted(set(granted) - set(ESSENTIAL) - set(CEILING) - set(FORBIDDEN))
+    extra = sorted(set(granted) - set(ESSENTIAL) - set(FORBIDDEN))
 
     lines = [
         f"### App check — key found in {arguments.where}",
@@ -154,9 +132,13 @@ def main() -> int:
     ]
     if extra:
         lines += [
-            "Also granted, and not needed by anything here: "
+            "**Also granted, within the repository**, and this is a statement "
+            "rather than a finding: the app is granted every repository "
+            "permission on purpose, so that improving the fleet never means "
+            "another trip to a settings page. What bounds it is `repo.toml` "
+            "and the pull request that changes it, not this list: "
             + ", ".join(f"`{name}` ({granted[name]})" for name in extra)
-            + ". Harmless, but narrower is better.",
+            + ".",
             "",
         ]
     if unsafe:
@@ -173,16 +155,21 @@ def main() -> int:
     # Scope is a permission too, and the coarsest one. An app installed on
     # every repository carries its whole grant into repositories nobody
     # thought about when the grant was chosen -- including ones created later.
+    # Scope is a permission too, and the coarsest one -- so it is written
+    # down rather than graded. The author installed this app across their own
+    # repositories deliberately, to manage them the same way. A warning here
+    # would fire forever on a decision somebody made on purpose, and the next
+    # reader needs the blast radius stated, not scored.
     if install.get("repository_selection") == "all":
         lines += [
-            "**Installed on every repository**, not just this one. The grant "
-            "above therefore applies to repositories nobody had in mind when "
-            "it was chosen, and to every repository created after it. "
-            "Narrow it: the app's page -> Install App -> the gear beside the "
-            "account -> Only select repositories.",
+            "**Installed on every repository of this account**, deliberately: "
+            "the app exists to manage them the same way. Read with the grant "
+            "above, that is the blast radius -- every repository permission, "
+            "on every repository, including ones created later. It is bounded "
+            "by what `repo.toml` declares and by the pull request that changes "
+            "it, so that is where to look before widening anything.",
             "",
         ]
-        untidy.append("installed on all repositories rather than this one")
 
     if untidy:
         lines += [
@@ -196,17 +183,10 @@ def main() -> int:
 
     if blocking:
         lines.append("**Not enough.** Missing: " + "; ".join(blocking) + ".")
-    elif soft:
-        lines.append(
-            "**Enough for the fleet as it stands.** Below the ceiling, and "
-            "each of these is a change somebody will otherwise have to come "
-            "back for: "
-            + "; ".join(soft)
-            + ". Granting them now costs nothing and saves that trip."
-        )
     else:
         lines.append(
-            "**At the ceiling.** Nothing the fleet grows into needs another visit here."
+            "**Enough, and inside the line.** The fleet has what it needs and "
+            "nothing that reaches past this repository."
         )
 
     report = "\n".join(lines)
@@ -224,8 +204,6 @@ def main() -> int:
             "::error::The app is missing a permission the fleet cannot work "
             "without: " + "; ".join(blocking)
         )
-    for item in soft:
-        print(f"::notice::Below the ceiling: {item}")
     return 1 if (blocking or unsafe) else 0
 
 

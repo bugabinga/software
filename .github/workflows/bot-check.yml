@@ -36,6 +36,12 @@ on:
     paths:
       - ".github/workflows/bot-check.yml"
       - ".github/actions/check-app/action.yml"
+      # The policy itself. Without this line the file that decides what the
+      # app may hold could change without re-running the check that reads it
+      # -- which is what happened: #57 fixed the read-versus-write wording at
+      # 15:11 on 12 September, fifty-seven seconds after the last run, and
+      # nothing has run it since.
+      - "tools/check_app.py"
   schedule:
     # First of the month, before the fleet's own monthly run at 08:00.
     - cron: "0 6 1 * *"
