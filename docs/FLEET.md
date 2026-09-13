@@ -336,18 +336,22 @@ same branch, or a reply saying what the finding missed -- and **resolves it**.
 Its push runs the reviewer again on the new head. That is the loop, and it is
 the point: a review that nothing has to answer decays into a note.
 
-Three things keep it from running forever:
+Three things are meant to keep it from running forever. The first has never
+fired:
 
 - **Three rounds.** `fleet-respond.yml` counts the fleet's own
   changes-requested reviews. On the fourth it does not run the agent at all:
   it labels the pull request `hold`, says once why, and leaves it. Two agents
-  disagreeing is the author's to settle.
+  disagreeing is the author's to settle. **That step has never executed**,
+  because a review posted with the workflow token wakes nothing (#75), so the
+  count is never taken -- #78 reached nine rounds with no `hold` label.
 - **The responder does not answer itself.** It wakes on a
   `pull_request_review` that requests changes, never on a
   `pull_request_review_comment`, which is what its own replies are.
 - **A pass dismisses the objection.** The reviewer never approves -- whether a
   bot's approval satisfies a rule is a question about GitHub's internals, and
-  the merge is gated by the `Fleet review` check instead. So when a later
+  a check is the answer that does not depend on one. `Fleet review` is not a
+  required check, so what it gates is a human's attention. So when a later
   round passes, `tools/post_review.py` dismisses the earlier changes-requested
   reviews. Without that a fixed pull request would carry a standing objection
   from three commits ago and never become mergeable.

@@ -89,7 +89,8 @@ Three parties, and confusing them is the operator's characteristic failure.
   A click is still needed for `.github/` and `.claude/`, and that one is
   deliberate -- `docs/FLEET.md` calls it the intention, and `.github/CODEOWNERS`
   says why. What was a click on every pull request is not any more: approvals
-  are zero, so a green branch touching only the book needs nobody.
+  are zero, so a green branch touching only the book needs no approving
+  review -- only somebody to open its pull request.
 
 - **`show_full_output` is off again.** It was on to diagnose four dispatches
   that died in 38ms having called no model; the answer was a line break
