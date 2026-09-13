@@ -28,10 +28,30 @@ on:
     types: [submitted]
   pull_request_review_comment:
     types: [created]
+  # The fleet's own verdict, which arrives no other way.
+  #
+  # A review posted with the workflow token starts no run -- "other
+  # GITHUB_TOKEN triggered events do not create workflow runs at all" -- so
+  # for four months every `pull_request_review` this repository saw from the
+  # reviewer woke nothing, and the answering half of the loop existed only on
+  # paper (#75). `workflow_run` is not subject to that rule: it fires because
+  # a workflow finished, not because an actor did something.
+  #
+  # The cost is that a `workflow_run` job runs the default branch's copy of
+  # this file, with the default branch's secrets, no matter what the pull
+  # request contains. That is why the job below refuses anything whose head
+  # is not this repository, and why a change to this trigger cannot be tested
+  # before it merges.
+  workflow_run:
+    workflows: ["Fleet review"]
+    types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
+  # `gh workflow run`, to ask for the checks a `GITHUB_TOKEN` push will not
+  # start by itself. See the dispatch step at the end.
+  actions: write
   # claude-code-action exchanges an OIDC token to authenticate, and asks
   # for this by name: without it the run fails with "Could not fetch an OIDC
   # token" after the credential has already resolved, which reads like a bad
@@ -41,7 +61,7 @@ permissions:
 concurrency:
   # Per pull request, and never cancelled: a half-applied set of review fixes
   # is worse than a slow one.
-  group: fleet-respond-${{ github.event.pull_request.number }}
+  group: fleet-respond-${{ github.event.pull_request.number || github.event.workflow_run.head_branch }}
   cancel-in-progress: false
 
 jobs:
@@ -61,9 +81,18 @@ jobs:
     # wrote itself, and never on a passing review, which needs no answer.
     # The author comes through on either event.
     #
+    # A `workflow_run` carries none of that: no review, no actor worth
+    # testing, not even a pull request number. All it can be asked here is
+    # whether the head is this repository's, because the job is privileged
+    # and a fork's branch must never reach it. Everything else about the
+    # occasion is resolved in the first step, where a program can ask.
+    #
     # The loop is bounded below, in the job, not here: a condition cannot
     # count.
     if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.head_repository.full_name == github.repository ||
+      github.event_name != 'workflow_run' &&
       github.event.pull_request.draft == false &&
       (
         (github.event_name == 'pull_request_review' &&
@@ -76,13 +105,69 @@ jobs:
     environment: Fleet
     runs-on: ubuntu-latest
     steps:
+      # Three events, one occasion. A review and a review comment carry the
+      # pull request; a `workflow_run` carries a branch and, usually, a list
+      # of pull requests -- usually, because that list is empty often enough
+      # that the branch has to be a fallback rather than a last resort.
+      #
+      # It also decides whether there is anything to answer at all. On a
+      # `workflow_run` the occasion is a verdict, and a verdict that passed
+      # needs no answer; asking the reviews API is more honest than reading
+      # the run's conclusion, which is also red when the reviewer fell over
+      # without judging anything.
+      - name: Which pull request, and is there anything to answer
+        id: about
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          EVENT_PR: ${{ github.event.pull_request.number }}
+          RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          RUN_PRS: ${{ join(github.event.workflow_run.pull_requests.*.number, ' ') }}
+        run: |
+          set -euo pipefail
+          stop() {
+            echo "::notice::$1"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+
+          pr="${EVENT_PR:-}"
+          [ -n "$pr" ] || pr=$(printf '%s' "${RUN_PRS:-}" | awk '{print $1}')
+          if [ -z "$pr" ] && [ -n "${RUN_BRANCH:-}" ]; then
+            pr=$(gh api "repos/$REPO/pulls?head=${REPO%%/*}:$RUN_BRANCH&state=open"                    --jq '.[0].number // empty')
+          fi
+          [ -n "$pr" ] || stop "no open pull request for ${RUN_BRANCH:-this event}"
+
+          branch=$(gh api "repos/$REPO/pulls/$pr" --jq '.head.ref')
+          draft=$(gh api "repos/$REPO/pulls/$pr" --jq '.draft')
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          [ "$draft" = "false" ] || stop "#$pr is a draft"
+
+          if [ "$EVENT" = "workflow_run" ]; then
+            state=$(gh api "repos/$REPO/pulls/$pr/reviews" --paginate \
+              --jq '[.[] | select(.body | contains("Fleet review"))] | last | .state // empty')
+            [ "$state" = "CHANGES_REQUESTED" ] \
+              || stop "the last fleet verdict on #$pr is ${state:-none}, so there is nothing to answer"
+          fi
+
+          # The head as it was before the agent ran, so the dispatch step at
+          # the end can tell a push from a round that changed nothing.
+          head=$(gh api "repos/$REPO/pulls/$pr" --jq '.head.sha')
+          echo "head=$head" >> "$GITHUB_OUTPUT"
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::answering the review on #$pr ($branch)"
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        if: steps.about.outputs.proceed == 'true'
         with:
           # The pull request's own branch, because that is where the fixes go.
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ steps.about.outputs.branch }}
           fetch-depth: 0
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        if: steps.about.outputs.proceed == 'true'
 
       # Two agents that answer each other will do it forever if nothing
       # counts. Three rounds is enough to fix what is fixable; a fourth means
@@ -90,9 +175,10 @@ jobs:
       # to settle, not something to spend another review on.
       - name: How many rounds has this already had
         id: rounds
+        if: steps.about.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          PR: ${{ github.event.pull_request.number }}
+          PR: ${{ steps.about.outputs.pr }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
@@ -179,7 +265,7 @@ jobs:
         id: brief
         if: steps.rounds.outputs.over == 'false' && steps.key.outputs.present == 'true'
         env:
-          PR: ${{ github.event.pull_request.number }}
+          PR: ${{ steps.about.outputs.pr }}
         run: |
           set -euo pipefail
           python3 tools/fleet_brief.py --trigger review-feedback --pr "$PR" > /tmp/brief.md
@@ -254,6 +340,44 @@ jobs:
             --max-turns 70
             --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
 
+      # The other half of the same rule. The agent pushes with the credential
+      # `actions/checkout` persisted, which is the workflow token, so its push
+      # starts no `pull_request` run: no CI, and no new verdict on the fixes
+      # it just made. `fleet.yml` hit this first and worked around it the same
+      # way, because `workflow_dispatch` is one of the two exceptions to the
+      # rule -- see the comment at `fleet.yml`'s "Say where it went".
+      #
+      # Both are asked for, not just CI: `Fleet review` is a required check
+      # now, so a pull request whose verdict is never re-run is a pull request
+      # that cannot merge.
+      - name: Ask for the checks the push will not start
+        if: steps.rounds.outputs.over == 'false' && steps.key.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.about.outputs.branch }}
+          PR: ${{ steps.about.outputs.pr }}
+          BEFORE: ${{ steps.about.outputs.head }}
+        run: |
+          set -euo pipefail
+          after=$(git rev-parse HEAD)
+          if [ "$after" = "$BEFORE" ]; then
+            echo "::notice::the responder pushed nothing, which is a valid outcome"
+            exit 0
+          fi
+          # `ci.yml` takes no inputs and needs none: it checks a branch.
+          # `fleet-review.yml` reviews a pull request, which a dispatch has
+          # to name, because `workflow_dispatch` carries no pull request.
+          ask() {
+            if gh workflow run "$1" --ref "$BRANCH" "${@:2}" 2> /tmp/dispatch-error; then
+              echo "::notice::dispatched $1 on $BRANCH"
+            else
+              cat /tmp/dispatch-error >&2
+              echo "::warning::$BRANCH is pushed but $1 could not be started on it, so #$PR keeps the checks it already had. Start it by hand from the Actions tab."
+            fi
+          }
+          ask ci.yml
+          ask fleet-review.yml -f pr="$PR"
+
       # The evidence, kept. `tools/fleet_report.py` reads this to say what the
       # fleet cost and how hard it worked; without it the weekly report can
       # only count runs. `always()` because a run that failed is exactly the
@@ -266,8 +390,8 @@ jobs:
       - name: Record what this run was
         if: always()
         env:
-          FLEET_BRANCH: ${{ github.event.pull_request.head.ref }}
-          FLEET_PR: ${{ github.event.pull_request.number }}
+          FLEET_BRANCH: ${{ steps.about.outputs.branch }}
+          FLEET_PR: ${{ steps.about.outputs.pr }}
         run: |
           python3 tools/fleet_record.py \
             --out "${{ runner.temp }}/fleet" \

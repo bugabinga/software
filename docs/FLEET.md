@@ -342,9 +342,9 @@ Three things are meant to keep it from running forever:
   changes-requested reviews. On the fourth it does not run the agent at all:
   it labels the pull request `hold`, says once why, and leaves it. Two agents
   disagreeing is the author's to settle. **The `hold` has never been
-  applied**: a review posted with the workflow token wakes nothing (#75), so
-  on a pull request only the fleet has reviewed the count is never taken --
-  #78 passed the third round with no `hold` label, and kept going.
+  applied**, because until #75 was fixed the count was never taken on a pull
+  request only the fleet had reviewed -- #78 passed the third round without
+  one, and kept going to twelve.
 - **The responder does not answer itself.** The bot comes through only on a
   `pull_request_review` that requests changes, never on a
   `pull_request_review_comment`, which is what its own replies are. The
@@ -368,10 +368,12 @@ arithmetic, which is the part that silently misplaces a comment.
 Two reviewers, and neither of them is Copilot.
 
 `pr-reviewer` judges every pull request. The author reviews what they choose
-to. `fleet-respond.yml` wakes on the author's review -- it ran on #66 on
-12 September -- and not on the fleet's own: a review posted with the workflow
-token starts no run, so every fleet review to date has been answered by the
-operator by hand (#75).
+to. `fleet-respond.yml` wakes on both, by two different routes: an author's
+review arrives as `pull_request_review`, and the fleet's own arrives as
+`workflow_run` on `Fleet review` finishing. The second route exists because
+the first cannot carry it -- a review posted with the workflow token starts
+no run, which is why every fleet review before #75 was answered by the
+operator by hand.
 
 So two things the roster used to claim are off. The review does not gate the
 merge, though the review that raises them does: `Fleet review` is a required
@@ -396,6 +398,11 @@ Three workflows, three verbs, so it is clear which to look at:
 | `fleet.yml`         | do the work     | a new branch                  |
 | `fleet-review.yml`  | judge it        | a check, and a comment        |
 | `fleet-respond.yml` | answer feedback | the pull request's own branch |
+
+`fleet-respond.yml` pushes with the workflow token, so its push starts
+nothing; it asks for `ci.yml` and `fleet-review.yml` by dispatch afterwards,
+which is the one thing a `GITHUB_TOKEN` may still raise. Without that the
+fixes would carry the verdict they answered, and `Fleet review` is required.
 
 ## Which model runs which agent
 
