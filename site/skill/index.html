@@ -54,7 +54,8 @@
      title and button over machine-plain controls.
 
      The fourth (1.333) in --t0..--t5 is the display ladder: the title,
-     the unicorn, the eyebrow, the labels and the button stand on it.
+     the unicorn, the eyebrow, the labels, the button and the burst's
+     sparks stand on it.
      The inputs do not, and forcing them to would be the scale using the
      page rather than the page using the scale -- one at --t1 (1rem)
      shouts next to a 3rem title and at --t0 (.75rem) is too small to
@@ -174,9 +175,9 @@
   @keyframes drift2 { 50% { transform: translate(-12vmax, 11vmax) scale(1.12); } }
   @keyframes drift3 { 50% { transform: translate(11vmax, -11vmax) scale(.82); } }
 
-  /* Stars: three tiled radial-gradient dot fields at different scales, each
-     breathing on its own clock, so the field twinkles without one element
-     per star. */
+  /* Stars: six tiled radial-gradient dot fields at different scales,
+     breathing together on the one clock, so the field twinkles without
+     one element per star. */
   .stars {
     position: fixed; inset: 0; z-index: -2; pointer-events: none;
     background-image:
@@ -715,7 +716,7 @@ if (form) form.addEventListener("submit", (event) => {
 "use strict";
 
 // The explosion. `window.party(el)` throws a handful of emoji out of an
-// element's centre and flashes a rainbow behind them.
+// element's centre and flashes gold behind them.
 //
 // Fixed positioning and viewport coordinates rather than an absolutely
 // positioned container: the button can be anywhere down a scrolled page, and
