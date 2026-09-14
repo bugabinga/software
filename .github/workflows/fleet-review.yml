@@ -189,12 +189,30 @@ jobs:
           # read, not Claude Code subagents, so nothing was reading their
           # frontmatter and every agent ran on whatever the action defaulted
           # to. `tools/fleet_brief.py` resolves the tier to an id.
-          # 60, raised from 40 after a review needed 46 to read a diff that
-          # had grown over five rounds. The ceiling is a runaway-loop guard,
-          # not a budget: the budget is `Fleet review` being one job.
+          # 80, and the two raises before it have the same shape: 40 -> 60
+          # after a review needed 46 on a diff grown over five rounds, 60 ->
+          # 80 after #82 spent two rounds ending at 61 turns -- runs
+          # 34834205194 and 34838552786, $6.41 and $5.70, the second having
+          # finished its work and died reporting it. Both read as a failed
+          # required check rather than as a finding, which is the expensive
+          # part: nothing in the output says the reviewer agreed with the
+          # branch. The ceiling is a runaway-loop guard, not a budget.
+          #
+          # This lives on its own branch because it cannot land on the one
+          # that needs it. The guard below at `fleet-review.yml:320` makes
+          # the action decline on any pull request that edits this file, for
+          # the rest of that branch's life -- so a branch raising its own
+          # ceiling stops being reviewed, its check goes green as "skipped",
+          # and the standing objection a pass would have dismissed
+          # (`tools/post_review.py:439`) never is. Measured on #82 at
+          # e52e885, and reverted.
+          #
+          # What it does not fix is the slope. The reviewer re-reads the
+          # whole diff each round, so cost grows with round count and any
+          # ceiling is reachable by leaving a branch open long enough.
           claude_args: >-
             --model ${{ steps.brief.outputs.model }}
-            --max-turns 60
+            --max-turns 80
             --allowedTools "Bash,Read,Grep,Glob"
 
       # The evidence, kept. `tools/fleet_report.py` reads this to say what the
