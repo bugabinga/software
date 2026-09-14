@@ -83,67 +83,28 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
       # Which occasion is this? A push carries its changed paths; a schedule
       # carries the cron that fired it; a manual run carries its own inputs.
+      # Which occasion is this, and what does the brief builder need to
+      # know? The routing table is data in `tools/occasion.py`, checked
+      # against the briefs that exist and against the labels `triage.py`
+      # applies -- adding an occasion is a row and a brief, not another arm
+      # of a `case` nothing can run.
       - name: Work out the occasion
         id: occasion
         env:
           EVENT: ${{ github.event_name }}
           CRON: ${{ github.event.schedule }}
-          BEFORE: ${{ github.event.before }}
-          SHA: ${{ github.sha }}
           LABEL: ${{ github.event.label.name }}
           ISSUE: ${{ github.event.issue.number }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
         run: |
-          set -euo pipefail
-          trigger=""
-          changed=""
+          python3 tools/occasion.py --event "$EVENT" --cron "$CRON" \
+            --label "$LABEL" --issue "$ISSUE" --before "$BEFORE" --sha "$SHA"
 
-          case "$EVENT" in
-            workflow_dispatch)
-              trigger=on-demand
-              ;;
-            issues)
-              case "$LABEL" in
-                "fleet:material") trigger=issue-material ;;
-                "fleet:task") trigger=issue-task ;;
-                *)
-                  echo "::notice::label '$LABEL' is not one the fleet acts on"
-                  exit 0
-                  ;;
-              esac
-              echo "issue=$ISSUE" >> "$GITHUB_OUTPUT"
-              ;;
-            schedule)
-              case "$CRON" in
-                "0 7 * * 1") trigger=weekly-garden ;;
-                "0 8 1 * *") trigger=monthly-prose ;;
-                *) echo "::error::no trigger mapped to cron '$CRON'"; exit 1 ;;
-              esac
-              ;;
-            push)
-              # A push can touch both; notes win, because new material may
-              # change what the chapters should say in the first place.
-              changed=$(git diff --name-only "$BEFORE" "$SHA" -- notes/ book/chapters/ \
-                | grep -v '^notes/index.md$' || true)
-              if echo "$changed" | grep -q '^notes/'; then
-                trigger=notes-arrived
-                changed=$(echo "$changed" | grep '^notes/' | grep -v '/raw/' || true)
-              elif [ -n "$changed" ]; then
-                trigger=chapters-changed
-              else
-                echo "::notice::nothing the fleet cares about changed"
-                exit 0
-              fi
-              ;;
-          esac
-
-          {
-            echo "trigger=$trigger"
-            echo "changed<<CHANGED_EOF"
-            echo "$changed"
-            echo "CHANGED_EOF"
-          } >> "$GITHUB_OUTPUT"
-          echo "::notice::occasion: $trigger"
-
+      # `--export` writes the brief into `$GITHUB_ENV` and the job
+      # summary. The three fleet workflows each wrote that heredoc by hand,
+      # which is three chances to get the one shape wrong that a multi-line
+      # value has to have.
       - name: Build the brief
         id: brief
         if: steps.occasion.outputs.trigger != ''
@@ -156,38 +117,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          arguments=(--trigger "$TRIGGER" --changed "$CHANGED")
+          arguments=(--trigger "$TRIGGER" --changed "$CHANGED" --export)
           [ -n "${AGENT:-}" ] && arguments+=(--agent "$AGENT")
           [ -n "${TARGET:-}" ] && arguments+=(--target "$TARGET")
 
           # An issue carries its own instructions: the form's dropdown names
           # the agent and its fields carry the request, so they are read from
-          # the body rather than restated in the workflow.
+          # the body rather than restated here.
           if [ -n "${ISSUE:-}" ]; then
-            gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE" --jq .body > /tmp/issue-body.md
+            gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE" --jq .body \
+              > /tmp/issue-body.md
             arguments+=(--issue "$ISSUE" --issue-body-file /tmp/issue-body.md)
           fi
 
-          # Writes agent= and branch= to $GITHUB_OUTPUT, prints the brief.
           python3 tools/fleet_brief.py "${arguments[@]}" > /tmp/brief.md
-
-          # The brief is multi-line, so it reaches the action through the
-          # environment rather than through an output.
-          {
-            echo "BRIEF<<BRIEF_EOF"
-            cat /tmp/brief.md
-            echo "BRIEF_EOF"
-          } >> "$GITHUB_ENV"
-
-          {
-            echo "### Fleet: \`${TRIGGER}\`"
-            echo
-            echo "The brief this run was given:"
-            echo
-            echo '```'
-            cat /tmp/brief.md
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Is there a credential to run with
         id: key

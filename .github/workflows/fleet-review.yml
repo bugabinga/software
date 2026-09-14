@@ -85,14 +85,9 @@ jobs:
         if: steps.key.outputs.present == 'true'
         env:
           PR: ${{ github.event.pull_request.number || inputs.pr }}
-        run: |
-          set -euo pipefail
-          python3 tools/fleet_brief.py --trigger pull-request --pr "$PR" > /tmp/brief.md
-          {
-            echo "BRIEF<<BRIEF_EOF"
-            cat /tmp/brief.md
-            echo "BRIEF_EOF"
-          } >> "$GITHUB_ENV"
+        run: >-
+          python3 tools/fleet_brief.py --trigger pull-request --pr "$PR"
+          --export > /tmp/brief.md
 
       - name: Review
         # Named so the posting step below can reach `outputs.github_token`.

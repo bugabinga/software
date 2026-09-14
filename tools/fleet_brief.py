@@ -29,6 +29,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from fleetlib import summary
+
 ROOT = Path(__file__).resolve().parent.parent
 BRIEFS = ROOT / ".claude" / "fleet"
 AGENTS = ROOT / ".claude" / "agents"
@@ -257,6 +259,17 @@ def self_test() -> None:
     print(f"\n{len(list(BRIEFS.glob('*.md')))} briefs, all route to a defined agent")
 
 
+def export_env(name: str, value: str) -> bool:
+    """A multi-line value into `$GITHUB_ENV`, in the form that survives it."""
+    where = os.environ.get("GITHUB_ENV")
+    if not where:
+        return False
+    marker = f"{name}_EOF"
+    with Path(where).open("a", encoding="utf-8") as handle:
+        handle.write(f"{name}<<{marker}\n{value}\n{marker}\n")
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--trigger", help="which brief to use")
@@ -274,6 +287,11 @@ def main() -> None:
         type=Path,
         help="file holding an issue body; the agent and target are read "
         "from its form fields",
+    )
+    parser.add_argument(
+        "--export",
+        action="store_true",
+        help="write BRIEF to $GITHUB_ENV and the brief to the job summary",
     )
     parser.add_argument("--list", action="store_true", help="list the triggers")
     parser.add_argument("--self-test", action="store_true", help="check every brief")
@@ -318,9 +336,21 @@ def main() -> None:
     except BriefError as error:
         sys.exit(str(error))
 
-    if output := os.environ.get("GITHUB_OUTPUT"):
-        with Path(output).open("a", encoding="utf-8") as handle:
+    if out := os.environ.get("GITHUB_OUTPUT"):
+        with Path(out).open("a", encoding="utf-8") as handle:
             handle.write(f"agent={agent}\nbranch={branch}\nmodel={model_of(agent)}\n")
+
+    if arguments.export:
+        # Three workflows each wrote this heredoc by hand. A brief is
+        # multi-line, so it reaches the action through the environment
+        # rather than an output, and a multi-line value written as
+        # `NAME=value` makes every line after the first one the runner
+        # rejects.
+        export_env("BRIEF", body)
+        summary(
+            f"### Fleet: `{arguments.trigger}`\n\n"
+            f"The brief this run was given:\n\n```\n{body}\n```"
+        )
     print(body)
 
 
