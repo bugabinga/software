@@ -88,8 +88,7 @@ agent holding them could widen its own authority. The argument was right and the
 remedy was in the wrong place. What replaced it is `repo.toml`: the rules the
 app may change are declared in a file, changed by a pull request, applied by
 `settings.yml`, and read back by `mise run check-settings`, which
-`mise run
-check` runs. The ceiling moved from a settings page with no history to
+`mise run check` runs. The ceiling moved from a settings page with no history to
 a diff with one.
 
 So the app can change the rules `repo.toml` declares, through a diff and nothing

@@ -43,7 +43,12 @@ ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / "site" / "skill" / "index.html"
 WRANGLER = ROOT / "worker" / "notes-intake" / "wrangler.jsonc"
 
-DEFAULT_BOOK = "a book about software, written in Typst"
+# Kept in step with the page's own default by hand, because nothing checks
+# it: the self-test asserts the endpoint and the token reach the generated
+# skill and deliberately says nothing about this line. The build tool has
+# nothing to do with when the skill applies, which is what this string is
+# for -- see `site/skill/index.html`.
+DEFAULT_BOOK = "one programmer's thoughts about software"
 
 # The zip is assembled by the page's own `zip()`; this only feeds it and
 # writes the bytes out. `arrayBuffer()` because the page produces a Blob,

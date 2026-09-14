@@ -160,12 +160,23 @@ jobs:
           echo "proceed=true" >> "$GITHUB_OUTPUT"
           echo "::notice::answering the review on #$pr ($branch)"
 
+      # Unconditional, like `fleet.yml` and `fleet-review.yml`. It was gated
+      # on `proceed`, which left the `always()` record step with no working
+      # tree and turned five no-op runs red on 2026-09-13. Gating the record
+      # step instead would have fixed the red without fixing the hole:
+      # `proceed` is false when the step above *died* as well as when it
+      # decided not to start -- five `gh api` calls under `set -euo pipefail`,
+      # any of which a 5xx ends -- and a run that died is the one
+      # `docs/FLEET.md` promises a line for.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        if: steps.about.outputs.proceed == 'true'
         with:
           # The pull request's own branch, because that is where the fixes go.
-          ref: ${{ steps.about.outputs.branch }}
-          fetch-depth: 0
+          # Nothing to answer means no branch, and then any tree will do: the
+          # only step left is the one that writes the record.
+          ref: ${{ steps.about.outputs.branch || github.event.repository.default_branch }}
+          # Full history only when the agent is going to work in it. A no-op
+          # run needs one commit to have `tools/` on disk.
+          fetch-depth: ${{ steps.about.outputs.proceed == 'true' && 0 || 1 }}
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         if: steps.about.outputs.proceed == 'true'
@@ -390,16 +401,11 @@ jobs:
       # says turns and dollars; without this the report cannot say which
       # agent, which trigger, or what it was pointed at -- `fleet.yml`
       # dispatches six agents and the workflow name tells them apart not at
-      # all. `always()` because a run that died is the one worth tracing.
-      #
-      # Gated on `proceed` as well, unlike `fleet.yml` and `fleet-review.yml`,
-      # because this is the one workflow whose checkout is conditional: a run
-      # that stops at "nothing to answer" has no working tree, so this step
-      # died on a missing `tools/fleet_record.py` and turned four no-op runs
-      # red on 2026-09-13. A run that decided not to start is not a run worth
-      # a record.
+      # all. `always()` because a run that died is the one worth tracing --
+      # which is only true if there is a tree to run this from, and see the
+      # checkout above for why there now always is.
       - name: Record what this run was
-        if: always() && steps.about.outputs.proceed == 'true'
+        if: always()
         env:
           FLEET_BRANCH: ${{ steps.about.outputs.branch }}
           FLEET_PR: ${{ steps.about.outputs.pr }}
