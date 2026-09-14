@@ -117,75 +117,20 @@ jobs:
       # needs no answer; asking the reviews API is more honest than reading
       # the run's conclusion, which is also red when the reviewer fell over
       # without judging anything.
+      # Which pull request this wake is about, and whether the fleet owes
+      # it anything. `workflow_run` means the reviewer finished, which is not
+      # the same as the reviewer having objected.
       - name: Which pull request, and is there anything to answer
         id: about
         env:
           GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           EVENT: ${{ github.event_name }}
           EVENT_PR: ${{ github.event.pull_request.number }}
           RUN_BRANCH: ${{ github.event.workflow_run.head_branch }}
           RUN_PRS: ${{ join(github.event.workflow_run.pull_requests.*.number, ' ') }}
-        run: |
-          set -euo pipefail
-          stop() {
-            echo "::notice::$1"
-            echo "proceed=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          }
+        run: python3 tools/respond.py --about
 
-          pr="${EVENT_PR:-}"
-          [ -n "$pr" ] || pr=$(printf '%s' "${RUN_PRS:-}" | awk '{print $1}')
-          if [ -z "$pr" ] && [ -n "${RUN_BRANCH:-}" ]; then
-            pr=$(gh api "repos/$REPO/pulls?head=${REPO%%/*}:$RUN_BRANCH&state=open"                    --jq '.[0].number // empty')
-          fi
-          [ -n "$pr" ] || stop "no open pull request for ${RUN_BRANCH:-this event}"
-
-          branch=$(gh api "repos/$REPO/pulls/$pr" --jq '.head.ref')
-          draft=$(gh api "repos/$REPO/pulls/$pr" --jq '.draft')
-          echo "pr=$pr" >> "$GITHUB_OUTPUT"
-          echo "branch=$branch" >> "$GITHUB_OUTPUT"
-          [ "$draft" = "false" ] || stop "#$pr is a draft"
-
-          if [ "$EVENT" = "workflow_run" ]; then
-            # One `.state` per line and `tail`, not `| last` inside the
-            # filter: `gh api --paginate` runs the jq once per page, so an
-            # aggregate returns one answer per page. At 100 reviews this
-            # started yielding two lines and the comparison below silently
-            # went false -- the responder declining to answer a real verdict.
-            state=$(gh api "repos/$REPO/pulls/$pr/reviews" --paginate \
-              --jq '.[] | select(.body | contains("Fleet review")) | .state' \
-              | tail -n 1)
-            [ "$state" = "CHANGES_REQUESTED" ] \
-              || stop "the last fleet verdict on #$pr is ${state:-none}, so there is nothing to answer"
-          fi
-
-          # The head as it was before the agent ran, so the dispatch step at
-          # the end can tell a push from a round that changed nothing.
-          head=$(gh api "repos/$REPO/pulls/$pr" --jq '.head.sha')
-          echo "head=$head" >> "$GITHUB_OUTPUT"
-          echo "proceed=true" >> "$GITHUB_OUTPUT"
-          echo "::notice::answering the review on #$pr ($branch)"
-
-      # The five red runs on 2026-09-13 (34788221741, 34788857763,
-      # 34789428196, 34790028463, 34790149693) were a no-op reporting itself
-      # as a failure: `about` *succeeded*, set `proceed=false` at "nothing to
-      # answer", this step was skipped, and `Record what this run was` --
-      # `always()`, and a `python3 tools/...` -- then died on the missing
-      # tree. The fix was briefly `always()` here, which cured it by cloning
-      # on every no-op to run a step whose output that same run throws away:
-      # `Keep the run's record` needs `steps.key.outputs.present`, which a
-      # run that did not proceed never sets. The record step carries the
-      # condition instead: nothing is cloned that has nothing to do, and
-      # nothing it now skips would have left a
-      # record anyway -- a no-op has no tree to record from, and a run held
-      # at three rounds or without a credential has a tree but nothing
-      # `Keep the run's record` would have kept.
-      #
-      # None of it was ever the row's keeper: `append_runs` in
-      # `tools/fleet_report.py` writes a line for every agent run from the
-      # API's own listing, with the provenance fields empty when no bundle
-      # reached it. What the record step adds is the provenance.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: steps.about.outputs.proceed == 'true'
         with:
@@ -207,52 +152,15 @@ jobs:
       # counts. Three rounds is enough to fix what is fixable; a fourth means
       # they disagree, and a disagreement between two agents is the author's
       # to settle, not something to spend another review on.
+      # The brake. Three rounds, then `hold` and the author.
       - name: How many rounds has this already had
         id: rounds
         if: steps.about.outputs.proceed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
           PR: ${{ steps.about.outputs.pr }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          # `wc -l`, not `| length` inside the filter: see the same fix in
-          # `about`. This one did not fail quietly -- run 34809724830 put
-          # "6\n1" into `$rounds`, `[ -lt ]` said "integer expression
-          # expected", and the multi-line value broke `$GITHUB_OUTPUT`. The
-          # responder was dead on this pull request until it was fixed.
-          rounds=$(gh api "repos/$REPO/pulls/$PR/reviews" --paginate \
-            --jq '.[] | select(.state == "CHANGES_REQUESTED")
-                      | select(.body | contains("Fleet review")) | .id' \
-            | wc -l)
-          echo "count=$rounds" >> "$GITHUB_OUTPUT"
-
-          if [ "$rounds" -lt 3 ]; then
-            echo "over=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::round $((rounds + 1)) of at most 3"
-            exit 0
-          fi
-
-          echo "over=true" >> "$GITHUB_OUTPUT"
-          if gh api "repos/$REPO/issues/$PR/labels" --jq '.[].name' | grep -qx 'hold'; then
-            echo "::notice::already held after $rounds rounds; saying nothing further"
-            exit 0
-          fi
-          gh api -X POST "repos/$REPO/issues/$PR/labels" -f 'labels[]=hold' > /dev/null
-          cat > /tmp/held.md <<'COMMENT'
-          Three rounds of review and this is still not settled, so the fleet
-          has stopped and labelled it `hold`. Two agents disagreeing is not
-          something a fourth round fixes, and `agent-branches.yml` will not
-          merge anything held.
-
-          The open threads above are the disagreement. Removing `hold` and
-          pushing starts the loop again.
-
-          ---
-          _Generated by [Claude Code](https://claude.ai/code)_
-          COMMENT
-          gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@/tmp/held.md > /dev/null
-          echo "::warning::held after $rounds rounds of review; this one needs the author"
+        run: python3 tools/respond.py --rounds --pr "$PR"
 
       - name: Is there a credential to run with
         if: steps.rounds.outputs.over == 'false'
