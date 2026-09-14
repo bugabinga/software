@@ -178,8 +178,11 @@ jobs:
       # in `tools/fleet_report.py` writes one with the provenance fields
       # empty when no bundle reached it -- so `docs/FLEET.md`'s "a run that
       # died still gets a line" is the report's promise and was never this
-      # step's to keep. This is here to stop a no-op reporting itself as a
-      # failure, and to fill in the row while it is at it.
+      # step's to keep. This is here for one thing: to stop a no-op
+      # reporting itself as a failure. It fills no row in -- `Keep the run's
+      # record` needs `steps.key.outputs.present`, and `key` runs only when
+      # `rounds` did, which needs `about.proceed`, so a run that did not
+      # proceed never writes the provenance this would have carried.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: always()
         with:

@@ -260,7 +260,7 @@ description = "The repository's settings, against what repo.toml declares"
 # is reported as unread rather than as agreement, so a run behind a proxy
 # that refuses whole API paths says what it managed to look at rather than
 # calling silence agreement. `ci.yml`'s Check step passes `github.token`, so
-# the rulesets and most of the repository are compared there. Not all of it:
+# the rulesets and half of `[repository]` are compared there. Not the rest:
 # the repository object a `contents: read` token receives has no merge
 # settings in it at all, so those eight read unread in CI and are compared
 # only where somebody holds a wider credential. `actions` needs
