@@ -185,12 +185,16 @@ description = "Lint the Python and the JavaScript, strictly"
 # `{{placeholder}}` inside `<style>` and `lang="{{lang}}"`, which no HTML or
 # CSS parser accepts and which `tools/build.py` substitutes before anything
 # renders them. Their findings were false for that reason, not ignored.
-# `--error-on-warnings`, because without it biome exits 0 on a warning and
-# this task was green through six of them: `CLAUDE.md` says a warning fails
-# the build like an error does, and that was true of every gate here except
-# this one. Measured -- two `noImportantStyles` warnings give exit 0 bare and
-# exit 1 with the flag. It does not cover biome's `info` tier, which has no
-# such flag; those are visible in the output and fixed rather than gated.
+# `--error-on-warnings`, because without it biome exits 0 on a warning:
+# `CLAUDE.md` says a warning fails the build like an error does, and that was
+# true of every gate here except this one. Measured on the head before
+# `biome.jsonc`'s override landed -- the skill page's two `noImportantStyles`
+# warnings gave exit 0 bare and exit 1 with the flag. That override switches
+# the rule off for the only file in the tree carrying `!important`
+# (`site/skill/index.html:400`), so nothing in the tree exercises the flag
+# today: it is armed for the next warning, not holding a current one. It does
+# not cover biome's `info` tier, which has no such flag; those are visible in
+# the output and fixed rather than gated.
 # `ruff check` already exits non-zero on any finding.
 run = [
   "ruff check tools/",

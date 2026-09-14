@@ -161,16 +161,21 @@ def unapplied_reason(
     inside an agent and on a laptop, which is why it belongs here rather than
     in three copies of a workflow condition.
     """
-    # Two failures, two sentences. `applied` is None whenever the contents
-    # fetch 404s, is refused, or is not base64 -- with the run in hand -- and
-    # blaming the run listing for that sends whoever is holding the declined
-    # run to the `Settings` history, which is fine. `_at`'s docstring names
-    # the 404 case exactly, so it is the one this line is most likely to
-    # describe.
+    # Two failures, two sentences, and the first covers two causes it cannot
+    # tell apart: `sha` is None both when the run listing could not be read
+    # and when it held no successful run. The second is not a fault -- the
+    # API's listing stops at 90 days (`docs/FLEET.md`), so a `repo.toml`
+    # nobody has changed since then arrives here clean -- so the sentence
+    # names both rather than sending that reader hunting a permissions fault.
+    # `applied` is None whenever the contents fetch 404s, is refused, or is
+    # not base64, with the run in hand; `_at`'s docstring names the 404 case
+    # exactly, so it is the one that line is most likely to describe.
     if sha is None:
         return (
-            f"the last successful `{APPLIER}` run could not be read, so "
-            "whether this declaration has been applied is unknown"
+            f"no successful `{APPLIER}` run on `main` was found -- either the "
+            "listing could not be read, or none is in it, which a repository "
+            "whose settings have been stable for 90 days reaches with nothing "
+            "wrong -- so whether this declaration has been applied is unknown"
         )
     if applied is None:
         return (

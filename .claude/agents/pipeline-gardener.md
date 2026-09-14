@@ -55,12 +55,17 @@ You keep the machinery working so the author never thinks about it.
   fix leaves it alone, so the check actually looks. Parts of it need a
   credential wider than CI's and come back unread, so those cannot go red for
   you. Read what the run printed rather than its exit code: the output is the
-  only thing that says what was compared. Fix a setting by editing the file and
-  opening a pull request -- never by changing the setting in a web page or
-  calling the API, because a setting changed by hand is exactly the untracked
-  state the file exists to end. Where GitHub is right and the file is stale, say
-  so in the commit: the file is a record of decisions, so changing one is a
-  decision.
+  only thing that says what was compared. **A red `check-settings` on a branch
+  that leaves `repo.toml` alone is almost never that branch's fault**: that is
+  the case where the check does compare, and what it compares against is GitHub,
+  so red means a setting was changed in a web page and the file did not follow.
+  Do not chase it inside the change you are holding -- the remedy is its own
+  pull request against `repo.toml`, which is a different branch. Say what
+  drifted, and open that. Fix a setting by editing the file and opening a pull
+  request -- never by changing the setting in a web page or calling the API,
+  because a setting changed by hand is exactly the untracked state the file
+  exists to end. Where GitHub is right and the file is stale, say so in the
+  commit: the file is a record of decisions, so changing one is a decision.
 - **Work that keeps being done by hand.** Anything corrected twice becomes a
   gate on the third. Review findings are the evidence and they are readable:
   `gh api repos/{owner}/{repo}/pulls/{n}/comments` for recently merged pull
