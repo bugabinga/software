@@ -20,7 +20,10 @@ import re
 import shutil
 import subprocess
 import sys
+import unittest
 from pathlib import Path
+
+from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -87,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
     if arguments.name:
         print(worker_name(arguments.name))
         return 0
@@ -102,50 +105,43 @@ def main(argv: list[str] | None = None) -> int:
     return 1
 
 
-def self_test() -> int:
-    """Naming and matching are inverses, and nothing else is touched."""
-    problems = []
+class Naming(unittest.TestCase):
+    """Naming and matching are inverses, and match nothing else."""
 
-    for number in (1, 7, 70, 12345):
-        name = worker_name(number)
-        if pr_of(name) != number:
-            problems.append(f"{number} -> {name} -> {pr_of(name)}")
+    def test_round_trip(self) -> None:
+        for number in (1, 7, 70, 12345):
+            with self.subTest(number=number):
+                self.assertEqual(pr_of(worker_name(number)), number)
 
-    # Names that are not ours must be left alone. A reaper that matches
-    # loosely deletes somebody else's Worker on the same account.
-    for name in (
-        "book-pr-",
-        "book-pr-0",
-        "book-pr-07",
-        "book-pr-70-old",
-        "book-pr-x",
-        "notes-intake",
-        "xbook-pr-70",
-        "",
-    ):
-        if pr_of(name) is not None:
-            problems.append(f"claimed {name!r} as pull request {pr_of(name)}")
+    def test_a_foreign_name_is_left_alone(self) -> None:
+        # A reaper that matches loosely deletes somebody else's Worker on
+        # the same account.
+        for name in (
+            "book-pr-",
+            "book-pr-0",
+            "book-pr-07",
+            "book-pr-70-old",
+            "book-pr-x",
+            "notes-intake",
+            "",
+            "xbook-pr-70",
+        ):
+            with self.subTest(name=name):
+                self.assertIsNone(pr_of(name))
 
-    if pr_of("book-pr-70 ") != 70:
-        problems.append("a trailing newline from the API made the name foreign")
+    def test_trailing_whitespace_is_still_ours(self) -> None:
+        # The API returns names with a newline on them, and a name that
+        # is ours does not stop being ours for it.
+        self.assertEqual(pr_of("book-pr-70 "), 70)
 
-    # A closed pull request is reaped; an open one and an unknown name are not.
-    saved = globals()["is_open"]
-    globals()["is_open"] = lambda _repo, number: number != 99
-    try:
+
+class Reaping(unittest.TestCase):
+    def test_only_closed_pull_requests(self) -> None:
+        saved = globals()["is_open"]
+        globals()["is_open"] = lambda _repo, number: number != 99
+        self.addCleanup(globals().__setitem__, "is_open", saved)
         got = reap("o/r", ["book-pr-99", "book-pr-70", "notes-intake", "book-pr-0"])
-    finally:
-        globals()["is_open"] = saved
-    if got != ["book-pr-99"]:
-        problems.append(f"reap chose {got!r}, wanted ['book-pr-99']")
-
-    for problem in problems:
-        print(f"  {problem}", file=sys.stderr)
-    if problems:
-        print(f"{len(problems)} problem(s) in preview", file=sys.stderr)
-        return 1
-    print("preview: naming and reaping agree, and match nothing else")
-    return 0
+        self.assertEqual(got, ["book-pr-99"])
 
 
 if __name__ == "__main__":

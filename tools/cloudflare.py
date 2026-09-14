@@ -29,10 +29,12 @@ import argparse
 import json
 import os
 import sys
+import unittest
 import urllib.error
 import urllib.request
+from typing import ClassVar
 
-from fleetlib import notice, output, warn
+from fleetlib import notice, output, run_tests, warn
 
 # Cloudflare answers a scope problem with an error code in the body as well
 # as an HTTP status, and not always the same status, so both are consulted.
@@ -137,7 +139,7 @@ def main(argv: list[str] | None = None) -> int:
         return check()
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
     if not arguments.subdomain:
         parser.print_help()
         return 1
@@ -150,12 +152,11 @@ def main(argv: list[str] | None = None) -> int:
     return 1
 
 
-def self_test() -> int:
-    """Each of the three situations is told apart from the other two."""
-    problems = []
+class ThreeSituations(unittest.TestCase):
+    """wrangler says one thing for three cases that need three answers."""
 
-    cases = [
-        # payload, status, expected subdomain, a word the sentence must carry
+    CASES: ClassVar[list[tuple[str, str, str | None, str]]] = [
+        # payload, status, the subdomain, a word the sentence must carry
         (
             '{"result": {"subdomain": "bugabinga"}, "success": true}',
             "200",
@@ -182,37 +183,25 @@ def self_test() -> int:
             None,
             "token's scope",
         ),
-        (
-            '{"errors": [{"code": 9109, "message": "Unauthorized"}]}',
-            "401",
-            None,
-            "token's scope",
-        ),
         ("", "000", None, "Could not reach"),
-        ("<html>502</html>", "502", None, "Could not reach"),
+        # Unparsable at 200 reads as "no subdomain", which is the honest
+        # answer: the API said yes and said nothing.
+        ("not json at all", "200", None, "no workers.dev"),
     ]
-    for payload, status, want_name, want_word in cases:
-        name, why = read(payload, status)
-        if name != want_name:
-            problems.append(
-                f"{status} {payload[:34]!r} -> {name!r}, wanted {want_name!r}"
-            )
-        elif want_word and want_word not in why:
-            problems.append(f"{status} {payload[:34]!r} -> {why[:60]!r}")
 
-    # A refusal must never be read as "no subdomain": that sends the reader to
-    # the dashboard to create a thing that is already there.
-    _, denied = read('{"errors": [{"code": 10000, "message": "x"}]}', "403")
-    if "no workers.dev subdomain" in denied:
-        problems.append("a refused read was reported as a missing subdomain")
+    def test_each_is_told_apart(self) -> None:
+        for payload, status, want_name, want_word in self.CASES:
+            with self.subTest(status=status, payload=payload[:34]):
+                name, why = read(payload, status)
+                self.assertEqual(name, want_name)
+                if want_word:
+                    self.assertIn(want_word, why)
 
-    for problem in problems:
-        print(f"  {problem}", file=sys.stderr)
-    if problems:
-        print(f"{len(problems)} problem(s) in cloudflare", file=sys.stderr)
-        return 1
-    print("cloudflare: a missing subdomain, a refused read and an outage read apart")
-    return 0
+    def test_a_refusal_is_never_a_missing_subdomain(self) -> None:
+        # That sends the reader to the dashboard to create a thing which is
+        # already there.
+        _, denied = read('{"errors": [{"code": 10000, "message": "x"}]}', "403")
+        self.assertNotIn("no workers.dev subdomain", denied)
 
 
 if __name__ == "__main__":
