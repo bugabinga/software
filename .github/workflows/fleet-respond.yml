@@ -166,10 +166,15 @@ jobs:
       # `set -euo pipefail`, a 5xx ends it, and `Record what this run was`
       # then reaches `python3 tools/fleet_record.py` with no working tree and
       # exits 2. That is the shape of the five red runs on 2026-09-13
-      # (34788221741, 34788857763, 34789428196, 34790028463, 34790149693),
-      # and gating the record step would have hidden it rather than ended it:
-      # `docs/FLEET.md` promises a line for a run that died, and a run that
-      # died is precisely when `proceed` is unset.
+      # (34788221741, 34788857763, 34789428196, 34790028463, 34790149693).
+      #
+      # What that costs is the provenance, not the row. `runs.jsonl` gets a
+      # line for every agent run from the API's own listing -- `append_runs`
+      # in `tools/fleet_report.py` writes one with the provenance fields
+      # empty when no bundle reached it -- so `docs/FLEET.md`'s "a run that
+      # died still gets a line" is the report's promise and was never this
+      # step's to keep. This is here to stop a no-op reporting itself as a
+      # failure, and to fill in the row while it is at it.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: always()
         with:

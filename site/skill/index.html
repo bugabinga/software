@@ -648,12 +648,12 @@ if (form) form.addEventListener("submit", (event) => {
 // `getBoundingClientRect` already answers in the space `position: fixed`
 // uses. The particles remove themselves on `animationend` so a page left open
 // through twenty downloads does not accumulate two hundred dead spans.
-(function () {
+(() => {
   const CAST = ["✨", "⭐", "🌟", "💫", "🦄", "🎉"];
-  const QUIET = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
+  const QUIET = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 
-  window.party = function (origin, count) {
-    if (QUIET && QUIET.matches) return;
+  window.party = (origin, count) => {
+    if (QUIET?.matches) return;
 
     const box = origin.getBoundingClientRect();
     const x0 = box.left + box.width / 2;
@@ -674,12 +674,12 @@ if (form) form.addEventListener("submit", (event) => {
       const angle = Math.PI * (1.15 + Math.random() * 0.7) + (Math.random() < 0.25 ? Math.PI : 0);
       const reach = 90 + Math.random() * 260;
 
-      spark.style.setProperty("--x0", x0 + "px");
-      spark.style.setProperty("--y0", y0 + "px");
-      spark.style.setProperty("--dx", Math.cos(angle) * reach + "px");
-      spark.style.setProperty("--dy", Math.sin(angle) * reach + "px");
-      spark.style.setProperty("--spin", Math.round(Math.random() * 900 - 450) + "deg");
-      spark.style.setProperty("--life", (0.9 + Math.random() * 0.8).toFixed(2) + "s");
+      spark.style.setProperty("--x0", `${x0}px`);
+      spark.style.setProperty("--y0", `${y0}px`);
+      spark.style.setProperty("--dx", `${Math.cos(angle) * reach}px`);
+      spark.style.setProperty("--dy", `${Math.sin(angle) * reach}px`);
+      spark.style.setProperty("--spin", `${Math.round(Math.random() * 900 - 450)}deg`);
+      spark.style.setProperty("--life", `${(0.9 + Math.random() * 0.8).toFixed(2)}s`);
 
       spark.addEventListener("animationend", () => spark.remove());
       document.body.appendChild(spark);

@@ -94,6 +94,15 @@ a diff with one.
 So the app can change the rules `repo.toml` declares, through a diff and nothing
 else. That is the principle above, and it is the point.
 
+**Workflows is the grant the fleet keeps hitting.** Without it an installation
+token is refused any write under `.github/workflows/` -- "refusing to allow a
+GitHub App to create or update workflow ... without `workflows` permission" --
+which is why `review-responder` can fix a finding about `tools/` and can only
+quote the replacement for a finding about a workflow. #82 spent a round on
+exactly that. Read and write if the fleet is to answer its own reviews about the
+machinery; leaving it read is a defensible choice, and then the roster should
+say a workflow finding always waits for a human.
+
 **Three grants sit outside that file's reach**, and they are the three the
 earlier version of this document forbade by name: Secrets, Variables and
 Environments. `repo_state.py` reads the repository object, the Actions
