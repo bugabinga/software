@@ -31,10 +31,13 @@ import argparse
 import json
 import re
 import sys
+import tempfile
+import unittest
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import tomllib
+from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 CHAPTERS = ROOT / "book" / "chapters"
@@ -381,14 +384,13 @@ def as_text(findings: list[Finding]) -> str:
 # --------------------------------------------------------------------------- #
 
 
-def self_test() -> int:
+class Rules(unittest.TestCase):
     """Every rule fires on a tree built to trip it, and on nothing else."""
-    import shutil  # noqa: PLC0415 - the self-test's own dependencies
-    import tempfile  # noqa: PLC0415
 
-    problems = []
-    with tempfile.TemporaryDirectory() as directory:
-        root = Path(directory)
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
         (root / "book" / "chapters").mkdir(parents=True)
         (root / "notes").mkdir()
         (root / "notes" / "n.md").write_text("one\ntwo\nthree\n", encoding="utf-8")
@@ -406,7 +408,6 @@ def self_test() -> int:
         (root / "book" / "terms.toml").write_text(
             '[[term]]\nname = "substrate"\navoid = ["medium"]\n', encoding="utf-8"
         )
-
         (root / "book" / "chapters" / "01-good.typ").write_text(
             "// Source: notes/n.md, lines 1-3\n= Good\n\nThe substrate holds.\n"
             '#xref("bad", "see")\n',
@@ -430,79 +431,77 @@ def self_test() -> int:
             "// Not from notes: living documentation of the prelude.\n= Exempt\n",
             encoding="utf-8",
         )
-        # Two notes on one line, both cited correctly. Every range on the line
-        # used to be checked against every note on it, so the short one was
-        # reported as too short for the long one's range -- an `error`, which
-        # is the level that blocks a merge, on prose that is right.
+        # Two notes on one line, both cited correctly. Every range on the
+        # line used to be checked against every note on it, so the short one
+        # was reported as too short for the long one's range -- an `error`,
+        # the level that blocks a merge, on prose that is right.
         (root / "book" / "chapters" / "06-two-notes.typ").write_text(
             "// Sources: notes/n.md, lines 1-2, notes/m.md, lines 40-50\n= Two\n",
             encoding="utf-8",
         )
 
-        global ROOT, MANIFEST, TERMS
+        global ROOT, MANIFEST, TERMS  # noqa: PLW0603 - the scan reads module state
         saved = (ROOT, MANIFEST, TERMS)
-        ROOT, MANIFEST, TERMS = (
-            root,
-            root / "book" / "book.toml",
-            root / "book" / "terms.toml",
-        )
-        try:
-            findings = scan(root)
-        finally:
+
+        def restore() -> None:
+            global ROOT, MANIFEST, TERMS
             ROOT, MANIFEST, TERMS = saved
 
-        got = sorted({(f.rule, f.path) for f in findings})
-        want = sorted(
-            [
-                ("dead-note", "book/chapters/02-bad.typ"),
-                ("note-line-out-of-range", "book/chapters/02-bad.typ"),
-                ("dead-xref", "book/chapters/02-bad.typ"),
-                ("dead-snippet", "book/chapters/02-bad.typ"),
-                ("todo-left", "book/chapters/02-bad.typ"),
-                ("term-drift", "book/chapters/02-bad.typ"),
-                ("uncited-chapter", "book/chapters/03-bare.typ"),
-            ]
+        self.addCleanup(restore)
+        ROOT = root
+        MANIFEST = root / "book" / "book.toml"
+        TERMS = root / "book" / "terms.toml"
+        self.findings = scan(root)
+
+    def test_each_rule_fires_where_it_should(self) -> None:
+        got = sorted({(f.rule, f.path) for f in self.findings})
+        self.assertEqual(
+            got,
+            sorted(
+                [
+                    ("dead-note", "book/chapters/02-bad.typ"),
+                    ("note-line-out-of-range", "book/chapters/02-bad.typ"),
+                    ("dead-xref", "book/chapters/02-bad.typ"),
+                    ("dead-snippet", "book/chapters/02-bad.typ"),
+                    ("todo-left", "book/chapters/02-bad.typ"),
+                    ("term-drift", "book/chapters/02-bad.typ"),
+                    ("uncited-chapter", "book/chapters/03-bare.typ"),
+                ]
+            ),
         )
-        if got != want:
-            problems.append(f"rules fired: {got}\n            wanted: {want}")
 
-        clean = [
-            f
-            for f in findings
-            if f.path.endswith(
-                ("01-good.typ", "04-plural.typ", "05-exempt.typ", "06-two-notes.typ")
-            )
-        ]
-        if clean:
-            problems.append(f"the clean chapter produced {clean}")
+    def test_the_clean_chapters_are_clean(self) -> None:
+        for stem in (
+            "01-good.typ",
+            "04-plural.typ",
+            "05-exempt.typ",
+            "06-two-notes.typ",
+        ):
+            with self.subTest(chapter=stem):
+                self.assertEqual(
+                    [f for f in self.findings if f.path.endswith(stem)], []
+                )
 
-        # `#xref("bad")` in the good chapter must resolve: `02-bad.typ` is a
-        # chapter, so its slug is `bad`. That is the prefix-stripping rule.
-        if any(f.rule == "dead-xref" and "01-good" in f.path for f in findings):
-            problems.append("slug_of does not strip the numeric prefix")
+    def test_a_slug_strips_its_numeric_prefix(self) -> None:
+        # `#xref("bad")` in the good chapter resolves because `02-bad.typ`
+        # is a chapter whose slug is `bad`.
+        self.assertFalse(
+            any(f.rule == "dead-xref" and "01-good" in f.path for f in self.findings)
+        )
 
-        document = sarif(findings)
-        if document["runs"][0]["results"][0]["level"] not in {
-            "error",
-            "warning",
-            "note",
-        }:
-            problems.append("a result has a level SARIF does not define")
-        rule_ids = {r["id"] for r in document["runs"][0]["tool"]["driver"]["rules"]}
-        unknown = {r["ruleId"] for r in document["runs"][0]["results"]} - rule_ids
-        if unknown:
-            problems.append(f"results reference undeclared rules: {unknown}")
-        json.dumps(document)  # must serialise
 
-        shutil.rmtree(root, ignore_errors=True)
+class Sarif(Rules):
+    """The document a code-scanning upload will accept, over the same tree."""
 
-    for problem in problems:
-        print(f"  {problem}", file=sys.stderr)
-    if problems:
-        print(f"{len(problems)} problem(s) in prose_scan", file=sys.stderr)
-        return 1
-    print(f"prose_scan: {len(RULES)} rules, each fires exactly where it should")
-    return 0
+    def test_levels_and_rules_are_declared(self) -> None:
+        document = sarif(self.findings)
+        for result in document["runs"][0]["results"]:
+            with self.subTest(rule=result["ruleId"]):
+                self.assertIn(result["level"], {"error", "warning", "note"})
+        declared = {r["id"] for r in document["runs"][0]["tool"]["driver"]["rules"]}
+        used = {r["ruleId"] for r in document["runs"][0]["results"]}
+        self.assertEqual(used - declared, set())
+        json.dumps(document)
 
 
 def main() -> int:
@@ -518,7 +517,7 @@ def main() -> int:
     arguments = parser.parse_args()
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
 
     findings = scan()
     print(as_text(findings), end="")
