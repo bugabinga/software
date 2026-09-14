@@ -293,17 +293,6 @@ JQ_FLAG = re.compile(r"--jq[\"']?[\s,]*")
 BETWEEN_PARTS = re.compile(r"[\s,\\]*")
 
 
-def _call_span(window: str, near: int) -> str:
-    """The part of `window` belonging to the invocation around `near`.
-
-    Bounded by the neighbouring `gh` invocations, which is as much structure
-    as a window has: a shell line and a Python call both start one.
-    """
-    before = window.rfind("gh", 0, near)
-    after = window.find("gh", near)
-    return window[max(before, 0) : after if after != -1 else len(window)]
-
-
 def _jq_filter(window: str, near: int) -> str:
     """Everything quoted after the `--jq` nearest `near` in `window`, joined.
 
@@ -427,15 +416,15 @@ def paginate_findings(where: str, lines: list[str]) -> list[str]:
         near += line.index("--paginate")
         # Only what `--jq` was actually given, which is also what keeps this
         # file's own prose about the flag from being its first finding.
-        # `--slurp` is excluded because it is gh's own answer to this bug
-        # (2.55.0; `mise.toml` pins 2.63.2): it hands the filter one array
-        # spanning every page, so an aggregate over it is correct and this
-        # rule would otherwise forbid the fix it exists to ask for. Scoped to
-        # the call and not the window, for the reason `--jq` is: a neighbour
-        # six lines away would otherwise exempt this one, and the first call
-        # in a block to adopt `--slurp` would silently exempt the rest.
-        call = _call_span(window, near)
-        if "--slurp" not in call and AGGREGATE.search(_jq_filter(window, near)):
+        # No carve-out for `--slurp`, which is gh's own answer to this bug
+        # and might look like it needs one. It does not: gh 2.63.2 refuses
+        # `--slurp` together with `--jq` ("the `--slurp` option is not
+        # supported with `--jq` or `--template`", measured with the pinned
+        # binary), so the working shape is `--paginate --slurp | jq '...'`
+        # -- no `--jq` for `_jq_filter` to read, and nothing to exempt. An
+        # earlier version excluded the combination gh rejects, which is to
+        # say it exempted a call nobody can run.
+        if AGGREGATE.search(_jq_filter(window, near)):
             problems.append(
                 f"{where}:{number}: `gh api --paginate` with an "
                 "aggregating jq filter; it answers once per page"
@@ -484,20 +473,19 @@ def self_test() -> int:
             "s=$(gh api repos/x/reviews <P> \\\n"
             "  --jq '[.[]] | last | .state')",
         ),
-        # Nor a neighbour's `--slurp` exempt it.
+        # A slurped neighbour must not shield the call beside it.
         (
-            "neighbour slurped",
+            "beside a slurp",
             caught,
-            "a=$(gh api repos/x <P> --slurp --jq '[.[][]] | length')\n"
+            "a=$(gh api repos/x <P> --slurp | jq '[.[][]] | length')\n"
             "b=$(gh api repos/y <P> --jq '[.[]] | length')",
         ),
         # `--slurp` is gh's own answer to this bug: one array over every page,
         # so an aggregate is correct and forbidding it forbids the fix.
-        (
-            "slurped",
-            clean,
-            'gh("api", "<P>", "--slurp", "--jq", "[.[][]] | length")',
-        ),
+        # `--slurp` is the fix this rule asks for, and the shape gh accepts
+        # pipes to jq rather than passing `--jq`, so there is no filter here
+        # to read as this call's.
+        ("slurped", clean, "gh api x <P> --slurp | jq '[.[][]] | length'"),
         # An aggregate quoted in the comment that explains the fix.
         (
             "comment quotes it",

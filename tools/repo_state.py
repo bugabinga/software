@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -658,17 +659,23 @@ def check(repo: str, declared_path: Path = DECLARED) -> int:
     pending = applied_declaration(repo, declared_path)
     if pending is not None:
         print(f"  unread  {declared_path.name}\n            {pending}")
-        # An annotation as well as the line. Six documents tell the reader
-        # not to infer coverage from the exit code and to read what the run
-        # printed -- and in CI what it printed is a line inside `mise run
-        # check`'s log, on the one branch where the whole check is a no-op.
-        # `check_epub.py:155` reaches for the same key for the same reason.
-        lead = "::warning::" if "GITHUB_ACTIONS" in __import__("os").environ else ""
-        print()
-        print(
-            f"{lead}Nothing was compared. That is not agreement: this run "
-            "cannot tell you whether the repository matches the file."
+        notice = (
+            "Nothing was compared. That is not agreement: this run cannot "
+            "tell you whether the repository matches the file."
         )
+        print()
+        print(notice)
+        # The job summary rather than a `::warning::`. The runner reads a
+        # workflow command only from a line beginning `::`, and `mise run
+        # check` -- the only way this is reached in CI -- prefixes every line
+        # a task prints: measured with the decline forced, the line arrives as
+        # `[check-settings] ::warning::Nothing was compared`. `check_epub.py`
+        # gets away with the same trick because `release.yml:87` calls it
+        # directly. A summary is a file, so no prefix can reach it.
+        summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary:
+            with Path(summary).open("a", encoding="utf-8") as handle:
+                handle.write(f"### `check-settings` compared nothing\n\n{pending}\n")
         return 0
 
     sections = [
