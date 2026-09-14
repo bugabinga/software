@@ -46,15 +46,17 @@ code that can only be tested by pushing.
 
 - One task runner defines the work and CI calls the same entry points a
   contributor calls, so a green local run means something.
-- Anything with a branch in it belongs in a program with a self-test.
-  `tools/preview.py` and `tools/cloudflare.py` are the shape here.
+- Anything with a branch in it belongs in a program with a self-test. The shape
+  to copy is whichever `tools/*.py` has a `--self-test` and is called from one
+  `run:` line; `mise tasks` lists the ones the gates run.
 - `set -euo pipefail`, `shellcheck`, and never interpolate `${{ }}` into a shell
   body -- pass it through `env:`, so a branch named `"; rm -rf /` is a string
   and not a statement.
 - `actionlint` catches the YAML-shaped mistakes. Gate on it, and on whatever
-  catches the ones it does not: here `tools/check_workflows.py` finds a heredoc
-  terminator indented past its `run:` block, which never closes, so bash runs a
-  truncated script and says nothing.
+  catches the ones it does not -- the ones this tree has met are the list in
+  `tools/check_workflows.py`'s docstring, each with the outage that put it
+  there. When you hand-correct a class of fault a third time, it belongs in that
+  program, not in this file.
 
 ## Caching
 
@@ -189,17 +191,12 @@ absent on a free plan, so check before building a merge rule around it.
 - [ ] If two workflows talk to each other, you have checked the `GITHUB_TOKEN`
       rule.
 
-Three items are standing debt here rather than rules this repository keeps.
-`settings.yml` is the only job in the tree that sets **`timeout-minutes`**.
-Seven `run:` bodies interpolate `${{ }}`: `release.yml:43` builds a shell string
-out of a tag name, `maintenance.yml:120` out of a step output,
-`maintenance.yml:227` an issue body, and `fleet.yml:313`, `fleet-review.yml:216`
-and `fleet-respond.yml:439` pass `runner.temp` while `fleet-review.yml:293`
-passes a pull request number or a dispatch input. And three workflows declare no
-`concurrency` at all: `agent-branches.yml`, `labels.yml` and `release.yml`. All
-three stay on the list because they are right, and they are named because a
-checklist every existing file fails is one the next worker learns to skip. Fix
-the workflow you are touching; each sweep is its own pull request.
+Most of this list is machine-checkable, and where it is, it is checked rather
+than remembered: run `mise run check-workflows` and read what it says. It once
+carried a paragraph naming which files were behind on which item, which was
+useful for about a week and then wrong in every clause -- the sweep that fixed
+them did not know to come back here. **An item worth writing down twice is an
+item worth gating instead.**
 
 [billing]: https://docs.github.com/en/billing/concepts/product-billing/github-actions
 [rates]: https://docs.github.com/en/billing/reference/actions-runner-pricing
