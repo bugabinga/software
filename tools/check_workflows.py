@@ -293,8 +293,15 @@ JQ_FLAG = re.compile(r"--jq[\"']?[\s,]*")
 BETWEEN_PARTS = re.compile(r"[\s,\\]*")
 
 
-def _jq_filter(window: str) -> str:
-    """Everything quoted after the first `--jq` in `window`, joined.
+def _jq_filter(window: str, near: int) -> str:
+    """Everything quoted after the `--jq` nearest `near` in `window`, joined.
+
+    Nearest, not first: the window reaches six lines backwards, so an ordinary
+    `gh api ... --jq` above a paginated call would otherwise lend it that
+    filter and the rule would pass in silence -- a false negative on exactly
+    the bug it exists to find. `fleet-respond.yml`'s own `--jq '.draft'` sits
+    one line outside the window today, kept there only by the length of the
+    comment above the call it guards.
 
     Joined rather than tested one at a time because Python splits a long
     filter across adjacent string literals, and the aggregate can land on
@@ -304,9 +311,10 @@ def _jq_filter(window: str) -> str:
     # Past the flag *and* its own closing quote: in Python the argument is
     # `"--jq",` and starting at the `-` leaves that quote to be read as the
     # filter's opening one, which swallows the filter and misses the bug.
-    flag = JQ_FLAG.search(window)
-    if flag is None:
+    flags = list(JQ_FLAG.finditer(window))
+    if not flags:
         return ""
+    flag = min(flags, key=lambda found: abs(found.start() - near))
     rest = window[flag.end() :]
 
     # Only the first run of quoted strings, not every quote to the end of the
@@ -398,14 +406,22 @@ def check_paginate_aggregate(path: Path) -> list[str]:
     for number, line in enumerate(code, 1):
         if "--paginate" not in line:
             continue
-        window = "\n".join(code[max(0, number - 7) : number + 6])
+        start = max(0, number - 7)
+        window = "\n".join(code[start : number + 6])
+        # Where the `--paginate` itself sits inside the window, so
+        # `_jq_filter` takes the flag belonging to *this* call rather than a
+        # neighbour's. The token, not the line: measured from the line start,
+        # a `--jq` late on the previous line beats this call's own, which is
+        # the false negative in the shape this rule was written for.
+        near = sum(len(text) + 1 for text in code[start : number - 1])
+        near += line.index("--paginate")
         # Only what `--jq` was actually given, which is also what keeps this
         # file's own prose about the flag from being its first finding.
         # `--slurp` is excluded because it is gh's own answer to this bug
         # (2.55.0; `mise.toml` pins 2.63.2): it hands the filter one array
         # spanning every page, so an aggregate over it is correct and this
         # rule would otherwise forbid the fix it exists to ask for.
-        if "--slurp" not in window and AGGREGATE.search(_jq_filter(window)):
+        if "--slurp" not in window and AGGREGATE.search(_jq_filter(window, near)):
             problems.append(
                 f"{path.relative_to(ROOT)}:{number}: `gh api --paginate` with an "
                 "aggregating jq filter; it answers once per page"
