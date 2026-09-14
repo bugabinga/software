@@ -391,8 +391,15 @@ jobs:
       # agent, which trigger, or what it was pointed at -- `fleet.yml`
       # dispatches six agents and the workflow name tells them apart not at
       # all. `always()` because a run that died is the one worth tracing.
+      #
+      # Gated on `proceed` as well, unlike `fleet.yml` and `fleet-review.yml`,
+      # because this is the one workflow whose checkout is conditional: a run
+      # that stops at "nothing to answer" has no working tree, so this step
+      # died on a missing `tools/fleet_record.py` and turned four no-op runs
+      # red on 2026-09-13. A run that decided not to start is not a run worth
+      # a record.
       - name: Record what this run was
-        if: always()
+        if: always() && steps.about.outputs.proceed == 'true'
         env:
           FLEET_BRANCH: ${{ steps.about.outputs.branch }}
           FLEET_PR: ${{ steps.about.outputs.pr }}
