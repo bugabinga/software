@@ -12,7 +12,7 @@ name: Fleet
 # `tools/fleet_brief.py` -- not from this file. Changing an agent's
 # instructions for a given occasion is then a readable diff in a Markdown
 # file, and the routing can be tested without an API key
-# (`tools/fleet_brief.py --self-test`, which CI runs on every pull request).
+# (`tools/fleet_brief.py`'s cases, which `mise run check-tools` runs).
 #
 # Requires an ANTHROPIC_API_KEY repository secret. Without it every run stops
 # after routing and says what it would have done, so the triggers can be

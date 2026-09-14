@@ -19,6 +19,8 @@ from __future__ import annotations
 import json
 import posixpath
 import sys
+import tempfile
+import unittest
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
@@ -160,6 +162,68 @@ def main() -> None:
 
     pages = len(list(root.rglob("*.html")))
     print(f"internal links: {pages} pages, no broken links")
+
+
+class Resolving(unittest.TestCase):
+    """Where a link points, which is the whole of what this checker knows."""
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        (self.root / "one").mkdir()
+        (self.root / "one" / "index.html").write_text("x", encoding="utf-8")
+        self.page = self.root / "one" / "index.html"
+
+    def test_a_relative_link_is_relative_to_its_page(self) -> None:
+        self.assertEqual(
+            resolve(self.root, self.page, "../two/index.html"),
+            self.root / "two" / "index.html",
+        )
+
+    def test_a_directory_means_its_index(self) -> None:
+        self.assertEqual(
+            resolve(self.root, self.page, "../one/"), self.root / "one" / "index.html"
+        )
+
+    def test_a_root_link_is_relative_to_the_site(self) -> None:
+        self.assertEqual(
+            resolve(self.root, self.page, "/two.html"), self.root / "two.html"
+        )
+
+    def test_the_deploy_prefix_comes_off(self) -> None:
+        # Root-relative links carry the prefix because that is what makes
+        # them correct once deployed; stripping it is what lets the same
+        # link be checked against a local `dist/`.
+        self.assertEqual(
+            resolve(self.root, self.page, "/software/two.html", "/software/"),
+            self.root / "two.html",
+        )
+
+    def test_percent_encoding_is_decoded(self) -> None:
+        self.assertEqual(
+            resolve(self.root, self.page, "../a%20b.html"), self.root / "a b.html"
+        )
+
+
+class BasePath(unittest.TestCase):
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+
+    def test_no_build_info_means_the_root(self) -> None:
+        self.assertEqual(site_base_path(self.root), "/")
+
+    def test_it_is_read_from_the_build(self) -> None:
+        (self.root / "build-info.json").write_text(
+            '{"base_path": "/software/"}', encoding="utf-8"
+        )
+        self.assertEqual(site_base_path(self.root), "/software/")
+
+    def test_unreadable_is_the_root_not_a_crash(self) -> None:
+        (self.root / "build-info.json").write_text("{{{", encoding="utf-8")
+        self.assertEqual(site_base_path(self.root), "/")
 
 
 if __name__ == "__main__":

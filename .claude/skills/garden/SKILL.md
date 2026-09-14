@@ -51,7 +51,7 @@ request with red CI is more urgent than anything below it).
    `gh api repos/{owner}/{repo}/pulls/{n}/comments --jq '.[].body'` -- and group
    them by what the finding is about rather than which file it landed in. A
    class that appears three times is a gate this week: a check that fails, a
-   formatter setting, a self-test. If it genuinely cannot be mechanised, open an
+   formatter setting, a test case. If it genuinely cannot be mechanised, open an
    issue saying why, so the next sweep does not rediscover it.
 
    Two hits is a coincidence and three is a pattern. The evidence is already in

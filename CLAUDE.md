@@ -35,11 +35,20 @@ the next finding too, which is the failure this rule exists to prevent.
 `ruff.toml` states how many findings its one remaining exception covers; recount
 before adding to it.
 
-**The Python is linted and type-checked, strictly.** `ruff check` with a wide
-selection (`ruff.toml` records why each switched-off rule is off) and `ty`
-(`ty.toml`). Both are gates. Do not silence a finding with a bare `noqa`: give
-it a code and a reason on the same line, the way the existing ones do, so the
-next reader can tell a deliberate exception from a shrug.
+**The Python is linted, type-checked and tested, strictly.** `ruff check` with a
+wide selection (`ruff.toml` records why each switched-off rule is off), `ty`
+(`ty.toml`), and `unittest`. All three are gates. Do not silence a finding with
+a bare `noqa`: give it a code and a reason on the same line, the way the
+existing ones do, so the next reader can tell a deliberate exception from a
+shrug.
+
+Tests live at the foot of the program they are about, as `unittest.TestCase`
+subclasses -- stdlib only, like everything else in `tools/`. Nothing wires them
+up: `mise run check-tools` is one `unittest discover` over the directory, and
+`check_tools` in `tools/check_workflows.py` fails a program that carries no case
+at all. `mise run coverage` answers which lines they reach and is not a gate.
+Write the decision as a pure function and the case against that function; the
+shape to copy is any file in `tools/`.
 
 **The third time is a gate.** Anything corrected by hand twice becomes a check
 that fails on the third. Not a note, not a rule in a document the next worker

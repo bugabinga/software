@@ -11,7 +11,7 @@
 # in `tools/repo_state.py`. Where it does compare, some fields still read
 # unread short of a wide credential: `actions/permissions/workflow`, and the
 # fields GitHub omits from the repository object it hands a CI token --
-# `TRIMMED_BY_PERMISSION` in that file is the list, and its self-test asserts
+# `TRIMMED_BY_PERMISSION` in that file is the list, and a case there asserts
 # every name on it is declared here. Read what the run printed; do not infer
 # coverage from the exit code.
 # Before this file, the same claims lived in prose -- and prose about a

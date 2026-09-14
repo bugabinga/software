@@ -22,7 +22,6 @@ people would agree on every result without discussing it.
 Usage:
     tools/prose_scan.py                     # human-readable, exits 1 on error
     tools/prose_scan.py --sarif out.sarif   # for github/codeql-action
-    tools/prose_scan.py --self-test
 """
 
 from __future__ import annotations
@@ -37,7 +36,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import tomllib
-from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 CHAPTERS = ROOT / "book" / "chapters"
@@ -507,7 +505,6 @@ class Sarif(Rules):
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sarif", type=Path, help="write SARIF here")
-    parser.add_argument("--self-test", action="store_true")
     parser.add_argument(
         "--fail-on",
         default="error",
@@ -515,9 +512,6 @@ def main() -> int:
         help="lowest level that exits non-zero (default: error)",
     )
     arguments = parser.parse_args()
-
-    if arguments.self_test:
-        return run_tests()
 
     findings = scan()
     print(as_text(findings), end="")

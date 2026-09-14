@@ -22,7 +22,6 @@ log of anything that traces the runner; stdin is neither.
 Usage:
     tools/make_skill.py --subdomain NAME --out PATH [--book LINE] < token
     tools/make_skill.py --subdomain NAME --print-endpoint
-    tools/make_skill.py --self-test
 """
 
 from __future__ import annotations
@@ -40,7 +39,7 @@ import zipfile
 from pathlib import Path
 
 from check_skill_page import extract_script
-from fleetlib import run_tests
+from fleetlib import captured
 
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / "site" / "skill" / "index.html"
@@ -82,7 +81,7 @@ def default_book(page: Path = PAGE) -> str:
     generator in miniature, and it drifted on its first opportunity: the page
     was reworded and the constant kept the old string, which is what anyone
     with a checkout got from `--book`. Nothing caught it, and nothing was
-    going to -- the self-test asserts the endpoint and the token and
+    going to -- the cases below assert the endpoint and the token and
     deliberately not the prose around them.
 
     A regex rather than an HTML parser, for the same reason `worker_name`
@@ -173,6 +172,7 @@ class TheZip(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         out = Path(tmp.name) / "skill.zip"
+        self.enterContext(captured())
         build(
             "https://notes-intake.example.workers.dev",
             "a-very-long-random-intake-token",
@@ -215,11 +215,8 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="print the inbox's address and stop, so a caller need not build it",
     )
-    parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args(argv)
 
-    if args.self_test:
-        return run_tests()
     if args.print_endpoint:
         if not args.subdomain:
             parser.error("--print-endpoint needs --subdomain")

@@ -41,14 +41,15 @@ ignore = [
   # asking for a recount is the reason this is right rather than assumed.
   #
   # The growth is not decay. PLR2004 went 11 -> 18 and every new one is a
-  # literal in a `--self-test`, where `assert round_of(...) == 2` is the
+  # literal in a test case, where `assertEqual(round_of(...), 2)` is the
   # assertion and naming the 2 would hide it. The complexity counters sit on
   # `tools/build.py`, a pipeline whose honest shape is one long function
   # doing the steps in order; splitting it to satisfy a counter would make it
   # harder to read.
   #
   # Recount before adding to this list. A count that grows outside a
-  # self-test is the signal that the exception has stopped being one.
+  # `unittest.TestCase` is the signal that the exception has stopped being
+  # one.
   "PLR0911",
   "PLR0912",
   "PLR0913",

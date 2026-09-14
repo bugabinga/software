@@ -29,6 +29,7 @@ import argparse
 import hashlib
 import io
 import re
+import unittest
 import urllib.error
 import urllib.request
 from datetime import date, datetime, timezone
@@ -458,6 +459,68 @@ def main() -> None:
             arguments.allow_thin,
         )
     reindex()
+
+
+class Slugs(unittest.TestCase):
+    """A note's filename, which is how it is cited for the rest of its life.
+
+    `prose_scan` reads `// Source: notes/<slug>.md` out of every chapter, so
+    a slug that changes shape breaks citations that were correct.
+    """
+
+    def test_a_url_loses_its_scheme(self) -> None:
+        self.assertEqual(slugify("https://example.com/a/post"), "example-com-a-post")
+
+    def test_shapes(self) -> None:
+        for text, want in (
+            ("A Title", "a-title"),
+            ("  Spaced  ", "spaced"),
+            ("Types & Values", "types-values"),
+            ("http://x.dev/", "x-dev"),
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(slugify(text), want)
+
+    def test_nothing_usable_falls_back(self) -> None:
+        for text in ("", "   ", "!!!", "://"):
+            with self.subTest(text=text):
+                self.assertEqual(slugify(text), "note")
+        self.assertEqual(slugify("", "other"), "other")
+
+    def test_it_is_bounded(self) -> None:
+        # A filename is not a place for a whole headline.
+        made = slugify("word " * 60)
+        self.assertLessEqual(len(made), 60)
+        self.assertFalse(made.endswith("-"))
+
+
+class Markdown(unittest.TestCase):
+    """HTML in, a title and Markdown out."""
+
+    def test_the_title_comes_from_the_title_tag(self) -> None:
+        # Not from the first <h1>: an article's <h1> and its <title> often
+        # differ, and the <title> is what the tab and the archive show.
+        title, text = to_markdown(
+            "<title>The Title</title><h1>A Heading</h1><p>A paragraph.</p>"
+        )
+        self.assertEqual(title, "The Title")
+        self.assertIn("# A Heading", text)
+        self.assertIn("A paragraph.", text)
+
+    def test_no_title_tag_leaves_the_title_empty(self) -> None:
+        title, text = to_markdown("<h1>A Heading</h1>")
+        self.assertEqual(title, "")
+        self.assertIn("# A Heading", text)
+
+    def test_markup_does_not_survive(self) -> None:
+        _, text = to_markdown("<p>Plain <b>bold</b> words.</p>")
+        self.assertNotIn("<b>", text)
+        self.assertIn("bold", text)
+
+    def test_nothing_in_nothing_out(self) -> None:
+        title, text = to_markdown("")
+        self.assertEqual(title, "")
+        self.assertEqual(text.strip(), "")
 
 
 if __name__ == "__main__":

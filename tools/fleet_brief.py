@@ -14,7 +14,6 @@ Usage:
     tools/fleet_brief.py --trigger notes-arrived --changed notes/a.md,notes/b.md
     tools/fleet_brief.py --trigger on-demand --agent prose-editor --target "chapter 3"
     tools/fleet_brief.py --list
-    tools/fleet_brief.py --self-test
 
 Prints the filled-in brief on stdout, and `agent=` / `branch=` / `model=`
 lines to the path in $GITHUB_OUTPUT when that is set.
@@ -31,7 +30,7 @@ from datetime import date
 from pathlib import Path
 from typing import ClassVar
 
-from fleetlib import run_tests, summary
+from fleetlib import summary
 
 ROOT = Path(__file__).resolve().parent.parent
 BRIEFS = ROOT / ".claude" / "fleet"
@@ -284,11 +283,8 @@ def main() -> None:
         help="write BRIEF to $GITHUB_ENV and the brief to the job summary",
     )
     parser.add_argument("--list", action="store_true", help="list the triggers")
-    parser.add_argument("--self-test", action="store_true", help="check every brief")
     arguments = parser.parse_args()
 
-    if arguments.self_test:
-        sys.exit(run_tests())
     if arguments.list:
         for path in sorted(BRIEFS.glob("*.md")):
             header, _ = load(path.stem)

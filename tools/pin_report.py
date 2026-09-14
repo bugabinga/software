@@ -14,12 +14,10 @@ here, where a test can reach it.
 
 Usage:
     tools/pin_report.py            # writes the summary and Typst's outputs
-    tools/pin_report.py --self-test
 """
 
 from __future__ import annotations
 
-import argparse
 import shutil
 import subprocess
 import sys
@@ -27,7 +25,7 @@ import unittest
 from dataclasses import dataclass
 from typing import ClassVar
 
-from fleetlib import notice, output, run_tests, summary
+from fleetlib import notice, output, summary
 from pinned import pins
 
 UNRESOLVED = "?"
@@ -114,12 +112,7 @@ class Table(unittest.TestCase):
         self.assertIn("typst", pins())
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true")
-    if parser.parse_args(argv).self_test:
-        return run_tests()
-
+def main() -> int:
     rows = [Pin(tool, pinned, latest(tool)) for tool, pinned in sorted(pins().items())]
     summary(table(rows))
     behind = [row for row in rows if row.behind]

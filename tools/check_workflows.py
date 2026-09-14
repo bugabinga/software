@@ -7,7 +7,8 @@ run nobody is watching. These classes of mistake are worth catching locally
 outgrow, which is how it came to say six while catching seven:
 
 * invalid YAML (checked when PyYAML happens to be importable);
-* a program under `tools/` that no longer parses as Python;
+* a program under `tools/` that no longer parses as Python, or that
+  carries no test;
 * a `uses:` that is not a commit SHA, or one carrying no version comment;
 * a tab, which YAML forbids for indentation;
 * a comment wrapped past the width the author reads at;
@@ -20,11 +21,10 @@ outgrow, which is how it came to say six while catching seven:
   problem at all -- it ends the YAML block early, which the syntax check
   catches. Both are easy to write and neither is visible by eye.
 * `gh api --paginate` with a jq filter that aggregates, which answers once
-  per page. See `paginate_findings`; `--self-test` is its fixture table.
+  per page. See `paginate_findings` and the `Paginate` cases below.
 
 Usage:
     tools/check_workflows.py
-    tools/check_workflows.py --self-test
 """
 
 from __future__ import annotations
@@ -32,11 +32,10 @@ from __future__ import annotations
 import ast
 import re
 import sys
+import textwrap
 import unittest
 from pathlib import Path
 from typing import ClassVar
-
-from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 HEREDOC = re.compile(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?")
@@ -229,21 +228,50 @@ def check_pins(paths: list[Path]) -> list[str]:
     return problems
 
 
-def check_tools() -> list[str]:
-    """Every tool in `tools/` parses as Python.
+def has_tests(tree: ast.Module) -> bool:
+    """Whether a module defines at least one `unittest.TestCase` subclass.
 
-    Cheap, and it closes a gap that cost a review: a program embedded in a
-    workflow is not syntax-checked by anything, so the only way to know it
-    runs is to run it in CI and read the failure. Keeping the programs in
-    files means this catches them before they are pushed.
+    By the base class name rather than by running anything: this gate is a
+    parse, and `unittest discover` is what actually runs them. A subclass of
+    a local base that itself extends `TestCase` reads as untested here, which
+    is a false positive nothing in the tree has yet produced; widen it when
+    something does rather than before.
+    """
+    return any(
+        isinstance(node, ast.ClassDef)
+        and any(
+            isinstance(base, ast.Attribute) and base.attr == "TestCase"
+            for base in node.bases
+        )
+        for node in ast.walk(tree)
+    )
+
+
+def check_tools() -> list[str]:
+    """Every tool in `tools/` parses, and every one of them is tested.
+
+    The parse is cheap and closes a gap that cost a review: a program embedded
+    in a workflow is not syntax-checked by anything, so the only way to know it
+    runs is to run it in CI and read the failure. Keeping the programs in files
+    means this catches them before they are pushed.
+
+    The test requirement is the third-time rule. Twenty programs carried a
+    `--self-test` wired by hand into `mise.toml` and eight carried none, and
+    the gap was invisible because nothing compared the two lists. There is no
+    list now -- `mise run check-tools` discovers whatever is there -- so this
+    is what makes a new program arrive with a test instead of arriving silent.
     """
     problems = []
     for path in sorted((ROOT / "tools").glob("*.py")):
         source = path.read_text(encoding="utf-8")
+        name = path.relative_to(ROOT)
         try:
-            compile(source, str(path), "exec")
+            tree = ast.parse(source, str(path))
         except SyntaxError as error:
-            problems.append(f"{path.relative_to(ROOT)}:{error.lineno}: {error.msg}")
+            problems.append(f"{name}:{error.lineno}: {error.msg}")
+            continue
+        if not has_tests(tree):
+            problems.append(f"{name}:1: no unittest.TestCase; every tool is tested")
     return problems
 
 
@@ -472,7 +500,7 @@ def paginate_findings(where: str, lines: list[str]) -> list[str]:
 
 
 def check_paginate_aggregate(path: Path) -> list[str]:
-    """`paginate_findings` over a file. The split is the self-test's seam."""
+    """`paginate_findings` over a file. The split is where the tests grip."""
     return paginate_findings(
         str(path.relative_to(ROOT)), path.read_text(encoding="utf-8").splitlines()
     )
@@ -675,9 +703,6 @@ def check_no_interpolation(paths: list[Path]) -> list[str]:
 
 
 def main() -> None:
-    if "--self-test" in sys.argv[1:]:
-        sys.exit(run_tests())
-
     paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted(
         (ROOT / ".github").rglob("*.yaml")
     )
@@ -721,6 +746,50 @@ def main() -> None:
         f"workflows: {len(paths)} files, {tools} tools, "
         f"{pins} pinned actions, no problems"
     )
+
+
+class Tested(unittest.TestCase):
+    """`has_tests` reads the base class, not the file name."""
+
+    def parse(self, source: str) -> ast.Module:
+        return ast.parse(textwrap.dedent(source))
+
+    def test_a_testcase_counts(self) -> None:
+        self.assertTrue(
+            has_tests(
+                self.parse("""
+                    class Cases(unittest.TestCase):
+                        pass
+                """)
+            )
+        )
+
+    def test_a_nested_testcase_counts(self) -> None:
+        # `ast.walk`, not the module's top level: a case class defined inside
+        # an `if TYPE_CHECKING` or a helper is still a case class.
+        self.assertTrue(
+            has_tests(
+                self.parse("""
+                    if True:
+                        class Cases(unittest.TestCase):
+                            pass
+                """)
+            )
+        )
+
+    def test_a_plain_class_does_not(self) -> None:
+        self.assertFalse(
+            has_tests(
+                self.parse("""
+                    class Cases:
+                        def test_nothing(self) -> None:
+                            pass
+                """)
+            )
+        )
+
+    def test_the_tree_passes_its_own_gate(self) -> None:
+        self.assertEqual(check_tools(), [])
 
 
 if __name__ == "__main__":

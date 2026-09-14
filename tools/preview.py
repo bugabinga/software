@@ -10,7 +10,6 @@ accumulates dead ones until the account's Worker limit stops the next deploy
 Usage:
     tools/preview.py --name 70            # book-pr-70
     ... | tools/preview.py --repo o/r --reap   # which of these have closed
-    tools/preview.py --self-test
 """
 
 from __future__ import annotations
@@ -22,8 +21,6 @@ import subprocess
 import sys
 import unittest
 from pathlib import Path
-
-from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -86,11 +83,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Worker names to consider deleting; reads stdin when given none",
     )
     parser.add_argument("--repo", default="", help="owner/name, for --reap")
-    parser.add_argument("--self-test", action="store_true")
     arguments = parser.parse_args(argv)
 
-    if arguments.self_test:
-        return run_tests()
     if arguments.name:
         print(worker_name(arguments.name))
         return 0

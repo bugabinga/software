@@ -11,11 +11,12 @@ Nothing here is speculative. Every function replaces shell that existed in at
 least two workflows.
 
 Usage:
-    tools/fleetlib.py --self-test
 """
 
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import shutil
@@ -23,10 +24,26 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+@contextlib.contextmanager
+def captured() -> Iterator[io.StringIO]:
+    """Collect what `notice`, `warn` and the rest print, and yield the buffer.
+
+    For tests. A function that emits a workflow command is exercised like any
+    other, and an uncaptured `::notice::` in the discovery output is noise a
+    real failure hides behind -- three tools were printing into it. Yielding
+    the buffer rather than swallowing it means the emission can be asserted
+    on where that is the point of the test.
+    """
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        yield buffer
 
 
 class GhError(RuntimeError):
@@ -128,28 +145,6 @@ def fail(text: str) -> None:
     print(f"::error::{text}")
 
 
-def run_tests(module: str = "__main__") -> int:
-    """Every `unittest.TestCase` in the calling module. The one way to test.
-
-    `--self-test` is the convention -- a program proves itself when run, so
-    the cases live in the file they are about and a reviewer sees the change
-    and its evidence in one diff. This is the body of it.
-
-    `unittest` rather than bare `assert`, and rather than pytest. Bare
-    `assert` stops at the first failure, so one broken case hides the rest of
-    the file; `setUp` and `addCleanup` give the programs that need a
-    directory one without three hundred lines of scaffolding; and `subTest`
-    reports every row of a table instead of the first bad one. All of it is
-    standard library, which is what `mise.toml` promises about `tools/`.
-
-    Verbosity 1: a dot per test and a line of failures. The gates print
-    enough already.
-    """
-    loaded = unittest.defaultTestLoader.loadTestsFromModule(sys.modules[module])
-    outcome = unittest.TextTestRunner(verbosity=1).run(loaded)
-    return 0 if outcome.wasSuccessful() else 1
-
-
 class Outputs(unittest.TestCase):
     """`output`, which is where a multi-line value goes wrong."""
 
@@ -178,4 +173,4 @@ class Outputs(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    sys.exit(run_tests() if "--self-test" in sys.argv[1:] else 0)
+    sys.exit(0)

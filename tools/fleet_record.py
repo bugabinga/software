@@ -19,7 +19,6 @@ answers and a copy of the prose does not.
 
 Usage:
     tools/fleet_record.py --out DIR --trigger weekly-garden --agent pipeline-gardener
-    tools/fleet_record.py --self-test
 """
 
 from __future__ import annotations
@@ -35,8 +34,6 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import ClassVar
-
-from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -106,11 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--agent")
     parser.add_argument("--model")
     parser.add_argument("--brief", type=Path, help="the brief the agent was given")
-    parser.add_argument("--self-test", action="store_true")
     arguments = parser.parse_args(argv)
-
-    if arguments.self_test:
-        return run_tests()
 
     if not arguments.out:
         sys.exit("--out is required")

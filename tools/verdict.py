@@ -17,7 +17,6 @@ Three outcomes, and the middle one is the one worth having a program for:
 
 Usage:
     tools/verdict.py --file /tmp/fleet-review.json
-    tools/verdict.py --self-test
 """
 
 from __future__ import annotations
@@ -30,7 +29,7 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from fleetlib import fail, notice, run_tests, summary
+from fleetlib import fail, notice, summary
 
 SELF = ".github/workflows/fleet-review.yml"
 
@@ -114,12 +113,8 @@ class OnlyPassPasses(unittest.TestCase):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--file", default="/tmp/fleet-review.json")
     arguments = parser.parse_args(argv)
-
-    if arguments.self_test:
-        return run_tests()
 
     if edits_itself():
         notice(

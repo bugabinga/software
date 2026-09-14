@@ -27,7 +27,6 @@ environment.
 Usage:
     tools/repo_state.py --check [--repo owner/name]
     tools/repo_state.py --apply [--repo owner/name]
-    tools/repo_state.py --self-test
 """
 
 from __future__ import annotations
@@ -44,7 +43,6 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 import tomllib
-from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 DECLARED = ROOT / "repo.toml"
@@ -956,16 +954,13 @@ def main(argv: list[str] | None = None) -> int:
         help="make the repository match repo.toml (needs a writing credential)",
     )
     parser.add_argument("--repo", default=DEFAULT_REPO)
-    parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args(argv)
 
-    if args.self_test:
-        return run_tests()
     if args.apply:
         return apply_state(args.repo)
     if args.check:
         return check(args.repo)
-    parser.error("--check, --apply or --self-test")
+    parser.error("--check or --apply")
     return 2
 
 

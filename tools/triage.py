@@ -15,7 +15,6 @@ shape `tools/post_review.py` reads.
 Usage:
     tools/triage.py --check --issue 7            # is triage needed?
     tools/triage.py --apply --issue 7 --verdict /tmp/triage.json
-    tools/triage.py --self-test
 """
 
 from __future__ import annotations
@@ -28,7 +27,7 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from fleetlib import api, gh, notice, output, run_tests, warn
+from fleetlib import api, gh, notice, output, warn
 
 # The labels that route. `fleet.yml`'s occasion router maps exactly these two
 # to a trigger; anything else it prints a notice about and exits 0.
@@ -193,7 +192,6 @@ class Labels(unittest.TestCase):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--issue", type=int)
@@ -202,8 +200,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
     arguments = parser.parse_args(argv)
 
-    if arguments.self_test:
-        return run_tests()
     if not (arguments.issue and arguments.repo):
         parser.error("--issue and a repository are required")
 
@@ -231,7 +227,7 @@ def main(argv: list[str] | None = None) -> int:
                 arguments.repo, arguments.issue, json.load(handle), arguments.agent
             )
 
-    parser.error("one of --check, --apply or --self-test")
+    parser.error("one of --check or --apply")
     return 2
 
 

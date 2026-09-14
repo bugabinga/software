@@ -29,10 +29,12 @@ from __future__ import annotations
 
 import html
 import re
+import unittest
 import uuid
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from xml.etree import ElementTree
 
 # Void elements, which XHTML requires be self-closed. Typst's own export is
@@ -280,3 +282,68 @@ def build_epub(book, out_dir: Path, cover: Path | None = None) -> Path:
             )
 
     return destination
+
+
+class Xhtml(unittest.TestCase):
+    """An EPUB is XML. HTML that a browser forgives, a reader rejects."""
+
+    def test_a_bare_ampersand_is_escaped(self) -> None:
+        self.assertEqual(xhtmlify("a & b"), "a &amp; b")
+
+    def test_an_entity_is_left_alone(self) -> None:
+        # Escaping `&amp;` again prints the entity to the reader.
+        for fragment in ("&amp;", "&lt;", "&#8212;", "&quot;"):
+            with self.subTest(fragment=fragment):
+                self.assertEqual(xhtmlify(fragment), fragment)
+
+    def test_void_elements_are_closed(self) -> None:
+        for fragment, want in (
+            ("<br>", "<br/>"),
+            ('<img src="x">', '<img src="x"/>'),
+        ):
+            with self.subTest(fragment=fragment):
+                self.assertEqual(xhtmlify(fragment), want)
+
+    def test_it_parses_as_xml_afterwards(self) -> None:
+        # The property that matters: a reader opens this with an XML parser
+        # and refuses the whole file if it does not parse.
+        body = xhtmlify('<p>Types & Values<br><img src="a.png"></p>')
+        ElementTree.fromstring(f"<root>{body}</root>")
+
+
+class Relinking(unittest.TestCase):
+    """The site's cross-chapter links become files inside the container."""
+
+    def test_both_shapes_a_chapter_link_takes(self) -> None:
+        slugs = {"one", "two"}
+        self.assertEqual(
+            relink('<a href="../one/#here">x</a>', slugs),
+            '<a href="ch-one.xhtml#here">x</a>',
+        )
+        self.assertEqual(
+            relink('<a href="../two/">y</a>', slugs), '<a href="ch-two.xhtml">y</a>'
+        )
+
+    def test_a_link_to_something_else_is_untouched(self) -> None:
+        for href in ("https://example.com/", "../nowhere/", "#local"):
+            with self.subTest(href=href):
+                markup = f'<a href="{href}">x</a>'
+                self.assertEqual(relink(markup, {"one"}), markup)
+
+
+class Identity(unittest.TestCase):
+    """A reading system decides from this whether it has a new book or a
+    new copy of one it already has, so it must not be fresh per build."""
+
+    def test_the_same_book_keeps_its_id(self) -> None:
+        book = SimpleNamespace(base_url="https://x/", meta={"edition": "draft"})
+        self.assertEqual(stable_identifier(book), stable_identifier(book))
+
+    def test_a_new_edition_is_a_new_book(self) -> None:
+        draft = SimpleNamespace(base_url="https://x/", meta={"edition": "draft"})
+        first = SimpleNamespace(base_url="https://x/", meta={"edition": "first"})
+        self.assertNotEqual(stable_identifier(draft), stable_identifier(first))
+
+    def test_it_is_a_urn(self) -> None:
+        book = SimpleNamespace(base_url="", meta={})
+        self.assertTrue(stable_identifier(book).startswith("urn:uuid:"))

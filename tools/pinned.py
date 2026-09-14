@@ -15,6 +15,7 @@ Usage:
 from __future__ import annotations
 
 import sys
+import unittest
 from pathlib import Path
 
 import tomllib
@@ -44,6 +45,25 @@ def main(argv: list[str]) -> int:
         )
     print(found[argv[0]])
     return 0
+
+
+class Pins(unittest.TestCase):
+    """The manifest is the roster, whether or not mise is installed."""
+
+    def test_the_tools_this_tree_pins(self) -> None:
+        every = pins()
+        self.assertIn("typst", every, "the build's own compiler")
+        for tool, version in every.items():
+            with self.subTest(tool=tool):
+                self.assertTrue(version, f"{tool} is pinned to nothing")
+
+    def test_a_version_is_a_version(self) -> None:
+        # Not a range, not `latest`. The point of a pin is that two machines
+        # install the same bytes.
+        for tool, version in pins().items():
+            with self.subTest(tool=tool):
+                self.assertNotIn("latest", version)
+                self.assertRegex(version, r"^[0-9]")
 
 
 if __name__ == "__main__":

@@ -13,7 +13,6 @@ because it is a second query; the header lied for four rounds.
 Usage:
     tools/respond.py --about          # which pull request, and is it answerable
     tools/respond.py --rounds --pr 82 # how many, and hold at three
-    tools/respond.py --self-test
 """
 
 from __future__ import annotations
@@ -24,7 +23,7 @@ import sys
 import unittest
 from dataclasses import dataclass
 
-from fleetlib import api, gh, notice, output, paged, run_tests
+from fleetlib import api, gh, notice, output, paged
 
 # Three rounds, then the author. Two agents that disagree three times are not
 # converging, and a fourth round is the same money for the same answer.
@@ -129,15 +128,12 @@ class Rounds(unittest.TestCase):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--about", action="store_true")
     parser.add_argument("--rounds", action="store_true")
     parser.add_argument("--pr", type=int)
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
     arguments = parser.parse_args(argv)
 
-    if arguments.self_test:
-        return run_tests()
     repo = arguments.repo
     if not repo:
         parser.error("a repository is required")
@@ -220,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
         notice(f"held #{arguments.pr} after {rounds} rounds")
         return 0
 
-    parser.error("one of --about, --rounds or --self-test")
+    parser.error("one of --about or --rounds")
     return 2
 
 

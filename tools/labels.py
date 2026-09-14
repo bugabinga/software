@@ -12,7 +12,6 @@ decision, and a sync that removes it is a sync nobody dares run.
 
 Usage:
     tools/labels.py
-    tools/labels.py --self-test
 """
 
 from __future__ import annotations
@@ -25,7 +24,7 @@ from typing import Any, ClassVar
 from urllib.parse import quote
 
 import tomllib
-from fleetlib import api, gh, notice, run_tests
+from fleetlib import api, gh, notice
 
 ROSTER = Path(__file__).resolve().parent.parent / ".github" / "labels.toml"
 
@@ -119,12 +118,8 @@ class Writes(unittest.TestCase):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--repo", default="")
     arguments = parser.parse_args(argv)
-
-    if arguments.self_test:
-        return run_tests()
 
     import os  # noqa: PLC0415 - only main needs the environment
 

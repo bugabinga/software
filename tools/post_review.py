@@ -38,8 +38,6 @@ import unittest
 from pathlib import Path
 from typing import ClassVar
 
-from fleetlib import run_tests
-
 ROOT = Path(__file__).resolve().parent.parent
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
@@ -321,7 +319,6 @@ class Rounds(unittest.TestCase):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--pr", type=int)
     parser.add_argument("--verdict", type=Path)
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
@@ -331,10 +328,8 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     arguments = parser.parse_args()
 
-    if arguments.self_test:
-        return run_tests()
     if arguments.pr is None or arguments.verdict is None:
-        parser.error("--pr and --verdict are required unless --self-test")
+        parser.error("--pr and --verdict are required")
 
     if not arguments.verdict.is_file():
         sys.exit(f"{arguments.verdict}: the reviewer left no verdict")

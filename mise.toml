@@ -168,16 +168,12 @@ description = "The notes inbox worker"
 run = "node worker/notes-intake/test.mjs"
 
 [tasks.check-workflows]
-description = "The Actions definitions, and that every tool compiles"
+description = "The Actions definitions, and that every tool compiles and is tested"
 # No severity filter. The four `info` findings this used to hide were
 # backticks and sed syntax inside single quotes, all correct; each now
 # carries a `# shellcheck disable=SC2016` and a reason at the line it is
 # about. A blanket filter hides the next finding too.
-run = [
-  "actionlint",
-  "python3 tools/check_workflows.py --self-test",
-  "python3 tools/check_workflows.py",
-]
+run = ["actionlint", "python3 tools/check_workflows.py"]
 
 [tasks.check-lint]
 description = "Lint the Python and the JavaScript, strictly"
@@ -205,18 +201,34 @@ run = [
 description = "Type-check the Python"
 run = "ty check tools/"
 
-[tasks.check-report]
-description = "The report's narrowing, the run record, and the previews"
-run = [
-  "python3 tools/fleet_report.py --self-test",
-  "python3 tools/fleet_record.py --self-test",
-  "python3 tools/preview.py --self-test",
-  "python3 tools/cloudflare.py --self-test",
-]
+[tasks.check-tools]
+description = "Every test in tools/, discovered"
+# One task, not one per program. `unittest discover` finds every TestCase in
+# the package, so a new `tools/*.py` is tested the moment it has one and
+# nobody has to remember to wire it here -- which is the failure this
+# replaced: twenty `--self-test` lines, eight programs with no line at all.
+# `--pattern '*.py'` because these are programs, not `test_*.py` modules;
+# the tests live beside the code they are about.
+dir = "tools"
+run = "python3 -m unittest discover --pattern '*.py'"
 
-[tasks.check-fleet]
-description = "Every brief routes to an agent, and the review builder's arithmetic"
-run = ["python3 tools/fleet_brief.py --self-test"]
+[tasks.coverage]
+description = "Which lines in tools/ the tests reach"
+# Not a gate: a coverage number is a question, not a verdict, and gating on
+# one buys tests written to move it. `--missing` is what makes the report
+# mean anything -- without it every unexecuted line reads as zero hits and
+# the summary is uniformly, uselessly complete. `--ignore-dir` keeps the
+# standard library out; without it the run writes a hundred `.cover` files
+# for modules nobody here wrote. The tail counts the `>>>>>>` markers per
+# file, which is the number to read: lines the tests never reached. The
+# annotated sources are in `build/coverage/` for the lines themselves.
+dir = "tools"
+run = """
+python3 -m trace --count --missing --coverdir ../build/coverage \
+  --ignore-dir "$(python3 -c 'import sysconfig; print(sysconfig.get_paths()[\"stdlib\"])')" \
+  --module unittest discover --pattern '*.py'
+grep -c '^>>>>>>' ../build/coverage/*.cover | sed 's/:/  unreached: /'
+"""
 
 [tasks.check-format]
 description = "Every hand-written file is formatted the one way"
@@ -243,39 +255,11 @@ run = [
 
 [tasks.check-skill]
 description = "The skill generator's page builds a zip both node and Python read"
-run = [
-  "python3 tools/check_skill_page.py",
-  "python3 tools/make_skill.py --self-test",
-]
-
-[tasks.check-branches]
-description = "What a green agent branch has earned, and the shared workflow floor"
-run = [
-  "python3 tools/fleetlib.py --self-test",
-  "python3 tools/credential.py --self-test",
-  "python3 tools/occasion.py --self-test",
-  "python3 tools/pin_report.py --self-test",
-  "python3 tools/respond.py --self-test",
-  "python3 tools/labels.py --self-test",
-  "python3 tools/verdict.py --self-test",
-  "python3 tools/release_assets.py --self-test",
-  "python3 tools/triage.py --self-test",
-  "python3 tools/agent_branch.py --self-test",
-]
-
-[tasks.check-review]
-description = "The review builder's line arithmetic"
-run = "python3 tools/post_review.py --self-test"
+run = "python3 tools/check_skill_page.py"
 
 [tasks.check-prose]
 description = "The mechanical faults in the chapters a program can decide"
-run = ["python3 tools/prose_scan.py --self-test", "python3 tools/prose_scan.py"]
-
-[tasks.check-settings-logic]
-description = "repo_state.py's comparison rules, without a network"
-# Its own task because it needs no credential and no network, so it is worth
-# running where `check-settings` cannot reach the API at all.
-run = "python3 tools/repo_state.py --self-test"
+run = "python3 tools/prose_scan.py"
 
 [tasks.check-settings]
 description = "The repository's settings, against what repo.toml declares"
@@ -300,7 +284,7 @@ description = "The repository's settings, against what repo.toml declares"
 # settings this checkout declares against the ones the last successful
 # `settings.yml` run was applied from, and compares nothing when they differ.
 # Values, not bytes -- that file is mostly prose. See its docstring.
-depends = ["check-settings-logic"]
+depends = ["check-tools"]
 run = "python3 tools/repo_state.py --check"
 
 [tasks.check]
@@ -315,17 +299,13 @@ depends = [
   "check-worker",
   "check-code",
   "check-workflows",
-  "check-fleet",
+  "check-tools",
   "check-format",
   "check-spelling",
   "check-skill",
-  "check-branches",
-  "check-review",
   "check-prose",
   "check-lint",
   "check-types",
-  "check-report",
-  "check-settings-logic",
   "check-settings",
 ]
 run = "echo 'all checks passed'"

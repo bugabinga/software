@@ -26,6 +26,8 @@ Usage:
 from __future__ import annotations
 
 import sys
+import tempfile
+import unittest
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree
@@ -162,6 +164,62 @@ def main(argv: list[str]) -> int:
             size = path.stat().st_size / 1024
             print(f"{path}: valid EPUB 3 ({size:.0f} KB)")
     return 1 if failed else 0
+
+
+class Containers(unittest.TestCase):
+    """What an EPUB reader refuses, checked before a reader has to."""
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.dir = Path(tmp.name)
+
+    def write(self, name: str, entries: list[tuple[str, bytes, int]]) -> Path:
+        path = self.dir / name
+        with zipfile.ZipFile(path, "w") as archive:
+            for entry, data, how in entries:
+                archive.writestr(zipfile.ZipInfo(entry), data, compress_type=how)
+        return path
+
+    def test_a_missing_file(self) -> None:
+        problems = check(self.dir / "absent.epub")
+        self.assertTrue(problems)
+        self.assertIn("no such file", problems[0])
+
+    def test_something_that_is_not_a_zip(self) -> None:
+        path = self.dir / "x.epub"
+        path.write_bytes(b"not a zip at all")
+        self.assertTrue(check(path))
+
+    def test_mimetype_must_come_first(self) -> None:
+        # The one rule a reader applies before parsing anything: the first
+        # entry, stored rather than deflated.
+        path = self.write(
+            "wrong-order.epub",
+            [
+                ("META-INF/container.xml", b"<x/>", zipfile.ZIP_STORED),
+                ("mimetype", b"application/epub+zip", zipfile.ZIP_STORED),
+            ],
+        )
+        self.assertTrue(any("first entry" in p for p in check(path)))
+
+    def test_mimetype_must_be_stored(self) -> None:
+        path = self.write(
+            "compressed.epub",
+            [
+                ("mimetype", b"application/epub+zip", zipfile.ZIP_DEFLATED),
+            ],
+        )
+        self.assertTrue(any("compressed" in p for p in check(path)))
+
+    def test_mimetype_must_say_what_it_is(self) -> None:
+        path = self.write(
+            "wrong-type.epub",
+            [
+                ("mimetype", b"text/plain", zipfile.ZIP_STORED),
+            ],
+        )
+        self.assertTrue(any("application/epub+zip" in p for p in check(path)))
 
 
 if __name__ == "__main__":

@@ -7,7 +7,6 @@ release that cannot be corrected afterwards: assets are named once.
 
 Usage:
     tools/release_assets.py --tag v0.2.0
-    tools/release_assets.py --self-test
 """
 
 from __future__ import annotations
@@ -22,7 +21,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from fleetlib import notice, output, run_tests, summary
+from fleetlib import notice, output, summary
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
@@ -86,12 +85,9 @@ class Sizes(unittest.TestCase):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--tag")
     arguments = parser.parse_args(argv)
 
-    if arguments.self_test:
-        return run_tests()
     if not arguments.tag:
         parser.error("--tag is required")
     tag = arguments.tag

@@ -11,11 +11,10 @@ skipped the fleet's first real delivery.
 
 `decide` is a pure function of what the API answered. Everything that talks to
 GitHub is in `main`, and everything worth being wrong about is in `decide`,
-under `--self-test`.
+in this file's tests.
 
 Usage:
     tools/agent_branch.py --branch agent/x --sha abc123
-    tools/agent_branch.py --self-test
 """
 
 from __future__ import annotations
@@ -29,7 +28,7 @@ import unittest
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from fleetlib import api, gh, notice, paged, run_tests, warn
+from fleetlib import api, gh, notice, paged, warn
 
 # The one thing the fleet does not merge for itself. A change under these
 # prefixes is the automation deciding its own future, and an agent that can
@@ -458,7 +457,6 @@ class PullRequestBody(unittest.TestCase):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--branch")
     parser.add_argument("--sha")
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
@@ -480,8 +478,6 @@ def main(argv: list[str] | None = None) -> int:
     )
     arguments = parser.parse_args(argv)
 
-    if arguments.self_test:
-        return run_tests()
     if not arguments.repo:
         parser.error("a repository is required")
     if arguments.close_finished:

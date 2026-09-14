@@ -272,8 +272,8 @@ jobs:
       # a failure: silence must never read as approval.
       # The gate. `Fleet review` is a required context, so this exit code
       # decides whether the pull request can merge -- which is why it is a
-      # program with a self-test rather than a Python heredoc inside a
-      # `run:` block inside YAML.
+      # tested program rather than a Python heredoc inside a `run:` block
+      # inside YAML.
       - name: Read the verdict
         if: always() && steps.key.outputs.present == 'true'
         run: python3 tools/verdict.py --file /tmp/fleet-review.json

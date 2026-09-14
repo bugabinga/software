@@ -87,13 +87,13 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: python3 tools/agent_branch.py --close-finished
 
-      # The decision this workflow exists to make lives in a program with a
-      # self-test, not here: it is the only thing in the tree that puts a
+      # The decision this workflow exists to make lives in a tested program,
+      # not here: it is the only thing in the tree that puts a
       # commit on `main` without a human, and a `run:` block can only be
       # tested by pushing. It had been wrong twice before it moved --
       # grepping for a check named `Build` after the job was renamed `CI`,
       # and treating `diverged` as "nothing to give" -- and both are cases in
-      # `tools/agent_branch.py --self-test` now.
+      # `tools/agent_branch.py`'s test cases now.
       - if: >-
           github.event_name == 'workflow_run' &&
           github.event.workflow_run.conclusion == 'success' &&

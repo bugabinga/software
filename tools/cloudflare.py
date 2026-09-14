@@ -20,7 +20,6 @@ is. Exit 0 when a deploy can proceed, 1 when it cannot.
 Usage:
     tools/cloudflare.py --check             # ask the API and write step outputs
     curl ... | tools/cloudflare.py --subdomain --status 200
-    tools/cloudflare.py --self-test
 """
 
 from __future__ import annotations
@@ -34,7 +33,7 @@ import urllib.error
 import urllib.request
 from typing import ClassVar
 
-from fleetlib import notice, output, run_tests, warn
+from fleetlib import notice, output, warn
 
 # Cloudflare answers a scope problem with an error code in the body as well
 # as an HTTP status, and not always the same status, so both are consulted.
@@ -132,14 +131,11 @@ def main(argv: list[str] | None = None) -> int:
         help="ask the API directly and write present= / name=",
     )
     parser.add_argument("--status", default="200", help="the HTTP status curl saw")
-    parser.add_argument("--self-test", action="store_true")
     arguments = parser.parse_args(argv)
 
     if arguments.check:
         return check()
 
-    if arguments.self_test:
-        return run_tests()
     if not arguments.subdomain:
         parser.print_help()
         return 1

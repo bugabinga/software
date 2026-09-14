@@ -12,7 +12,6 @@ not another arm.
 
 Usage:
     tools/occasion.py --event issues --label fleet:task --issue 7
-    tools/occasion.py --self-test
 """
 
 from __future__ import annotations
@@ -24,10 +23,10 @@ import unittest
 from dataclasses import dataclass
 from pathlib import Path
 
-from fleetlib import notice, output, run_tests
+from fleetlib import notice, output
 
 # Label -> trigger. `tools/triage.py` routes unlabelled issues to one of
-# these, so the two must agree; `--self-test` checks that they do.
+# these, so the two must agree; `AgreesWithTheTree` checks that.
 BY_LABEL = {
     "fleet:material": "issue-material",
     "fleet:task": "issue-task",
@@ -181,7 +180,6 @@ class AgreesWithTheTree(unittest.TestCase):
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--event", default="")
     parser.add_argument("--label", default="")
     parser.add_argument("--cron", default="")
@@ -190,9 +188,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--before", default="", help="a push's previous sha")
     parser.add_argument("--sha", default="", help="a push's new sha")
     arguments = parser.parse_args(argv)
-
-    if arguments.self_test:
-        return run_tests()
 
     changed = tuple(p for p in arguments.changed.splitlines() if p.strip())
     if not changed and arguments.before and arguments.sha:

@@ -6,25 +6,23 @@ The same thirty-five lines of shell stood at the top of `fleet.yml`,
 three places for it to drift, and this one had already cost a day: four
 dispatches died in 38ms having called no model, because the secret had been
 pasted with a line break in it. The tidying is now a function with that case
-in its self-test.
+among its tests.
 
 Writes `CLAUDE_OAUTH` and `CLAUDE_API_KEY` to `$GITHUB_ENV` and `present` to
 `$GITHUB_OUTPUT`.
 
 Usage:
     tools/credential.py    # reads CLAUDE_CODE_OAUTH_TOKEN, then ANTHROPIC_API_KEY
-    tools/credential.py --self-test
 """
 
 from __future__ import annotations
 
-import argparse
 import os
 import sys
 import unittest
 from pathlib import Path
 
-from fleetlib import notice, output, run_tests, warn
+from fleetlib import captured, notice, output, warn
 
 
 def tidy(raw: str | None) -> str:
@@ -113,28 +111,31 @@ class Precedence(unittest.TestCase):
     """Which credential wins, and what absence looks like."""
 
     def test_oauth_wins_when_both_are_set(self) -> None:
-        oauth, _, present = report("oauth", "key")
+        with captured() as said:
+            oauth, _, present = report("oauth", "key")
         self.assertEqual(oauth, "oauth")
         self.assertTrue(present)
+        # The mask is the part worth asserting: a run that names the winner
+        # without masking it has put a secret in a public log.
+        self.assertIn("::add-mask::oauth", said.getvalue())
 
     def test_api_key_is_the_fallback(self) -> None:
-        _, key, present = report(None, "key")
+        with captured() as said:
+            _, key, present = report(None, "key")
         self.assertEqual(key, "key")
         self.assertTrue(present)
+        self.assertIn("::add-mask::key", said.getvalue())
 
     def test_absence_is_reported_not_guessed(self) -> None:
-        self.assertFalse(report(None, None)[2])
+        with captured():
+            self.assertFalse(report(None, None)[2])
 
     def test_whitespace_is_not_a_credential(self) -> None:
-        self.assertFalse(report("  ", "")[2])
+        with captured():
+            self.assertFalse(report("  ", "")[2])
 
 
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true")
-    if parser.parse_args(argv).self_test:
-        return run_tests()
-
+def main() -> int:
     oauth, api_key, present = report(
         os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"),
         os.environ.get("ANTHROPIC_API_KEY"),

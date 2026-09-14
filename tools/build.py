@@ -32,6 +32,7 @@ import shutil
 import subprocess
 import sys
 import time
+import unittest
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
@@ -1360,6 +1361,119 @@ def main() -> None:
             watch(args, binary)
         except KeyboardInterrupt:
             print()
+
+
+# --------------------------------------------------------------------------- #
+# Tests
+# --------------------------------------------------------------------------- #
+#
+# The pure transforms, which is where a fault is silent. A broken build fails
+# loudly; a slug that quietly changes breaks every inbound link to a chapter,
+# and a heading shift that stops shifting makes every page's outline start at
+# level two with nothing above it.
+
+
+class Slugs(unittest.TestCase):
+    """The URL rule, implemented twice on purpose.
+
+    `slug-of` in `book/lib/prelude.typ` is the other copy, and `#xref` across
+    chapters resolves only while the two agree.
+    """
+
+    def test_the_ordering_prefix_comes_off(self) -> None:
+        for relative, want in (
+            ("chapters/01-the-pipeline.typ", "the-pipeline"),
+            ("chapters/10-knowledge.typ", "knowledge"),
+            ("chapters/99-prelude-reference.typ", "prelude-reference"),
+            ("chapters/01_underscored.typ", "underscored"),
+        ):
+            with self.subTest(relative=relative):
+                self.assertEqual(slug_of(relative), want)
+
+    def test_a_chapter_with_no_prefix_keeps_its_name(self) -> None:
+        self.assertEqual(slug_of("chapters/preface.typ"), "preface")
+
+    def test_digits_inside_the_name_survive(self) -> None:
+        # Only a *leading* run of digits is ordering.
+        self.assertEqual(slug_of("chapters/02-typst-0-15.typ"), "typst-0-15")
+
+
+class Headings(unittest.TestCase):
+    """Typst reserves `<h1>` for the title and starts documents at `<h2>`."""
+
+    def test_everything_moves_up_one(self) -> None:
+        self.assertEqual(promote_headings("<h2>A</h2>"), "<h1>A</h1>")
+        self.assertEqual(promote_headings("<h6>F</h6>"), "<h5>F</h5>")
+
+    def test_closing_tags_move_with_them(self) -> None:
+        self.assertEqual(promote_headings("<h3 id='x'>A</h3>"), "<h2 id='x'>A</h2>")
+
+    def test_nothing_else_is_touched(self) -> None:
+        for markup in ("<p>h2</p>", "<h1>already</h1>", "<hr>", "<header>x</header>"):
+            with self.subTest(markup=markup):
+                self.assertEqual(promote_headings(markup), markup)
+
+
+class Slugify(unittest.TestCase):
+    """Heading ids, which are what a fragment link lands on."""
+
+    def test_shapes(self) -> None:
+        for text, want in (
+            ("A Heading", "a-heading"),
+            ("  Spaced  Out  ", "spaced-out"),
+            ("Types & Values", "types-values"),
+            ("C++ and Rust", "c-and-rust"),
+            ("", "section"),
+            ("!!!", "section"),
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(slugify(text), want)
+
+    def test_an_id_is_always_usable(self) -> None:
+        for text in ("a---b", "-x-", "  ", "&&&"):
+            with self.subTest(text=text):
+                made = slugify(text)
+                self.assertTrue(made)
+                self.assertNotIn("--", made)
+                self.assertFalse(made.startswith("-"))
+                self.assertFalse(made.endswith("-"))
+
+
+class Truncation(unittest.TestCase):
+    """Meta descriptions, cut on a word rather than mid-syllable."""
+
+    def test_short_text_is_left_alone(self) -> None:
+        self.assertEqual(truncate("short", 20), "short")
+
+    def test_it_cuts_on_a_space(self) -> None:
+        # The whole point: the ellipsis lands after a word, not inside one.
+        self.assertEqual(truncate("alpha bravo charlie", 12), "alpha bravo\u2026")
+
+
+class Warnings(unittest.TestCase):
+    """A warning fails the build unless this tree has decided otherwise.
+
+    Typst warns about every font family it cannot resolve, so the allow-list
+    is what keeps the one expected warning from failing every build -- and
+    keeping it narrow is what keeps a new warning from being swallowed.
+    """
+
+    def test_headlines_are_pulled_out(self) -> None:
+        stderr = "warning: a thing\nnote: detail\nwarning: another\n"
+        self.assertEqual(collect_warnings(stderr), ["a thing", "another"])
+
+    def test_the_allowed_one_is_allowed(self) -> None:
+        self.assertEqual(unexpected(list(ALLOWED_WARNINGS)), [])
+
+    def test_anything_else_is_not(self) -> None:
+        self.assertEqual(
+            unexpected(["unknown font family: Comic Sans"]),
+            ["unknown font family: Comic Sans"],
+        )
+
+    def test_a_clean_run_has_nothing(self) -> None:
+        self.assertEqual(collect_warnings(""), [])
+        self.assertEqual(unexpected([]), [])
 
 
 if __name__ == "__main__":

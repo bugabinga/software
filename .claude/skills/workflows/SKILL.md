@@ -49,9 +49,11 @@ code that can only be tested by pushing.
 
 - One task runner defines the work and CI calls the same entry points a
   contributor calls, so a green local run means something.
-- Anything with a branch in it belongs in a program with a self-test. The shape
-  to copy is whichever `tools/*.py` has a `--self-test` and is called from one
-  `run:` line; `mise tasks` lists the ones the gates run.
+- Anything with a branch in it belongs in a program with a test. The shape to
+  copy is any `tools/*.py`: the decision is a pure function, the
+  `unittest.TestCase` for it sits at the foot of the same file, and one `run:`
+  line calls the program. Nothing wires the test up -- discovery finds it, and
+  `check_tools` in `tools/check_workflows.py` fails a program that has none.
 - `set -euo pipefail`, `shellcheck`, and never interpolate `${{ }}` into a shell
   body -- pass it through `env:`, so a branch named `"; rm -rf /` is a string
   and not a statement.
@@ -198,7 +200,7 @@ absent on a free plan, so check before building a merge rule around it.
 - [ ] `timeout-minutes` on every job; `concurrency` declared -- keyed on event
       and ref for per-branch runs, one global group where only one run may
       proceed at a time.
-- [ ] Logic worth being wrong about lives in a program with a self-test.
+- [ ] Logic worth being wrong about lives in a program with a test case.
 - [ ] `actionlint` passes -- and `mise run check-workflows` with it, which adds
       the rules listed in `tools/check_workflows.py`'s docstring.
 - [ ] The check name matches what the ruleset requires, exactly.

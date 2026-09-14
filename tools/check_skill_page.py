@@ -26,6 +26,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import unittest
 import zipfile
 from pathlib import Path
 
@@ -128,6 +129,35 @@ def main(argv: list[str]) -> int:
         )
     print(f"skill page: valid zip, {written} bytes of SKILL.md")
     return 0
+
+
+class Extraction(unittest.TestCase):
+    """The builder is found by id, not by position."""
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.page = Path(tmp.name) / "index.html"
+
+    def test_it_takes_the_block_with_the_id(self) -> None:
+        # A second script above it used to change which one this returned.
+        self.page.write_text(
+            "<script>decoration()</script>\n"
+            '<script id="builder">\nconst real = 1;\n</script>\n',
+            encoding="utf-8",
+        )
+        self.assertEqual(extract_script(self.page), "const real = 1;")
+
+    def test_a_missing_id_fails_loudly(self) -> None:
+        # Rather than handing node the wrong program.
+        self.page.write_text("<script>nothing()</script>", encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            extract_script(self.page)
+
+
+class ThePageItself(unittest.TestCase):
+    def test_the_shipped_page_still_has_its_builder(self) -> None:
+        self.assertTrue(extract_script(PAGE).strip())
 
 
 if __name__ == "__main__":

@@ -47,8 +47,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import ClassVar
 
-from fleetlib import run_tests
-
 ROOT = Path(__file__).resolve().parent.parent
 AGENTS = ROOT / ".claude" / "agents"
 BRIEFS = ROOT / ".claude" / "fleet"
@@ -898,7 +896,6 @@ class Rendering(unittest.TestCase):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--days", type=int, default=7)
     parser.add_argument("--html", type=Path, help="write the page here")
     parser.add_argument("--history", type=Path, help="JSONL to append a line to")
@@ -910,9 +907,6 @@ def main() -> int:
         "--cache", type=Path, default=ROOT / "build" / "fleet-artifacts"
     )
     arguments = parser.parse_args()
-
-    if arguments.self_test:
-        return run_tests()
 
     report = build_report(arguments.days, arguments.cache)
 
