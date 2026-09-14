@@ -189,9 +189,9 @@ jobs:
           # The pull request's own branch, because that is where the fixes go.
           # `about` writes `branch` before both of its later `stop`s, so a
           # no-op run has one too and checks the same tree out. The fallback
-          # covers only the two earliest exits -- no open pull request to
-          # name -- and a death before that line; any tree will do then,
-          # because the only step left writes the record.
+          # covers only the earliest exit -- no open pull request to name --
+          # and a death before that line; any tree will do then, because
+          # nothing after this step runs.
           ref: ${{ steps.about.outputs.branch || github.event.repository.default_branch }}
           # Full history, like `fleet.yml:80` and `fleet-review.yml:72`, and
           # not a ternary. `${{ x && 0 || 1 }}` is always 1, because `0` is

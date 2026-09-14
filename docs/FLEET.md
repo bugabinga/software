@@ -490,9 +490,14 @@ asked in the spring about a run in the winter has nothing else to read. One line
 per agent run: trigger, agent, model asked for, model served, turns, seconds,
 cost, branch, pull request, and the commit it started from.
 
-A run that died before calling the model still gets a line. `always()` on the
-recording step is deliberate: the runs worth tracing are disproportionately the
-ones that failed.
+A run that died before calling the model still gets a line, and the recording
+step is not what keeps that promise -- all three agent workflows gate it on
+`steps.key.outputs.present`, so a run that died before the credential check
+uploads nothing. `append_runs` in `tools/fleet_report.py` writes the line from
+the API's own run listing and fills the provenance fields from the bundle when
+one reached it, empty when none did. The promise is the report's, and it is
+deliberate: the runs worth tracing are disproportionately the ones that failed,
+which is why the line cannot depend on the run's own cooperation.
 
 `fleet-log` is append-only in the git sense as well as the file sense: the
 report commits on top of what is there and pushes a fast-forward. It used to
