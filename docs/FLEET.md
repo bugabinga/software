@@ -425,8 +425,9 @@ The same token is why **a finding about a workflow file always waits for a
 human**. GitHub refuses `GITHUB_TOKEN` any write under `.github/workflows/`, and
 no `permissions:` block changes that -- `workflows` is not one of the sixteen
 scopes a workflow may ask for. The responder answers such a finding on its
-thread with the replacement text and cannot land it; `docs/IDENTITY.md` has the
-route that would.
+thread with the replacement text and cannot land it. There is no route that
+would, yet: `docs/IDENTITY.md` says why the one `settings.yml` uses does not
+transfer, and leaves the restructuring that would as an open decision.
 
 ## Which model runs which agent
 

@@ -160,39 +160,27 @@ jobs:
           echo "proceed=true" >> "$GITHUB_OUTPUT"
           echo "::notice::answering the review on #$pr ($branch)"
 
-      # `always()`, and not merely unconditional, because there are two ways
-      # to reach the record step with no tree and they are not the same way.
-      #
       # The five red runs on 2026-09-13 (34788221741, 34788857763,
-      # 34789428196, 34790028463, 34790149693) are the first: `about`
-      # *succeeded*, set `proceed=false` at "nothing to answer", and this
-      # step was skipped by its own `if:` -- which it no longer has.
+      # 34789428196, 34790028463, 34790149693) were a no-op reporting itself
+      # as a failure: `about` *succeeded*, set `proceed=false` at "nothing to
+      # answer", this step was skipped, and `Record what this run was` --
+      # `always()`, and a `python3 tools/...` -- then died on the missing
+      # tree. The fix was briefly `always()` here, which cured it by cloning
+      # on every no-op to run a step whose output that same run throws away:
+      # `Keep the run's record` needs `steps.key.outputs.present`, which a
+      # run that did not proceed never sets. The record step carries the
+      # condition instead, so nothing is skipped that had a tree and nothing
+      # is cloned that has nothing to do. `docs/FLEET.md:41`.
       #
-      # The second is `about` dying: five `gh api` calls under
-      # `set -euo pipefail`, and a 5xx ends it. A bare unconditional step
-      # would not cover that one, because a step with no `if:` still carries
-      # an implicit `success()`. Hence `always()` rather than nothing.
-      #
-      # What that costs is the provenance, not the row. `runs.jsonl` gets a
-      # line for every agent run from the API's own listing -- `append_runs`
-      # in `tools/fleet_report.py` writes one with the provenance fields
-      # empty when no bundle reached it -- so `docs/FLEET.md`'s "a run that
-      # died still gets a line" is the report's promise and was never this
-      # step's to keep. This is here for one thing: to stop a no-op
-      # reporting itself as a failure. It fills no row in -- `Keep the run's
-      # record` needs `steps.key.outputs.present`, and `key` runs only when
-      # `rounds` did, which needs `about.proceed`, so a run that did not
-      # proceed never writes the provenance this would have carried.
+      # None of it was ever the row's keeper: `append_runs` in
+      # `tools/fleet_report.py` writes a line for every agent run from the
+      # API's own listing, with the provenance fields empty when no bundle
+      # reached it. What the record step adds is the provenance.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        if: always()
+        if: steps.about.outputs.proceed == 'true'
         with:
           # The pull request's own branch, because that is where the fixes go.
-          # `about` writes `branch` before both of its later `stop`s, so a
-          # no-op run has one too and checks the same tree out. The fallback
-          # covers only the earliest exit -- no open pull request to name --
-          # and a death before that line; any tree will do then, because
-          # nothing after this step runs.
-          ref: ${{ steps.about.outputs.branch || github.event.repository.default_branch }}
+          ref: ${{ steps.about.outputs.branch }}
           # Full history, like `fleet.yml:80` and `fleet-review.yml:72`, and
           # not a ternary. `${{ x && 0 || 1 }}` is always 1, because `0` is
           # falsy in an Actions expression and `||` then takes the 1 -- so the
@@ -424,11 +412,13 @@ jobs:
       # says turns and dollars; without this the report cannot say which
       # agent, which trigger, or what it was pointed at -- `fleet.yml`
       # dispatches six agents and the workflow name tells them apart not at
-      # all. `always()` because a run that died is the one worth tracing --
-      # which is only true if there is a tree to run this from, and see the
-      # checkout above for why there now always is.
+      # all. `always()` because a run that died mid-answer is the one worth
+      # tracing; `key.present` because a run that never got that far has no
+      # tree to run this from and nothing that would survive it anyway --
+      # `Keep the run's record` below is gated the same way and would drop
+      # the file. Same pair of conditions, so the two cannot disagree.
       - name: Record what this run was
-        if: always()
+        if: always() && steps.key.outputs.present == 'true'
         env:
           FLEET_BRANCH: ${{ steps.about.outputs.branch }}
           FLEET_PR: ${{ steps.about.outputs.pr }}
