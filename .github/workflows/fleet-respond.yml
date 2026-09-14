@@ -181,12 +181,13 @@ jobs:
         with:
           # The pull request's own branch, because that is where the fixes go.
           ref: ${{ steps.about.outputs.branch }}
-          # Full history, like `fleet.yml:80` and `fleet-review.yml:72`, and
-          # not a ternary. `${{ x && 0 || 1 }}` is always 1, because `0` is
-          # falsy in an Actions expression and `||` then takes the 1 -- so the
-          # answering case would have got the shallow tree it has to commit,
-          # fetch and push from. A no-op run paying for history it does not
-          # use is the cheaper mistake.
+          # Full history, like `fleet.yml:80` and `fleet-review.yml:72`. This
+          # step now runs only when there is an answer to push, and pushing
+          # wants the history, so there is no longer a second case to vary
+          # over -- which is just as well, because varying it is a trap:
+          # `${{ x && 0 || 1 }}` is always 1, since `0` is falsy in an Actions
+          # expression and `||` then takes the 1, handing the answering case
+          # the shallow tree it has to commit, fetch and push from.
           fetch-depth: 0
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
