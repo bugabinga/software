@@ -88,6 +88,15 @@ jobs:
       # build and this is the checking build. They are cheap enough -- two
       # seconds each -- that sharing one would cost more in indirection.
       - name: Check
+        env:
+          # `check-settings` compares the live repository against `repo.toml`,
+          # and without a token every `gh api` call fails, every section reads
+          # `unread`, and the task passes having compared nothing. The
+          # workflow token reads the repository object, its topics and the
+          # rulesets -- all public-repo reads. `actions/permissions/workflow`
+          # stays honestly unread: it needs administration, which this token
+          # does not have and should not.
+          GH_TOKEN: ${{ github.token }}
         run: mise run check
 
       - name: Check spelling

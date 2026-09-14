@@ -74,8 +74,7 @@ Three parties, and confusing them is the operator's characteristic failure.
   build all return 200.
 - **The settings are a file now.** `repo.toml` says what this repository is
   configured to be, `mise run check-settings` reads it back wherever a
-  credential is held -- it is not in `mise run check` yet and CI cannot see the
-  settings at all, so nothing gates this today -- and `settings.yml` makes
+  credential is held and `mise run check` runs it -- and `settings.yml` makes
   GitHub agree. Do not read a setting out of a document and do not change one in
   a web page: read the file, and change it with a pull request.
 
