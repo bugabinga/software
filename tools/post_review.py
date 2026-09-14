@@ -213,7 +213,7 @@ def rounds_so_far(repo: str, pr: int) -> int:
     One id per line, counted here, rather than `| length` in the filter.
     `gh api --paginate` runs the jq once per page and concatenates the
     results, so an aggregate answers per page: at 101 reviews this returned
-    "6\n1", which is not a digit string, so the fallback turned the round
+    "6\\n1", which is not a digit string, so the fallback turned the round
     counter to zero and the three-round guard could never fire again. The
     dismissal query above always had the right shape; this one copied its
     endpoint and not its aggregation.

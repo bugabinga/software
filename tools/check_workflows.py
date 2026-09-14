@@ -24,6 +24,7 @@ Usage:
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from pathlib import Path
@@ -270,11 +271,47 @@ def check_comment_width(path: Path) -> list[str]:
 
 # jq filters that answer once for the whole input. Harmless alone; wrong under
 # `--paginate`, which is the point of the check below.
+DOCSTRING_OWNERS = (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+
 COMMENT_LINE = re.compile(r"^\s*#")
 
 AGGREGATE = re.compile(
     r"\|\s*(length|last|first|add|min|max|any|all|unique|sort|group_by)\b"
 )
+
+
+def _without_prose(path: Path, lines: list[str]) -> list[str]:
+    """`lines` with comments and Python docstrings blanked, in place.
+
+    Blanked rather than removed so an index is still a line number.
+
+    `ast` for the docstrings rather than counting triple quotes, because a
+    one-line docstring has two of them and a counter reads that as no
+    docstring at all -- which is exactly the shape `post_review.py`'s prose
+    would take if anyone shortened it. A parser also cannot mistake the jq
+    filter itself for prose, which a quote-counter can when the filter is
+    triple-quoted. A file that will not parse keeps its comments blanked and
+    nothing else, which is the old behaviour rather than a new hole.
+    """
+    prose = {number for number, line in enumerate(lines, 1) if COMMENT_LINE.match(line)}
+    if path.suffix == ".py":
+        try:
+            tree = ast.parse("\n".join(lines))
+        except SyntaxError:
+            tree = None
+        for node in ast.walk(tree) if tree else ():
+            if not isinstance(node, DOCSTRING_OWNERS):
+                continue
+            first = node.body[0] if node.body else None
+            if (
+                isinstance(first, ast.Expr)
+                and isinstance(first.value, ast.Constant)
+                and isinstance(first.value.value, str)
+            ):
+                prose.update(
+                    range(first.lineno, (first.end_lineno or first.lineno) + 1)
+                )
+    return ["" if number in prose else line for number, line in enumerate(lines, 1)]
 
 
 def check_paginate_aggregate(path: Path) -> list[str]:
@@ -303,10 +340,14 @@ def check_paginate_aggregate(path: Path) -> list[str]:
     problems: list[str] = []
     lines = path.read_text(encoding="utf-8").splitlines()
     # Blanked, not dropped, so the line numbers still point at the call.
-    # Reaching backwards means reaching over the comment that explains the
-    # fix, and in `fleet-respond.yml` that comment quotes `| length` and
-    # `| last` -- the rule would report its own documentation.
-    code = ["" if COMMENT_LINE.match(line) else line for line in lines]
+    # Reaching backwards means reaching over the prose that explains the fix,
+    # and that prose quotes the aggregates: `fleet-respond.yml`'s comment
+    # names `| length` and `| last`, and `post_review.py`'s docstring names
+    # both `| length` and `gh api --paginate`. The second is why docstrings
+    # count too -- it escapes today only by sitting five lines clear of the
+    # call below it, so shortening it would make this rule report its own
+    # documentation, and there is no suppression to answer that with.
+    code = _without_prose(path, lines)
     for number, line in enumerate(code, 1):
         if "--paginate" not in line:
             continue
@@ -314,7 +355,11 @@ def check_paginate_aggregate(path: Path) -> list[str]:
         # `--jq` as well, which is what separates a call from prose about
         # one -- this file's own docstring names the flag several times and
         # would otherwise be its own first finding.
-        if "--jq" in window and AGGREGATE.search(window):
+        # `--slurp` is excluded because it is gh's own answer to this bug
+        # (2.55.0; `mise.toml` pins 2.63.2): it hands the filter one array
+        # spanning every page, so an aggregate over it is correct and this
+        # rule would otherwise forbid the fix it exists to ask for.
+        if "--jq" in window and "--slurp" not in window and AGGREGATE.search(window):
             problems.append(
                 f"{path.relative_to(ROOT)}:{number}: `gh api --paginate` with an "
                 "aggregating jq filter; it answers once per page"
