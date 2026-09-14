@@ -92,7 +92,25 @@ default_workflow_permissions = "read"
 # request against this file.
 [ruleset.Main]
 enforcement = "active"
-bypass_actors = []
+# Repository admin, always. Empty until 14 September, and the emptiness was
+# not the considered position it looked like: a ruleset with no bypass actor
+# refuses everyone, the owner included -- repository admins are not exempt
+# the way they were under the old branch protection -- so #82 and #85 sat
+# green and unmergeable with GitHub declining to name a reason ("Cannot
+# merge at this time"). The author added the bypass by hand to get them in.
+#
+# Declared here because `--apply` sends this list on every run, so a bypass
+# added in the web UI survives until the next push to `main` touching a
+# settings path and no longer. That is what happened four minutes after it
+# was added, in run 34899571383.
+#
+# `always` rather than `pull_request`: the narrower mode covers the case
+# that has actually come up, but the reason to hold a brake is the case
+# nobody predicted, and this is the only brake left once every rule here
+# refuses everyone.
+bypass_actors = [
+  { actor_id = 5, actor_type = "RepositoryRole", bypass_mode = "always" },
+]
 include = ["~DEFAULT_BRANCH"]
 
 # Every one of these was a decision with a reason, and the reasons live in
@@ -148,6 +166,10 @@ do_not_enforce_on_create = false
 # is not allowed to happen.
 [ruleset."Fleet log"]
 enforcement = "active"
-bypass_actors = []
+# The same actor, for the same reason as `Main` above: a rule nobody can
+# bypass is a rule that cannot be undone from inside the repository.
+bypass_actors = [
+  { actor_id = 5, actor_type = "RepositoryRole", bypass_mode = "always" },
+]
 include = ["refs/heads/fleet-log"]
 rules = ["deletion", "non_fast_forward"]

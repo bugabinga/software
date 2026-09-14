@@ -385,15 +385,18 @@ def check_rulesets(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]
         if actual is None:
             unread.append(f"ruleset.{name}: could not be read")
             continue
-        findings += _compare_ruleset(name, want, actual)
+        more, more_unread = _compare_ruleset(name, want, actual)
+        findings += more
+        unread += more_unread
     return _verdict(findings, unread)
 
 
 def _compare_ruleset(
     name: str, want: dict[str, Any], actual: dict[str, Any]
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
     where = f"ruleset.{name}"
     findings: list[str] = []
+    unread: list[str] = []
 
     if "enforcement" in want and want["enforcement"] != actual.get("enforcement"):
         findings.append(
@@ -402,16 +405,29 @@ def _compare_ruleset(
         )
 
     if "bypass_actors" in want:
-        # Compared by content, not by count: an actor swapped for another is
-        # the whole of the change worth catching, and it keeps the length the
-        # same. Sorted on the printed form because the API chooses the order
-        # and the entries are small dictionaries.
-        have = _actors(actual.get("bypass_actors") or [])
-        declared_actors = _actors(want["bypass_actors"])
-        if have != declared_actors:
-            findings.append(
-                f"{where}.bypass_actors: declared {declared_actors}, found {have}"
-            )
+        # Absent is unread, not empty -- the same distinction, and the same
+        # reason, as `TRIMMED_BY_PERMISSION` one section up. A token without
+        # administration is not shown `bypass_actors` at all, and
+        # `.get(...) or []` read that as "nobody may bypass": the one shape
+        # this field can take where being wrong is worst, because it is the
+        # override on every other rule. Measured on 14 September, when the
+        # author added a bypass actor by hand and a local run went on
+        # reporting `ok rulesets` -- it could not see the list it was
+        # agreeing about. The apply's own credential does see it, so this is
+        # unread in a session and compared where it is written.
+        if "bypass_actors" not in actual:
+            unread.append(f"{where}.bypass_actors: the token cannot see this field")
+        else:
+            # Compared by content, not by count: an actor swapped for another
+            # is the whole of the change worth catching, and it keeps the
+            # length the same. Sorted on the printed form because the API
+            # chooses the order and the entries are small dictionaries.
+            have = _actors(actual["bypass_actors"])
+            declared_actors = _actors(want["bypass_actors"])
+            if have != declared_actors:
+                findings.append(
+                    f"{where}.bypass_actors: declared {declared_actors}, found {have}"
+                )
 
     if "include" in want:
         have = ((actual.get("conditions") or {}).get("ref_name") or {}).get("include")
@@ -454,7 +470,7 @@ def _compare_ruleset(
         findings += _compare_rule_parameters(
             f"{where}.{section}", want[section], rules[key]
         )
-    return findings
+    return findings, unread
 
 
 def _compare_rule_parameters(
@@ -587,7 +603,13 @@ def apply_state(repo: str, declared_path: Path = DECLARED) -> int:
                             f"ruleset {name}: could not be read, so nothing was written"
                         )
                         continue
-                    if not _compare_ruleset(name, want, actual):
+                    drift, blind = _compare_ruleset(name, want, actual)
+                    # `blind` writes too: a field this credential cannot see
+                    # is one nobody can say already matches, and the apply's
+                    # job is to make it match. It does not add log noise --
+                    # the credential that runs the apply is the one that can
+                    # read every field, so this is empty where it matters.
+                    if not drift and not blind:
                         continue
                     error = write(
                         "PUT", f"repos/{repo}/rulesets/{by_name[name]}", payload
@@ -811,39 +833,51 @@ def self_test() -> int:
             },
         ],
     }
-    assert (
-        _compare_ruleset(
-            "Main",
-            {
-                "enforcement": "active",
-                "include": ["~DEFAULT_BRANCH"],
-                "rules": ["deletion"],
-                "pull_request": {"required_approving_review_count": 0},
-            },
-            actual,
-        )
-        == []
-    )
-    assert _compare_ruleset("Main", {"rules": ["required_signatures"]}, actual) != []
+    assert _compare_ruleset(
+        "Main",
+        {
+            "enforcement": "active",
+            "include": ["~DEFAULT_BRANCH"],
+            "rules": ["deletion"],
+            "pull_request": {"required_approving_review_count": 0},
+        },
+        actual,
+    ) == ([], [])
+    assert _compare_ruleset("Main", {"rules": ["required_signatures"]}, actual)[0] != []
     assert (
         _compare_ruleset(
             "Main", {"pull_request": {"required_approving_review_count": 1}}, actual
-        )
+        )[0]
         != []
     )
     # A rule nobody declared is drift too, because the declaration is the
     # whole ruleset. Without `pull_request` declared, `actual` has one.
     assert "not declared" in " ".join(
-        _compare_ruleset("Main", {"rules": ["deletion"]}, actual)
+        _compare_ruleset("Main", {"rules": ["deletion"]}, actual)[0]
     )
     # An actor swapped for another keeps the count and changes the ruleset.
     swapped = {**actual, "bypass_actors": [{"actor_id": 2, "actor_type": "Team"}]}
     assert (
         _compare_ruleset(
             "Main", {"bypass_actors": [{"actor_id": 1, "actor_type": "Team"}]}, swapped
-        )
+        )[0]
         != []
     )
+    # The field the token cannot see is unread, not "nobody may bypass". This
+    # is the case that read as agreement before: a declared actor, a response
+    # without the key, and no finding either way.
+    hidden = {key: value for key, value in actual.items() if key != "bypass_actors"}
+    drift, blind = _compare_ruleset(
+        "Main",
+        {
+            "rules": ["deletion"],
+            "pull_request": {"required_approving_review_count": 0},
+            "bypass_actors": [{"actor_id": 5, "actor_type": "RepositoryRole"}],
+        },
+        hidden,
+    )
+    assert drift == [] and len(blind) == 1, (drift, blind)
+    assert "cannot see" in blind[0]
 
     # Unread is neither agreement nor a difference, and a difference wins.
     assert _verdict([], []) == (MATCH, [])
