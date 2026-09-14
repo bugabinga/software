@@ -28,16 +28,26 @@
 
      PALETTE. One family, one accent, and nothing else. A deep indigo
      ground, three violets and a rose for depth, and warm gold as the
-     single accent -- it is the button, the focus ring, the tick, the
-     stars, and nothing competes with it. The first version of this page
+     single accent -- it is the button, the focus ring, the hint's
+     spark, the stars, and nothing competes with it. The first version of this page
      used six rainbow stops at equal weight, which is not a palette; it
      is every colour losing an argument. Roughly 60% ground, 30%
      structure, 10% gold.
 
-     TYPE. Two families and a fourth (1.333) between sizes. An old-style
-     serif for display -- the same stack the book's own pages use -- and
-     a sans for anything the reader has to operate. The contrast between
-     them is the design: a storybook title over machine-plain controls.
+     TYPE. Two families. An old-style serif for display -- the same
+     stack the book's own pages use, `--serif` in site/assets/book.css --
+     and a sans for anything the reader has to operate. The contrast
+     between them is the design: a storybook title over machine-plain
+     controls.
+
+     The fourth (1.333) in --t0..--t5 is the display ladder, and only
+     display climbs it: the title, the unicorn, the summary, the labels.
+     Controls do not, and forcing them to would be the scale using the
+     page rather than the page using the scale -- an input at --t1 (1rem)
+     shouts next to a 3rem title and at --t0 (.75rem) is too small to
+     type a token into, so it sits at .84rem between them. Every literal
+     size on this page is a control. --t3 is a rung nothing stands on
+     today, kept because a ladder with a gap in it is not a scale.
      Display is tracked in (-0.03em) because large type looks loose at
      default; small caps labels are tracked out (+0.16em) because small
      type looks tight.
@@ -89,8 +99,11 @@
     --glass: rgba(13, 16, 40, .74);
     --line:  rgba(244, 240, 228, .13);
 
-    --display: "Iowan Old Style", "Palatino Linotype", Palatino,
-               "Book Antiqua", Georgia, ui-serif, serif;
+    /* Byte-for-byte `--serif` from site/assets/book.css. It had acquired a
+       hand-inserted "Book Antiqua" -- a Palatino clone standing between two
+       Palatinos, so it changed nothing and made the claim above false. */
+    --display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+               ui-serif, serif;
     --ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
 
