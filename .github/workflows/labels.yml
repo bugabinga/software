@@ -35,52 +35,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # `.github/labels.yml` is YAML, and it is read by a YAML parser.
+      # This step used to embed a Python heredoc that parsed it with four
+      # regexes, which could not read a folded description or a quoted name
+      # and would have got either wrong without saying so.
       - name: Create or update each label
         env:
           GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-
-          # PyYAML is not on the runner by default and this is the only thing
-          # in the repository that needs it, so the file is read with the
-          # standard library instead: a flat list of three-field records does
-          # not justify a dependency.
-          python3 - <<'PARSE' > /tmp/labels.tsv
-          import pathlib, re
-
-          name = color = description = None
-          rows = []
-          for line in pathlib.Path(".github/labels.yml").read_text().splitlines():
-              line = line.split(" #")[0].rstrip()
-              if match := re.match(r'^- name: "?([^"]+)"?$', line.strip()):
-                  if name:
-                      rows.append((name, color, description))
-                  name, color, description = match.group(1), "", ""
-              elif match := re.match(r'^color: "?([^"]+)"?$', line.strip()):
-                  color = match.group(1)
-              elif match := re.match(r"^description: (.+)$", line.strip()):
-                  description = match.group(1).strip('"')
-          if name:
-              rows.append((name, color, description))
-
-          for row in rows:
-              print("\t".join(row))
-          PARSE
-
-          count=0
-          while IFS=$'\t' read -r name color description; do
-            [ -n "$name" ] || continue
-            if gh api "repos/$REPO/labels/$(printf '%s' "$name" | sed 's/ /%20/g; s/:/%3A/g')" > /dev/null 2>&1; then
-              gh api -X PATCH "repos/$REPO/labels/$(printf '%s' "$name" | sed 's/ /%20/g; s/:/%3A/g')" \
-                -f new_name="$name" -f color="$color" -f description="$description" > /dev/null
-              echo "updated $name"
-            else
-              gh api -X POST "repos/$REPO/labels" \
-                -f name="$name" -f color="$color" -f description="$description" > /dev/null
-              echo "created $name"
-            fi
-            count=$((count + 1))
-          done < /tmp/labels.tsv
-
-          echo "::notice::synced $count label(s)"
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 tools/labels.py
