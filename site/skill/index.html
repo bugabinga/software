@@ -249,7 +249,12 @@
   }
   input::placeholder { color: var(--ink-dim); }
   input:focus {
-    outline: none; transform: translateY(-1px);
+    /* Transparent rather than `none`: under `forced-colors: active` the ring
+       below is not painted at all, and the system substitutes a colour into
+       an outline that exists. Three fields here mint a credential and one of
+       them is a password, so losing the focused field is the expensive case. */
+    outline: 2px solid transparent; outline-offset: 2px;
+    transform: translateY(-1px);
     background: rgba(244, 240, 228, .07); border-color: var(--gold);
     box-shadow: 0 0 0 1px var(--gold), 0 0 26px -6px var(--gold),
                 0 12px 30px -18px #000;

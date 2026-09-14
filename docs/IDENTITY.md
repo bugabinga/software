@@ -151,12 +151,11 @@ Then say so. Wiring the workflows is a pull request, not your job.
 
 `repo.toml` and `tools/repo_state.py`. The file says what the repository is
 configured to be; `mise run check-settings` reads it back, wherever a credential
-is held, and `mise run check` runs it. Two parts of it read unread short of a
-wide credential: `actions/permissions/workflow`, which needs administration, and
-the eight merge settings, which GitHub omits from the repository object a CI
-token receives. There is no separate check of the grant, because `repo.toml` is
-the boundary now -- with the one exception above, which the `Settings` run
-reports for itself.
+is held and wherever the declaration has been applied, and `mise run check` runs
+it. How much of it was read varies by both, so the run says so section by
+section rather than this page enumerating it -- read the output. There is no
+separate check of the grant, because `repo.toml` is the boundary now -- with the
+one exception above, which the `Settings` run reports for itself.
 
 ---
 
