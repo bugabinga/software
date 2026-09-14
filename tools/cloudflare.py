@@ -18,6 +18,7 @@ otherwise nothing on stdout and one sentence on stderr saying which case it
 is. Exit 0 when a deploy can proceed, 1 when it cannot.
 
 Usage:
+    tools/cloudflare.py --check             # ask the API and write step outputs
     curl ... | tools/cloudflare.py --subdomain --status 200
     tools/cloudflare.py --self-test
 """
@@ -26,7 +27,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
+import urllib.error
+import urllib.request
+
+from fleetlib import notice, output, warn
 
 # Cloudflare answers a scope problem with an error code in the body as well
 # as an HTTP status, and not always the same status, so both are consulted.
@@ -75,12 +81,60 @@ def read(payload: str, status: str) -> tuple[str | None, str]:
     )
 
 
+def ask(token: str, account: str) -> tuple[str, str]:
+    """The API's answer about this account's subdomain, and the HTTP status.
+
+    `preview.yml` and `worker-deploy.yml` each held the same curl and the
+    same four-line branch around this module. Identical but for one output,
+    which is the state a shared step is in just before the two drift.
+    """
+    request = urllib.request.Request(
+        f"https://api.cloudflare.com/client/v4/accounts/{account}/workers/subdomain",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as answer:
+            return answer.read().decode("utf-8"), str(answer.status)
+    except urllib.error.HTTPError as error:
+        return error.read().decode("utf-8", "replace"), str(error.code)
+    except OSError as error:
+        return "", f"000 ({error})"
+
+
+def check() -> int:
+    """Ask, then say whether a deploy can proceed. Never fails the job."""
+    token = os.environ.get("CLOUDFLARE_API_TOKEN", "")
+    account = os.environ.get("CLOUDFLARE_ACCOUNT_ID", "")
+    if not (token and account):
+        output("present", "false")
+        warn("No Cloudflare credential, so nothing was deployed.")
+        return 0
+
+    name, why = read(*ask(token, account))
+    if name is None:
+        output("present", "false")
+        warn(f"{why} Nothing was deployed.")
+        return 0
+    output("present", "true")
+    output("name", name)
+    notice(f"deploying to {name}.workers.dev")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--subdomain", action="store_true")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="ask the API directly and write present= / name=",
+    )
     parser.add_argument("--status", default="200", help="the HTTP status curl saw")
     parser.add_argument("--self-test", action="store_true")
     arguments = parser.parse_args(argv)
+
+    if arguments.check:
+        return check()
 
     if arguments.self_test:
         return self_test()

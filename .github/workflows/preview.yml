@@ -174,26 +174,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          set -uo pipefail
-          # `tools/cloudflare.py` tells three situations apart that wrangler
-          # reports as one: a subdomain that exists, a token that cannot read
-          # it, and an account that has none. The last diagnosis here went
-          # after the wrong one -- the account has `software-fleet.workers.dev`
-          # and wrangler still said to register a subdomain, which is what a
-          # scope problem looks like from outside.
-          status=$(curl -sS -o /tmp/subdomain.json -w '%{http_code}' \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" \
-            || echo 000)
-          if name=$(python3 tools/cloudflare.py --subdomain --status "$status" \
-                      < /tmp/subdomain.json 2> /tmp/subdomain.why); then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::deploying to ${name}.workers.dev"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::$(cat /tmp/subdomain.why) Nothing was deployed."
-          fi
+        run: python3 tools/cloudflare.py --check
 
       - name: Take the site the build already made
         if: steps.subdomain.outputs.present == 'true'
