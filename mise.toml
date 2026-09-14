@@ -219,15 +219,15 @@ description = "Which lines in tools/ the tests reach"
 # mean anything -- without it every unexecuted line reads as zero hits and
 # the summary is uniformly, uselessly complete. `--ignore-dir` keeps the
 # standard library out; without it the run writes a hundred `.cover` files
-# for modules nobody here wrote. The tail counts the `>>>>>>` markers per
-# file, which is the number to read: lines the tests never reached. The
-# annotated sources are in `build/coverage/` for the lines themselves.
+# for modules nobody here wrote. `trace` itself prints nothing, so
+# `tools/coverage.py` reads the annotated sources back into a ranking; the
+# sources stay in `build/coverage/` for the lines themselves.
 dir = "tools"
 run = """
 python3 -m trace --count --missing --coverdir ../build/coverage \
   --ignore-dir "$(python3 -c 'import sysconfig; print(sysconfig.get_paths()[\"stdlib\"])')" \
   --module unittest discover --pattern '*.py'
-grep -c '^>>>>>>' ../build/coverage/*.cover | sed 's/:/  unreached: /'
+python3 coverage.py
 """
 
 [tasks.check-format]
