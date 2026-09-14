@@ -175,11 +175,11 @@ jobs:
       # on every no-op to run a step whose output that same run throws away:
       # `Keep the run's record` needs `steps.key.outputs.present`, which a
       # run that did not proceed never sets. The record step carries the
-      # condition instead: nothing is cloned that has nothing to do, and
-      # nothing it now skips would have left a record anyway -- a no-op has
-      # no tree to record from, and a run held at three rounds or without a
-      # credential has a tree but nothing `Keep the run's record` would have
-      # kept. `docs/FLEET.md:41`.
+      # condition instead: nothing is cloned that has nothing to do
+      # (`docs/FLEET.md:41`), and nothing it now skips would have left a
+      # record anyway -- a no-op has no tree to record from, and a run held
+      # at three rounds or without a credential has a tree but nothing
+      # `Keep the run's record` would have kept.
       #
       # None of it was ever the row's keeper: `append_runs` in
       # `tools/fleet_report.py` writes a line for every agent run from the

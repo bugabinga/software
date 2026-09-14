@@ -311,7 +311,7 @@ def _jq_filter(window: str, near: int) -> str:
     `gh api ... --jq` above a paginated call would otherwise lend it that
     filter and the rule would pass in silence -- a false negative on exactly
     the bug it exists to find. `fleet-respond.yml`'s own `--jq '.draft'` sits
-    one line outside the window today, kept there only by the length of the
+    five lines above the window today, kept outside it by the length of the
     comment above the call it guards.
 
     Joined rather than tested one at a time because Python splits a long
