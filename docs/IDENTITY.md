@@ -102,12 +102,15 @@ that. The cause is not the App's grant. Those workflows check out without a
 the scopes a workflow may ask for -- actionlint lists all sixteen and it is
 absent, which is GitHub's rule rather than this repository's.
 
-The route that exists is the one `settings.yml` already uses: mint an
-installation token with `.github/actions/app-token`, asking for
-`{"contents": "write", "workflows": "write"}`, and hand it to the checkout's
-`token:`. That is a change to the machinery and so waits for a human, which is
-the decision -- make it, or accept that a workflow finding always does, and say
-so in the roster.
+The route `settings.yml` uses does not transfer as it stands. Minting an
+installation token with `.github/actions/app-token` needs the App key, and that
+key is a `Bot` environment secret -- while `fleet-respond.yml` already declares
+`environment: Fleet` for the model credential. A job may name one environment
+and not two (actionlint: _"environment" section is sequence node but mapping
+node is expected_), and the table below says why these two cannot become one:
+`Bot` is `main` only and `Fleet` cannot be. So this is a restructuring of that
+workflow rather than a `token:` line, and the decision is to do it, or to accept
+that a workflow finding always waits for a human and say so in the roster.
 
 **Three grants sit outside that file's reach**, and they are the three the
 earlier version of this document forbade by name: Secrets, Variables and

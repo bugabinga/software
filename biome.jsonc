@@ -1,7 +1,7 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
   "formatter": { "enabled": true },
-  // Every recommended rule, on. Two are switched off below, each for one file
+  // Every recommended rule, on. Three are switched off below, each for one file
   // and each with the reason -- a suppression nobody can audit is the thing
   // the zero-warnings policy exists to prevent.
   "linter": { "enabled": true, "rules": { "recommended": true } },

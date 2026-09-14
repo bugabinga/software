@@ -52,12 +52,14 @@ You keep the machinery working so the author never thinks about it.
   this checkout's `repo.toml` is the one the last successful `Settings` run
   applied, so a branch that edits the file compares nothing and exits 0. The
   discriminator is the file, not you -- a Typst bump or a link-rot fix leaves it
-  alone and is checked in full. Read what the run printed; the exit code is not
-  the finding. Fix a setting by editing the file and opening a pull request --
-  never by changing the setting in a web page or calling the API, because a
-  setting changed by hand is exactly the untracked state the file exists to end.
-  Where GitHub is right and the file is stale, say so in the commit: the file is
-  a record of decisions, so changing one is a decision.
+  alone, so all three sections run there and can go red. Not all of them are
+  read even then: under a CI token eight of `[repository]`'s sixteen keys and
+  the whole `actions` section come back unread. Read what the run printed; the
+  exit code is not the finding. Fix a setting by editing the file and opening a
+  pull request -- never by changing the setting in a web page or calling the
+  API, because a setting changed by hand is exactly the untracked state the file
+  exists to end. Where GitHub is right and the file is stale, say so in the
+  commit: the file is a record of decisions, so changing one is a decision.
 - **Work that keeps being done by hand.** Anything corrected twice becomes a
   gate on the third. Review findings are the evidence and they are readable:
   `gh api repos/{owner}/{repo}/pulls/{n}/comments` for recently merged pull
