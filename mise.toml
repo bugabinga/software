@@ -266,9 +266,11 @@ description = "The repository's settings, against what repo.toml declares"
 # calling silence agreement. `ci.yml`'s Check step passes `github.token`, so
 # the rulesets and half of `[repository]` are compared there. Not the rest:
 # the repository object a `contents: read` token receives has no merge
-# settings in it at all, so those eight read unread in CI and are compared
-# only where somebody holds a wider credential. `actions` needs
-# administration and is unread everywhere but the apply.
+# settings in it at all, so those read unread in CI and are compared only
+# where somebody holds a wider credential -- `TRIMMED_BY_PERMISSION` in
+# `tools/repo_state.py` is the list, and `repo.toml` points at it rather than
+# counting it, for the same reason. `actions` needs administration and is
+# unread everywhere but the apply.
 #
 # It could not be wired until #81 merged: it was red on four declared and
 # unapplied settings, and a gate red on the merge that would satisfy it is a

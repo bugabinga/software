@@ -443,11 +443,13 @@ def self_test() -> int:
     """`paginate_findings`, against every shape it has been wrong about.
 
     Each case is a correction this rule needed after it landed -- b08980d,
-    c3803ef, 82e566f, f96a563, 52efb4a -- and a reader found all five, because
-    a scanner that has stopped firing reads exactly like a scanner with
-    nothing to report. Half of these assert *caught* for that reason: two of
-    the five were false negatives introduced while fixing a false positive,
-    and the fixtures were the only thing that noticed.
+    c3803ef, 82e566f, f96a563, 52efb4a -- and a reader found every one,
+    because a scanner that has stopped firing reads exactly like a scanner
+    with nothing to report. Half assert *caught* for that reason: a false
+    negative is what fixing a false positive tends to produce, and twice in
+    those five it did. This table is newer than all of them -- it landed in
+    0fd43b0 -- so it covers none of them retroactively. What it covers is the
+    next one.
     """
     # `<P>` rather than the flag itself: these cases are source in a file
     # `main()` scans, so spelling it out would make the rule report its own
