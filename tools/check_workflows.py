@@ -32,7 +32,11 @@ from __future__ import annotations
 import ast
 import re
 import sys
+import unittest
 from pathlib import Path
+from typing import ClassVar
+
+from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 HEREDOC = re.compile(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?")
@@ -474,7 +478,7 @@ def check_paginate_aggregate(path: Path) -> list[str]:
     )
 
 
-def self_test() -> int:
+class Paginate(unittest.TestCase):
     """`paginate_findings`, against every shape it has been wrong about.
 
     Each case is a correction this rule needed after it landed, and a reader
@@ -486,6 +490,7 @@ def self_test() -> int:
     above stopped, and the enumeration had outgrown its commits by the time
     anybody read it back.
     """
+
     # `<P>` rather than the flag itself: these cases are source in a file
     # `main()` scans, so spelling it out would make the rule report its own
     # fixtures -- and there is no suppression to answer that with.
@@ -493,8 +498,9 @@ def self_test() -> int:
     # while reporting the slurped call as well as the bug beneath it, and
     # a table that cannot tell a right catch from a wrong one is the shape
     # of test that let the two false negatives through.
-    clean: list[int] = []
-    cases: list[tuple[str, list[int], str]] = [
+    NONE: ClassVar[list[int]] = []
+
+    CASES: ClassVar[list[tuple[str, list[int], str]]] = [
         # The bug itself: an aggregate over a paginated call answers per page.
         ("first", [1], 'gh("api", "x", "<P>", "--jq", "[.[]] | length")'),
         # gh takes the flags in either order.
@@ -530,17 +536,17 @@ def self_test() -> int:
         ),
         # `--slurp` is gh's own answer to this bug: one array over every page,
         # so an aggregate is correct and forbidding it forbids the fix.
-        ("slurped", clean, "gh api x <P> --slurp | jq '[.[][]] | length'"),
+        ("slurped", NONE, "gh api x <P> --slurp | jq '[.[][]] | length'"),
         # The exemption is the call's own flags, so a wrapped one keeps it.
         (
             "slurped across a wrap",
-            clean,
+            NONE,
             "gh api x <P> \\\n  --slurp | jq '[.[][]] | length'",
         ),
         # An aggregate quoted in the comment that explains the fix.
         (
             "comment quotes it",
-            clean,
+            NONE,
             "# `wc -l`, not `| length`, and not `| last` either.\n"
             "n=$(gh api repos/x <P> --jq '.[] | .id' | wc -l)",
         ),
@@ -548,37 +554,42 @@ def self_test() -> int:
         # the block indicator as jq's and a variable named `last` was a find.
         (
             "shell variable",
-            clean,
+            NONE,
             "run: |\n  last=$(gh api x <P> --jq '.[] | .state')",
         ),
         # `| sort` after the call is coreutils.
-        ("shell pipe", clean, "gh api x <P> --jq '.[] | .user.login' | sort -u"),
+        ("shell pipe", NONE, "gh api x <P> --jq '.[] | .user.login' | sort -u"),
         # A second call's aggregate must not attach to the paginated one.
         (
             "unrelated neighbour",
-            clean,
+            NONE,
             "a=$(gh api x <P> --jq '.[] | .id')\n"
             "b=$(gh api y --jq '[.labels[]] | length')",
         ),
     ]
 
-    for name, expected, source in cases:
-        suffix = ".py" if source.startswith(("gh(", "def ")) else ".yml"
-        spelled = source.replace("<P>", "--" + "paginate")
-        found = [
-            int(problem.split(":")[1])
-            for problem in paginate_findings(name + suffix, spelled.splitlines())
-        ]
-        assert found == expected, f"{name}: expected lines {expected}, got {found}"
+    def test_which_lines_are_reported(self) -> None:
+        # Which lines, not whether any: `beside a slurp` passed as a boolean
+        # while reporting the slurped call as well as the bug beneath it.
+        for name, expected, source in self.CASES:
+            with self.subTest(case=name):
+                suffix = ".py" if source.startswith(("gh(", "def ")) else ".yml"
+                spelled = source.replace("<P>", "--" + "paginate")
+                found = [
+                    int(problem.split(":")[1])
+                    for problem in paginate_findings(
+                        name + suffix, spelled.splitlines()
+                    )
+                ]
+                self.assertEqual(found, expected)
 
-    # Counted, for the reason the module docstring gives for counting its
-    # own list: `cases` outgrows a number written beside it.
-    caught = sum(1 for _, expected, _ in cases if expected)
-    print(
-        f"check_workflows: the paginate rule catches {caught} shapes "
-        f"and ignores {len(cases) - caught}"
-    )
-    return 0
+    def test_it_both_catches_and_ignores(self) -> None:
+        # Half the table asserts *caught*: a false negative is what fixing a
+        # false positive tends to produce, and a scanner that has stopped
+        # firing reads exactly like one with nothing to report.
+        caught = sum(1 for _, expected, _ in self.CASES if expected)
+        self.assertGreater(caught, 0)
+        self.assertGreater(len(self.CASES) - caught, 0)
 
 
 def check_job_hygiene(paths: list[Path]) -> list[str]:
@@ -665,7 +676,7 @@ def check_no_interpolation(paths: list[Path]) -> list[str]:
 
 def main() -> None:
     if "--self-test" in sys.argv[1:]:
-        sys.exit(self_test())
+        sys.exit(run_tests())
 
     paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted(
         (ROOT / ".github").rglob("*.yaml")

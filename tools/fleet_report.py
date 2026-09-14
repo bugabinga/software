@@ -39,10 +39,15 @@ import shutil
 import statistics
 import subprocess
 import sys
+import tempfile
+import unittest
 import zipfile
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import ClassVar
+
+from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 AGENTS = ROOT / ".claude" / "agents"
@@ -754,55 +759,71 @@ def append_history(report: dict, path: Path) -> None:
         handle.write(json.dumps(line, sort_keys=True) + "\n")
 
 
-def self_test() -> int:
-    """The narrowing layer, which is the only place a bad answer can spread.
+class Narrowing(unittest.TestCase):
+    """The only place a bad answer can spread.
 
-    Everything else here reads GitHub and cannot run without it. `api_dict`
-    and `api_list` are where an absent, malformed or wrong-shaped answer stops
-    being a problem for every caller downstream, so they are what is worth a
-    test: before them each call site wrote its own `or {}` and the report
-    crashed on the one that forgot.
+    Everything else here reads GitHub and cannot run without it. Before
+    `api_dict` and `api_list` each call site wrote its own `or {}`, and the
+    report crashed on the one that forgot.
     """
-    problems = []
-    saved = globals()["api"]
 
-    def stub(value):
-        globals()["api"] = lambda *_args, **_kwargs: value
-
-    try:
-        for value, want_dict, want_list in [
+    def test_every_shape_github_returns(self) -> None:
+        saved = globals()["api"]
+        self.addCleanup(globals().__setitem__, "api", saved)
+        for value, want_dict, want_list in (
             (None, {}, []),
             ({"a": 1}, {"a": 1}, []),
             ([1, 2], {}, [1, 2]),
             ("a string", {}, []),
             (0, {}, []),
-        ]:
-            stub(value)
-            if api_dict("x") != want_dict:
-                problems.append(f"api_dict({value!r}) -> {api_dict('x')!r}")
-            if api_list("x") != want_list:
-                problems.append(f"api_list({value!r}) -> {api_list('x')!r}")
-    finally:
-        globals()["api"] = saved
+        ):
+            with self.subTest(value=value):
+                globals()["api"] = lambda *_a, **_k: value  # noqa: B023
+                self.assertEqual(api_dict("x"), want_dict)
+                self.assertEqual(api_list("x"), want_list)
 
-    # `served_model` reads two shapes of the same fact, and a run that says
-    # neither must not be guessed at -- an invented model in the report is
-    # worse than a blank, because the report is what the tiers get judged on.
-    for result, want in [
-        ({"model": "claude-opus-5"}, "claude-opus-5"),
-        ({"modelUsage": {"claude-sonnet-5": {"input_tokens": 1}}}, "claude-sonnet-5"),
-        ({"model": "claude-opus-5", "modelUsage": {"other": {}}}, "claude-opus-5"),
-        ({"modelUsage": {}}, None),
-        ({}, None),
-        ({"model": None}, None),
-    ]:
-        if served_model(result) != want:
-            problems.append(f"served_model({result!r}) -> {served_model(result)!r}")
-    # The runs log is the fleet's traceability, and appending is the one
-    # operation that can silently lose or duplicate history.
-    import tempfile  # noqa: PLC0415 - the self-test's own dependency
 
-    fake = {
+class ServedModel(unittest.TestCase):
+    """Two shapes of one fact, and a run that says neither.
+
+    An invented model in the report is worse than a blank, because the
+    report is what the tiers get judged on.
+    """
+
+    def test_shapes(self) -> None:
+        for result, want in (
+            ({"model": "claude-opus-5"}, "claude-opus-5"),
+            (
+                {"modelUsage": {"claude-sonnet-5": {"input_tokens": 1}}},
+                "claude-sonnet-5",
+            ),
+            ({"model": "claude-opus-5", "modelUsage": {"other": {}}}, "claude-opus-5"),
+            ({"modelUsage": {}}, None),
+            ({}, None),
+            ({"model": None}, None),
+        ):
+            with self.subTest(result=result):
+                self.assertEqual(served_model(result), want)
+
+
+class RunsLog(unittest.TestCase):
+    """Appending is the one operation that can silently lose or duplicate."""
+
+    USAGE: ClassVar[dict[int, dict[str, object]]] = {
+        1: {
+            "model": "claude-sonnet-5",
+            "turns": 9,
+            "cost_usd": 0.4,
+            "seconds": 30,
+            "provenance": {
+                "agent": "pipeline-gardener",
+                "trigger": "weekly-garden",
+                "branch": "agent/garden",
+            },
+        }
+    }
+
+    REPORT: ClassVar[dict[str, object]] = {
         "runs": [
             {
                 "id": 1,
@@ -821,64 +842,58 @@ def self_test() -> int:
                 "conclusion": "failure",
             },
         ],
-        "usage": {
-            1: {
-                "model": "claude-sonnet-5",
-                "turns": 9,
-                "cost_usd": 0.4,
-                "seconds": 30,
-                "provenance": {
-                    "agent": "pipeline-gardener",
-                    "trigger": "weekly-garden",
-                    "branch": "agent/garden",
-                },
-            }
-        },
+        "usage": USAGE,
     }
-    with tempfile.TemporaryDirectory() as directory:
-        log = Path(directory) / "runs.jsonl"
-        first = append_runs(fake, log)
-        again = append_runs(fake, log)
-        rows = [
-            json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.log = Path(tmp.name) / "runs.jsonl"
+        self.first = append_runs(self.REPORT, self.log)
+        self.again = append_runs(self.REPORT, self.log)
+        self.rows = [
+            json.loads(line)
+            for line in self.log.read_text(encoding="utf-8").splitlines()
         ]
-        if first != 2:
-            problems.append(f"first append wrote {first} rows, wanted 2 agent runs")
-        if again != 0:
-            problems.append(f"appending the same report again wrote {again} rows")
-        if len(rows) != 2:
-            problems.append(f"the log holds {len(rows)} rows after two appends")
-        if any(r["workflow"] == "CI" for r in rows):
-            problems.append("plumbing runs are in the agent log")
-        traced = next((r for r in rows if r["run_id"] == 1), {})
-        if traced.get("agent") != "pipeline-gardener":
-            problems.append(f"provenance did not reach the log: {traced!r}")
-        # A run with no provenance still gets a row: it is the record that an
-        # agent ran at all, and dropping it hides exactly the failures worth
-        # seeing.
-        if not any(r["run_id"] == 3 for r in rows):
-            problems.append("a run without provenance was dropped")
 
-    # `agent_of` prefers what the run recorded over the workflow's name.
-    if agent_of({"id": 1, "workflow": "Fleet"}, fake["usage"]) != "pipeline-gardener":
-        problems.append("agent_of ignored the recorded agent")
-    if agent_of({"id": 9, "workflow": "Fleet"}, {}) != "dispatched":
-        problems.append("agent_of invented an agent for a run with no record")
-    if agent_of({"id": 9, "workflow": "Fleet review"}, {}) != "pr-reviewer":
-        problems.append("agent_of lost the workflow fallback")
+    def test_only_agent_runs_are_written(self) -> None:
+        self.assertEqual(self.first, 2)
+        self.assertFalse(any(r["workflow"] == "CI" for r in self.rows))
 
-    # `number` and `seconds` render the table; both are handed None routinely,
-    # because a run that never started has no duration.
-    if number(None) != "\u2014" or seconds(None) != "\u2014":
-        problems.append(f"None renders as {number(None)!r} / {seconds(None)!r}")
+    def test_appending_the_same_report_twice_adds_nothing(self) -> None:
+        self.assertEqual(self.again, 0)
+        self.assertEqual(len(self.rows), 2)
 
-    for problem in problems:
-        print(f"  {problem}", file=sys.stderr)
-    if problems:
-        print(f"{len(problems)} problem(s) in fleet_report", file=sys.stderr)
-        return 1
-    print("fleet_report: the narrowing layer holds every shape GitHub returns")
-    return 0
+    def test_provenance_reaches_the_log(self) -> None:
+        traced = next((r for r in self.rows if r["run_id"] == 1), {})
+        self.assertEqual(traced.get("agent"), "pipeline-gardener")
+
+    def test_a_run_without_provenance_still_gets_a_row(self) -> None:
+        # It is the record that an agent ran at all, and dropping it hides
+        # exactly the failures worth seeing.
+        self.assertTrue(any(r["run_id"] == 3 for r in self.rows))
+
+
+class Rendering(unittest.TestCase):
+    def test_agent_of_prefers_what_the_run_recorded(self) -> None:
+        self.assertEqual(
+            agent_of({"id": 1, "workflow": "Fleet"}, RunsLog.USAGE),
+            "pipeline-gardener",
+        )
+
+    def test_agent_of_invents_nothing(self) -> None:
+        self.assertEqual(agent_of({"id": 9, "workflow": "Fleet"}, {}), "dispatched")
+
+    def test_agent_of_keeps_the_workflow_fallback(self) -> None:
+        self.assertEqual(
+            agent_of({"id": 9, "workflow": "Fleet review"}, {}), "pr-reviewer"
+        )
+
+    def test_none_renders_as_an_em_dash(self) -> None:
+        # Both are handed None routinely: a run that never started has no
+        # duration.
+        self.assertEqual(number(None), "\u2014")
+        self.assertEqual(seconds(None), "\u2014")
 
 
 def main() -> int:
@@ -897,7 +912,7 @@ def main() -> int:
     arguments = parser.parse_args()
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
 
     report = build_report(arguments.days, arguments.cache)
 
