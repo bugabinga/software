@@ -18,6 +18,12 @@ on:
       - ".github/workflows/labels.yml"
   workflow_dispatch:
 
+concurrency:
+  # One at a time. The sync is a read-then-write over the whole label set, so
+  # two runs interleaving can re-create a label the other just updated.
+  group: labels
+  cancel-in-progress: false
+
 permissions:
   issues: write
 
@@ -25,6 +31,7 @@ jobs:
   sync:
     name: Sync labels
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 

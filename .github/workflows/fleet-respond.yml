@@ -105,6 +105,7 @@ jobs:
     # simply absent and the run says so rather than failing obscurely.
     environment: Fleet
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       # Three events, one occasion. A review and a review comment carry the
       # pull request; a `workflow_run` carries a branch and, usually, a list
@@ -395,13 +396,12 @@ jobs:
         env:
           FLEET_BRANCH: ${{ steps.about.outputs.branch }}
           FLEET_PR: ${{ steps.about.outputs.pr }}
+          OUT: ${{ runner.temp }}/fleet
+          MODEL: ${{ steps.brief.outputs.model }}
         run: |
-          python3 tools/fleet_record.py \
-            --out "${{ runner.temp }}/fleet" \
-            --trigger review-feedback \
-            --agent "review-responder" \
-            --model "${{ steps.brief.outputs.model }}" \
-            --brief /tmp/brief.md
+          python3 tools/fleet_record.py --out "$OUT" \
+            --trigger review-feedback --agent review-responder \
+            --model "$MODEL" --brief /tmp/brief.md
 
       # The evidence, kept. `tools/fleet_report.py` reads this to say what the
       # fleet cost and how hard it worked; without it the weekly report can

@@ -21,6 +21,13 @@ on:
         description: Tag to release (must already exist)
         required: true
 
+concurrency:
+  # Per tag. A release is uploaded assets and a published record; a second
+  # run for the same tag would fight the first over both. Never cancelled:
+  # a half-uploaded release is worse than a slow one.
+  group: release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -28,6 +35,7 @@ jobs:
   release:
     name: Attach the book to the release
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -38,9 +46,13 @@ jobs:
 
       - name: Name the assets after the tag
         id: assets
+        env:
+          # Through `env:`, because a dispatch input is whatever a person
+          # typed and an expression expanded here would be a statement.
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
-          tag="${{ inputs.tag || github.ref_name }}"
+          tag="$TAG"
 
           # Named from the title in book.toml, so the download says what the
           # book is called rather than what the repository is called. The

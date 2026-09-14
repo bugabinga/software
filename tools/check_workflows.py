@@ -280,6 +280,10 @@ COMMENT_LINE = re.compile(r"^\s*#")
 
 # jq filters that answer once for the whole input. Harmless alone; wrong under
 # `--paginate`, which is the point of the check below.
+# A `run:` block opened with a block scalar, and a one-line `run:`.
+RUN_BLOCK = re.compile(r"\brun:\s*[|>]")
+RUN_INLINE = re.compile(r"\brun:\s*\S")
+
 AGGREGATE = re.compile(
     r"(\||^)\s*(length|last|first|add|min|max|any|all|unique|sort|group_by)\b"
 )
@@ -577,6 +581,88 @@ def self_test() -> int:
     return 0
 
 
+def check_job_hygiene(paths: list[Path]) -> list[str]:
+    """`timeout-minutes` on every job, `concurrency` on every workflow.
+
+    Both are the skill's checklist, and both were standing debt: fifteen jobs
+    had no ceiling and three workflows had no group. Neither is cosmetic. The
+    default timeout is six hours, so a hung job bills all of it and holds one
+    of the account-wide concurrent slots the whole time; and without a group
+    keyed on the ref, five pushes to one branch run five times over.
+
+    Written as a gate rather than fixed once, because "add a timeout" is
+    exactly the kind of rule that holds for the files that existed the day
+    somebody swept and for none of the files added after.
+    """
+    try:
+        import yaml  # noqa: PLC0415 - optional, same as check_yaml
+    except ImportError:
+        # Unread is not agreement. A skipped check that prints nothing is how
+        # a gate quietly stops being one.
+        return ["workflow hygiene: PyYAML is not installed, so nothing was checked"]
+
+    problems: list[str] = []
+    for path in paths:
+        # Workflows only. `paths` is every yaml under `.github/`, which is
+        # also the issue forms, the composite actions and dependabot -- none
+        # of which has jobs or runs on an event.
+        if path.parent.name != "workflows":
+            continue
+        where = path.relative_to(ROOT)
+        try:
+            document = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError:
+            continue  # check_yaml reports this one
+        if not isinstance(document, dict):
+            continue
+
+        if "concurrency" not in document:
+            problems.append(
+                f"{where}: no `concurrency`. Without a group, every push to a "
+                "branch runs the whole workflow again alongside the last one"
+            )
+
+        for name, job in (document.get("jobs") or {}).items():
+            if isinstance(job, dict) and "timeout-minutes" not in job:
+                problems.append(
+                    f"{where}: job {name!r} has no `timeout-minutes`. The "
+                    "default ceiling is six hours of billed, slot-holding "
+                    "nothing"
+                )
+    return problems
+
+
+def check_no_interpolation(paths: list[Path]) -> list[str]:
+    """An expression expanded into a shell body is a statement, not a string.
+
+    GitHub substitutes the text before the shell parses it, so a tag named
+    `; rm -rf /` is not a tag any more. `env:` passes the same value as one
+    variable the shell cannot re-read.
+
+    Twelve of these stood in the tree when the rule landed. Two carried
+    `inputs.*` -- a dispatch input is whatever a person typed -- and the rest
+    were `runner.temp` and step outputs, which are safe today and are the
+    same shape as the ones that are not.
+    """
+    problems: list[str] = []
+    for path in paths:
+        where = path.relative_to(ROOT)
+        inside, indent = False, 0
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if RUN_BLOCK.search(line):
+                inside, indent = True, len(line) - len(line.lstrip())
+                continue
+            if inside and line.strip() and (len(line) - len(line.lstrip())) <= indent:
+                inside = False
+            one_liner = RUN_INLINE.search(line) is not None
+            if (inside or one_liner) and "${{" in line:
+                problems.append(
+                    f"{where}:{number}: an expression is expanded into a shell "
+                    "body; pass it through `env:` instead"
+                )
+    return problems
+
+
 def main() -> None:
     if "--self-test" in sys.argv[1:]:
         sys.exit(self_test())
@@ -587,7 +673,13 @@ def main() -> None:
     if not paths:
         sys.exit("no workflow files found under .github/")
 
-    problems = check_yaml(paths) + check_tools() + check_pins(paths)
+    problems = (
+        check_yaml(paths)
+        + check_tools()
+        + check_pins(paths)
+        + check_job_hygiene(paths)
+        + check_no_interpolation(paths)
+    )
 
     # `tools/` too, for this one: `post_review.py` held the third instance,
     # and a rule that only reads workflows would have left it there.

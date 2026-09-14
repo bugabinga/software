@@ -60,6 +60,7 @@ jobs:
     # from three names to one. That is the rule change this depends on.
     name: CI
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       # No `pull-requests: write`: this job stopped commenting when the

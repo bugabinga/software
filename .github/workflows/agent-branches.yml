@@ -33,6 +33,15 @@ on:
     types: [completed]
   workflow_dispatch:
 
+concurrency:
+  # One at a time, repository-wide. This decides what reaches `main`: two
+  # copies racing could read the same green branch and both try to merge it,
+  # and the loser's error is indistinguishable from a real refusal. Not
+  # cancel-in-progress -- a merge interrupted half-way is the one outcome
+  # worse than waiting.
+  group: agent-branches
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
@@ -52,6 +61,7 @@ jobs:
     # of these needs to run in parallel with the others.
     name: Agent branches
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

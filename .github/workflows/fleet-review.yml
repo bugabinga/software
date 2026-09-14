@@ -66,6 +66,7 @@ jobs:
     # simply absent and the run says so rather than failing obscurely.
     environment: Fleet
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -190,13 +191,11 @@ jobs:
         env:
           FLEET_BRANCH: ${{ github.event.pull_request.head.ref || github.ref_name }}
           FLEET_PR: ${{ github.event.pull_request.number || inputs.pr }}
+          OUT: ${{ runner.temp }}/fleet
+          MODEL: ${{ steps.brief.outputs.model }}
         run: |
-          python3 tools/fleet_record.py \
-            --out "${{ runner.temp }}/fleet" \
-            --trigger pull-request \
-            --agent "pr-reviewer" \
-            --model "${{ steps.brief.outputs.model }}" \
-            --brief /tmp/brief.md
+          python3 tools/fleet_record.py --out "$OUT" --trigger pull-request \
+            --agent pr-reviewer --model "$MODEL" --brief /tmp/brief.md
 
       - name: Keep the run's record
         if: always() && steps.key.outputs.present == 'true'
@@ -223,6 +222,8 @@ jobs:
       - name: Post it as a review
         if: always() && steps.key.outputs.present == 'true'
         env:
+          # A dispatch input is whatever a person typed.
+          PR: ${{ github.event.pull_request.number || inputs.pr }}
           # Not `github.token`, and this is the whole reason the review loop
           # exists rather than merely being described. GitHub does not start
           # a workflow run from an event a `GITHUB_TOKEN` created, so a
@@ -268,8 +269,7 @@ jobs:
             echo "::notice::no verdict file yet; the next step decides what that means"
             exit 0
           fi
-          python3 tools/post_review.py \
-            --pr "${{ github.event.pull_request.number || inputs.pr }}" \
+          python3 tools/post_review.py --pr "$PR" \
             --verdict /tmp/fleet-review.json
 
       # The verdict is a file, not a mood. A reviewer that fell over, ran out

@@ -50,6 +50,7 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository
     environment: Cloudflare
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       # Reading the artifact the triggering run uploaded, and commenting the
       # URL. Nothing writes to the repository.
