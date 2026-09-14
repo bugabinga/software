@@ -49,8 +49,9 @@
      TYPE. Three families. An old-style serif for display and for the
      button -- the same stack the book's own pages use, `--serif` in
      site/assets/book.css. A mono for the two fields holding an address
-     and a secret, `#endpoint` and `#token`. A sans for everything else,
-     the `about` field included. The contrast is the design: a storybook
+     and a secret, `#endpoint` and `#token`, and for `<code>` in the
+     folded detail. A sans for everything else, the `about` field
+     included. The contrast is the design: a storybook
      title and button over machine-plain controls.
 
      The fourth (1.333) in --t0..--t5 is the display ladder: the title,
@@ -109,8 +110,8 @@
 
     /* The one accent */
     /* Both, because the glows need the channels and everything else
-       needs the colour. Retyping `rgba(var(--gold-rgb), ...)` at five
-       call sites meant editing --gold left five of them behind. */
+       needs the colour. Five declarations spelled these channels out, so
+       a --gold edit left every one of them behind. */
     --gold-rgb: 242, 193, 78;
     --gold:      rgb(var(--gold-rgb));
     --gold-lit:  #ffe9a8;
@@ -709,8 +710,8 @@ if (form) form.addEventListener("submit", (event) => {
 <!--
   Decoration only. It is a second block on purpose: `check_skill_page.py` and
   `make_skill.py` pull the builder out by its id and run it under node, where
-  there is no DOM and none of this would mean anything. Keep anything that
-  touches the page down here.
+  there is no DOM and none of this would mean anything. Decoration goes down
+  here; page code the builder needs stays above, guarded on `document`.
 -->
 <script id="confetti">
 "use strict";

@@ -8,8 +8,8 @@ name: Settings
 # an hour late, an App grant whose own checker had not run since the policy
 # changed. `mise run check-settings` reads the settings back and fails on a
 # difference, and `mise run check` runs it -- though not on a branch that
-# changes a value in `repo.toml`, which is what every branch this workflow
-# exists for does. This is the half that makes GitHub agree.
+# changes a value in `repo.toml`, which is one of the four paths below.
+# This is the half that makes GitHub agree.
 #
 # Deliberately dumb. It reads a file and PUTs the difference; there is no
 # judgement in it and no model behind it, which is the only reason it is safe
