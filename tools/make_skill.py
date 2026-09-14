@@ -40,10 +40,10 @@ from pathlib import Path
 
 from check_skill_page import extract_script
 from fleetlib import captured
+from inbox import compose, worker_name
 
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / "site" / "skill" / "index.html"
-WRANGLER = ROOT / "worker" / "notes-intake" / "wrangler.jsonc"
 
 # The zip is assembled by the page's own `zip()`; this only feeds it and
 # writes the bytes out. `arrayBuffer()` because the page produces a Blob,
@@ -58,19 +58,6 @@ api.zip({ "file-note/SKILL.md": api.skillMarkdown(input) })
     require("node:fs").writeFileSync("out.zip", Buffer.from(buffer));
   });
 """
-
-
-def worker_name(config: Path) -> str:
-    """The deployed worker's name, from the only place that decides it.
-
-    Read with a regex rather than a JSON parser because the file is JSONC and
-    is full of comments; the field is one line and unambiguous, and a parser
-    that strips comments correctly is more code than the thing it enables.
-    """
-    match = re.search(r'"name"\s*:\s*"([^"]+)"', config.read_text(encoding="utf-8"))
-    if not match:
-        sys.exit(f"{config}: no worker name in it")
-    return match.group(1)
 
 
 def default_book(page: Path = PAGE) -> str:
@@ -93,20 +80,6 @@ def default_book(page: Path = PAGE) -> str:
     if not match:
         sys.exit(f"{page}: the `about` field has no value to default to")
     return html.unescape(match.group(1))
-
-
-def endpoint_for(subdomain: str, config: Path = WRANGLER) -> str:
-    """The inbox's address: the worker, on the account's workers.dev subdomain.
-
-    `subdomain` is what the account is called, not a hostname -- the deploy
-    reads it from Cloudflare's API, so `software-fleet` arrives rather than
-    `software-fleet.workers.dev`. Tolerating the longer form costs one strip
-    and saves a confusing double suffix.
-    """
-    name = subdomain.strip().removesuffix(".workers.dev")
-    if not name or "/" in name or "." in name:
-        sys.exit(f"{subdomain!r} is not a workers.dev subdomain name")
-    return f"https://{worker_name(config)}.{name}.workers.dev"
 
 
 def build(endpoint: str, token: str, book: str, out: Path, page: Path = PAGE) -> int:
@@ -142,26 +115,6 @@ def build(endpoint: str, token: str, book: str, out: Path, page: Path = PAGE) ->
 
     print(f"{out}: the skill for {endpoint}")
     return 0
-
-
-class Addresses(unittest.TestCase):
-    """Where the skill posts, from whichever form of the name it is given."""
-
-    def test_the_endpoint(self) -> None:
-        self.assertEqual(
-            endpoint_for("software-fleet"),
-            "https://notes-intake.software-fleet.workers.dev",
-        )
-
-    def test_a_pasted_name_is_the_same_name(self) -> None:
-        # The API returns the bare name; a person pasting from a browser
-        # brings the suffix with them.
-        self.assertEqual(
-            endpoint_for("software-fleet.workers.dev"), endpoint_for("software-fleet")
-        )
-
-    def test_the_worker_names_itself(self) -> None:
-        self.assertEqual(worker_name(WRANGLER), "notes-intake")
 
 
 @unittest.skipUnless(shutil.which("node"), "node is absent, so the zip is unbuilt")
@@ -220,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.print_endpoint:
         if not args.subdomain:
             parser.error("--print-endpoint needs --subdomain")
-        print(endpoint_for(args.subdomain))
+        print(compose(worker_name(), args.subdomain))
         return 0
     if not args.subdomain or not args.out:
         parser.error("--subdomain and --out are both required")
@@ -230,7 +183,10 @@ def main(argv: list[str] | None = None) -> int:
         sys.exit("no token on stdin, or one too short to be the real one")
 
     return build(
-        endpoint_for(args.subdomain), token, args.book or default_book(), args.out
+        compose(worker_name(), args.subdomain),
+        token,
+        args.book or default_book(),
+        args.out,
     )
 
 

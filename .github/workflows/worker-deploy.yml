@@ -151,6 +151,14 @@ jobs:
       # `wrangler.jsonc` alone. A copy in this file would be a second place to
       # get it wrong, and the deploy above is the thing that would keep
       # working while the summary pointed somewhere that does not exist.
+      #
+      # `--check-live` is what makes writing the subdomain down safe.
+      # `tools/build.py` bakes the declared address into the skill page, so a
+      # page built from a stale `WORKERS_SUBDOMAIN` prefills an inbox that
+      # answers nothing -- and nothing about that failure is visible from
+      # either side. This deploy knows which account it reached, so it is the
+      # one place that can say the two disagree. It fails here rather than
+      # publishing a page pointing at a Worker that is not there.
       - name: The inbox's address
         id: inbox
         if: steps.subdomain.outputs.present == 'true'
@@ -158,7 +166,7 @@ jobs:
           SUBDOMAIN: ${{ steps.subdomain.outputs.name }}
         run: |
           set -euo pipefail
-          url=$(python3 tools/make_skill.py --subdomain "$SUBDOMAIN" --print-endpoint)
+          url=$(python3 tools/inbox.py --check-live "$SUBDOMAIN")
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Say where it is

@@ -48,6 +48,7 @@ import tomllib
 # when the script is run by path from anywhere.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import inbox
 from epub import build_epub
 from pinned import pins as _pins
 
@@ -1127,6 +1128,28 @@ def copy_assets(out_dir: Path) -> None:
         if destination.exists():
             shutil.rmtree(destination)
         shutil.copytree(page, destination)
+        fill_standalone(destination)
+
+
+# What a standalone page may ask the build for. One entry, and the mechanism
+# is here rather than in the page because the page cannot read a repository
+# file: `site/skill/` needs the notes inbox's address, which is composed from
+# `worker/notes-intake/wrangler.jsonc` and nothing else.
+def fill_standalone(destination: Path) -> None:
+    """Substitute `{{...}}` in a copied standalone page.
+
+    Only `index.html`, and only markers this build knows: an unknown marker
+    is left as it is and the page's own script treats a surviving `{{` as an
+    empty field, so a page served straight out of `site/` degrades to what it
+    did before rather than showing a template.
+    """
+    index = destination / "index.html"
+    if not index.is_file():
+        return
+    text = index.read_text(encoding="utf-8")
+    if "{{inbox}}" not in text:
+        return
+    index.write_text(text.replace("{{inbox}}", inbox.url()), encoding="utf-8")
 
 
 def build_social_card(binary: str, out_dir: Path) -> list[str]:

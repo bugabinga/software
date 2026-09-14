@@ -79,7 +79,27 @@
      the card's ring turns, the title's gold shifts, the button's shine
      sweeps. Only the card's entry, the burst and the controls' own
      transitions are events. None of it moves under
-     prefers-reduced-motion.
+     prefers-reduced-motion, and the four that sit *behind* the card stop
+     below 46rem -- see PERFORMANCE.
+
+     PERFORMANCE. The card is backdrop-filter: blur(24px). A backdrop
+     filter re-samples and re-blurs everything under the element on every
+     frame in which anything under it moved, and what is under it here is
+     four 70vmax circles at blur(110px) plus a field of stars fading in
+     and out. On a phone that is four blurred layers the size of the
+     screen composited, then blurred again through the card, sixty times
+     a second -- and the phone cannot, so frames arrive torn. It read as
+     the whole page flickering.
+
+     The fix is not less blur but less motion under the blur, and only
+     where it costs: below 46rem the card fills the viewport, so the sky
+     around it is a few millimetres of edge and its drift was never
+     visible in the first place. Above that width there is real sky and
+     the motion is the point, so it stays. The ring spins on the card
+     itself -- an @property paint animation, repainted on the CPU each
+     frame, invalidating the backdrop under it -- and stops on the same
+     rule. will-change goes with the animation: promoting four 70vmax
+     layers that no longer move is memory for nothing.
 
      TECHNIQUE. @property makes --angle a real <angle>, which is what
      lets a conic gradient animate at all. Grain sits above the
@@ -166,7 +186,7 @@
   .sky { position: fixed; inset: -25vmax; z-index: -3; pointer-events: none; }
   .blob {
     position: absolute; width: 70vmax; height: 70vmax; border-radius: 50%;
-    filter: blur(110px); opacity: .34; will-change: transform;
+    filter: blur(110px); opacity: .34;
   }
   .blob:nth-child(1) { background: var(--violet); top: 0;    left: -6%;   animation: drift1 34s ease-in-out infinite; }
   .blob:nth-child(2) { background: var(--night-2); top: 28%; right: -10%; opacity: .8; animation: drift2 41s ease-in-out infinite; }
@@ -175,6 +195,7 @@
   @keyframes drift1 { 50% { transform: translate(14vmax, 10vmax) scale(1.25); } }
   @keyframes drift2 { 50% { transform: translate(-12vmax, 11vmax) scale(1.12); } }
   @keyframes drift3 { 50% { transform: translate(11vmax, -11vmax) scale(.82); } }
+  @media (min-width: 46rem) { .blob { will-change: transform; } }
 
   /* Stars: six tiled radial-gradient dot fields at different scales,
      breathing together on the one clock, so the field twinkles without
@@ -396,6 +417,24 @@
   }
   @keyframes flash { 0% { opacity: .3; } 100% { opacity: 0; } }
 
+  /* Under the card, on a phone. Everything named here animates *behind* a
+     backdrop-filter, which is what makes each frame cost a re-blur of the
+     whole card. The look is unchanged in a screenshot: a 110px blur at rest
+     and a 110px blur mid-drift are the same wash of colour, and at this
+     width the card covers almost all of it anyway. `.unicorn` crosses in
+     42s and is the ornament the page is about, but it is also behind the
+     card, so it goes too rather than keeping one invalidation alive for the
+     sake of the rule's tidiness.
+
+     The card's own entry, the button, the burst and every control
+     transition are untouched: those are above the filter or are events, and
+     an event that costs a few frames is a thing the reader asked for. */
+  @media (max-width: 45.999rem) {
+    .blob, .stars, .unicorn, main::before {
+      animation: none;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
     h1 { color: var(--gold); }
@@ -417,7 +456,7 @@
 
   <form id="form">
     <label for="endpoint">inbox <span class="hint" id="endpoint-hint"></span></label>
-    <input id="endpoint" type="url" required spellcheck="false"
+    <input id="endpoint" type="url" required spellcheck="false" value="{{inbox}}"
            placeholder="https://notes-intake.you.workers.dev" autocomplete="off">
 
     <label for="token">token</label>
@@ -648,15 +687,46 @@ function say(kind, emoji, text) {
   status.replaceChildren(mark, document.createTextNode(` ${text}`));
 }
 
-// The address is not in the repository: `worker-deploy.yml` reads the
-// account's subdomain from Cloudflare at deploy time, because a copy checked
-// in here would keep looking right after the account changed. So the deploy
-// links to this page with `?inbox=` already filled, and the value arrives from
-// the run that did the deploying. Typing it by hand still works.
+// Three ways the inbox field gets filled, most specific first.
+//
+// The address used to come only from `?inbox=`, which `worker-deploy.yml`
+// prints after a deploy. That meant the page prefilled exactly once, for
+// whoever clicked that link in that run: arriving from a bookmark, from the
+// book's footer, or by typing the address got a placeholder and a demand
+// that you already know the answer. The reason given for not checking the
+// URL in was that a copy would keep looking right after the account moved --
+// true, and answered by making it a fact a program compares rather than one
+// a file asserts. It is built into `value` from `worker/notes-intake/
+// wrangler.jsonc`, and `worker-deploy.yml` fails when the account disagrees.
+//
+// `?inbox=` still wins over the built-in one, because a link from a specific
+// deploy is about that deploy. A value the reader typed wins over both and
+// is remembered, because someone pointing this at their own Worker should
+// not have to retype it -- in `localStorage`, which is this browser's alone
+// and never leaves it.
 if (form) {
-  const given = new URLSearchParams(location.search).get("inbox");
-  if (given && /^https:\/\//.test(given)) {
-    document.getElementById("endpoint").value = given.trim().replace(/\/+$/, "");
+  const field = document.getElementById("endpoint");
+  const clean = (value) => String(value || "").trim().replace(/\/+$/, "");
+  const https = (value) => /^https:\/\/[^\s]+$/.test(value);
+
+  // An unsubstituted template marker means the page is being served straight
+  // out of `site/` rather than out of a build. Not an address.
+  if (field.value.includes("{{")) field.value = "";
+
+  let source = field.value ? "built in" : "";
+  let remembered = "";
+  try {
+    remembered = clean(localStorage.getItem("notes-inbox"));
+  } catch {
+    // Private windows and blocked site data throw here. The page works
+    // without memory; it just forgets.
+  }
+  if (https(remembered)) { field.value = remembered; source = "remembered"; }
+
+  const given = clean(new URLSearchParams(location.search).get("inbox"));
+  if (https(given)) { field.value = given; source = "from your deploy"; }
+
+  if (source) {
     // The hint beside this label is empty until now: with the box empty
     // there is nothing to say that the placeholder does not already show.
     // Once the address is in, the question is no longer where it comes
@@ -668,7 +738,7 @@ if (form) {
     const mark = document.createElement("span");
     mark.setAttribute("aria-hidden", "true");
     mark.textContent = "✦";
-    hint.replaceChildren(mark, document.createTextNode(" from your deploy"));
+    hint.replaceChildren(mark, document.createTextNode(` ${source}`));
   }
 }
 
@@ -685,6 +755,14 @@ if (form) form.addEventListener("submit", (event) => {
     say("bad", "🙅", "the address has to start with https://");
     return;
   }
+  // Remembered only once it has passed the shape check above, so a typo on
+  // the way to the right address is not what comes back next time.
+  try {
+    localStorage.setItem("notes-inbox", endpoint);
+  } catch {
+    // See above: no memory is a working page, just a forgetful one.
+  }
+
   if (token.length < 16) {
     say("bad", "🤏", "that token is too short");
     return;

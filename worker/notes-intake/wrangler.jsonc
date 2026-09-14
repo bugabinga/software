@@ -13,9 +13,22 @@
 
 	// Not secret, and better here than in a secret: reading the log should tell
 	// you which repository a run was talking to.
+	//
+	// WORKERS_SUBDOMAIN is the account's workers.dev name, and it is here
+	// because the skill page needs it and had no way to get it. That page
+	// prefilled its inbox field only when opened through the `?inbox=` link
+	// the deploy prints, so anyone arriving at the page any other way -- a
+	// bookmark, the book's own footer, typing the address -- saw a
+	// placeholder and had to know the URL already. Declared once, read by
+	// `tools/make_skill.py`, baked into the page by `tools/build.py`, and
+	// compared against the live account by `worker-deploy.yml`, which fails
+	// if the two ever disagree. That check is what makes it safe to write
+	// down: the objection to a checked-in copy is that it keeps looking
+	// right after the account changes, and this one cannot.
 	"vars": {
 		"GITHUB_REPOSITORY": "bugabinga/software",
-		"GITHUB_BASE_BRANCH": "main"
+		"GITHUB_BASE_BRANCH": "main",
+		"WORKERS_SUBDOMAIN": "software-fleet"
 	},
 
 	// Set with `wrangler secret put`, never in this file:
