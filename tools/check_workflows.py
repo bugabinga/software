@@ -290,6 +290,8 @@ QUOTED = re.compile(r"'([^']*)'|\"([^\"]*)\"")
 
 JQ_FLAG = re.compile(r"--jq[\"']?[\s,]*")
 
+BETWEEN_PARTS = re.compile(r"[\s,\\]*")
+
 
 def _jq_filter(window: str) -> str:
     """Everything quoted after the first `--jq` in `window`, joined.
@@ -306,14 +308,25 @@ def _jq_filter(window: str) -> str:
     if flag is None:
         return ""
     rest = window[flag.end() :]
-    return " ".join(
-        found.group(1) if found.group(1) is not None else found.group(2)
-        for found in QUOTED.finditer(rest)
-    )
+
+    # Only the first run of quoted strings, not every quote to the end of the
+    # window: a second `gh api` six lines down would otherwise lend this call
+    # its filter, and there is no suppression to answer that with. A run is
+    # what Python's implicit concatenation produces -- strings separated by
+    # nothing but whitespace, commas or a continuation -- so the first token
+    # that is none of those ends the filter.
+    parts: list[str] = []
+    seam = 0
+    for found in QUOTED.finditer(rest):
+        if parts and BETWEEN_PARTS.fullmatch(rest[seam : found.start()]) is None:
+            break
+        parts.append(found.group(1) if found.group(1) is not None else found.group(2))
+        seam = found.end()
+    return " ".join(parts)
 
 
 def _without_prose(path: Path, lines: list[str]) -> list[str]:
-    """`lines` with comments and Python docstrings blanked, in place.
+    """A copy of `lines` with comments and Python docstrings blanked.
 
     Blanked rather than removed so an index is still a line number.
 

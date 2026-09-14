@@ -36,7 +36,11 @@
      stand-in, for reduced motion, where the sky is hidden and there is
      nothing behind the glass to blur. That one is hand-picked, not
      computed: `--glass` with the alpha dropped is #0d1028 and over the
-     ground it composites to #0b0d22. The first version of this page
+     ground it composites to #0b0d22. Everything else that is not a
+     variable is a structural `#fff` or `#000`, plus the vignette's own
+     near-black. The gold glows are `rgba(var(--gold-rgb), ...)`, so
+     there is one accent to edit and not six. The first version of this
+     page
      used six rainbow stops at equal weight, which is not a palette; it
      is every colour losing an argument. Roughly 60% ground, 30%
      structure, 10% gold.
@@ -100,7 +104,11 @@
     --teal:    #2f7d8a;
 
     /* The one accent */
-    --gold:      #f2c14e;
+    /* Both, because the glows need the channels and everything else
+       needs the colour. Retyping `rgba(var(--gold-rgb), ...)` at five
+       call sites meant editing --gold left five of them behind. */
+    --gold-rgb: 242, 193, 78;
+    --gold:      rgb(var(--gold-rgb));
     --gold-lit:  #ffe9a8;
     --gold-deep: #b8862b;
 
@@ -250,7 +258,7 @@
       var(--gold) 46%, var(--gold-deep) 70%, var(--gold) 100%);
     background-size: 260% 100%;
     -webkit-background-clip: text; background-clip: text; color: transparent;
-    filter: drop-shadow(0 3px 26px rgba(242, 193, 78, .3));
+    filter: drop-shadow(0 3px 26px rgba(var(--gold-rgb), .3));
     animation: shimmer 9s ease-in-out infinite;
   }
   h1 em { font-style: italic; }
@@ -297,7 +305,7 @@
     letter-spacing: .01em; color: #1c1405;
     background: linear-gradient(168deg, var(--gold-lit), var(--gold) 44%, var(--gold-deep));
     border: 0; border-radius: 999px; cursor: pointer;
-    box-shadow: 0 16px 44px -16px rgba(242, 193, 78, .75),
+    box-shadow: 0 16px 44px -16px rgba(var(--gold-rgb), .75),
                 inset 0 1px 0 rgba(255, 255, 255, .55),
                 inset 0 -2px 0 rgba(0, 0, 0, .18);
     transition: transform .6s var(--spring), box-shadow .3s;
@@ -315,7 +323,7 @@
   @keyframes sweep { 60%, 100% { --sweep: 140%; } }
   button:hover, button:focus-visible {
     transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 22px 60px -16px rgba(242, 193, 78, .95),
+    box-shadow: 0 22px 60px -16px rgba(var(--gold-rgb), .95),
                 inset 0 1px 0 rgba(255, 255, 255, .7);
   }
   button:active { transform: translateY(0) scale(.98); }
@@ -335,8 +343,8 @@
   .warn {
     margin: var(--s5) 0 0; padding: var(--s3) var(--s4);
     border-radius: .75rem; font-size: .82rem; font-weight: 600;
-    color: var(--gold-lit); background: rgba(242, 193, 78, .09);
-    border: 1px solid rgba(242, 193, 78, .28);
+    color: var(--gold-lit); background: rgba(var(--gold-rgb), .09);
+    border: 1px solid rgba(var(--gold-rgb), .28);
   }
 
   .small {
