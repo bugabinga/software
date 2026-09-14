@@ -444,9 +444,11 @@ jobs:
 
       # The evidence, kept. `tools/fleet_report.py` reads this to say what the
       # fleet cost and how hard it worked; without it the weekly report can
-      # only count runs. Gated like the step that writes the file, and not on
-      # `always()` alone as it is in `fleet.yml` and `fleet-review.yml`: here
-      # a run that stopped short has no tree to have written one from.
+      # only count runs. `key.present` as well as `always()` -- the same pair
+      # `fleet.yml` and `fleet-review.yml` carry on this step. What differs
+      # here is the step above: those two write the record on `always()`
+      # alone, and this file cannot, because a run that stopped at "nothing
+      # to answer" never checked out a tree to write it from.
       - name: Keep the run's record
         if: always() && steps.key.outputs.present == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
