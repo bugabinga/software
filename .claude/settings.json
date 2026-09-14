@@ -23,8 +23,7 @@
       "Bash(.tools/gh/gh:*)",
       "Bash(git fetch:*)",
       "Bash(git switch:*)",
-      "Bash(git checkout:*)",
-      "Bash(tools/operator-brief.sh)"
+      "Bash(git checkout:*)"
     ]
   },
   "hooks": {
@@ -34,10 +33,6 @@
           {
             "type": "command",
             "command": "tools/bootstrap-mise.sh"
-          },
-          {
-            "type": "command",
-            "command": "tools/operator-brief.sh"
           }
         ]
       }

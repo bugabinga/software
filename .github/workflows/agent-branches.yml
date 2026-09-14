@@ -269,7 +269,8 @@ jobs:
           fi
           echo "files changed:"; echo "${files//$'\n'/$'\n  '}"
 
-          # What still needs a human, per docs/FLEET.md: only the machinery.
+          # What still needs a human, and this step is where that is
+          # decided rather than described: only the machinery.
           # A change to .github/ or .claude/ is the automation deciding its
           # own future, and an agent that can rewrite its own brief or its own
           # merge rule is not supervised by anything.

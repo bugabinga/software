@@ -161,44 +161,6 @@ pinned to commits. `maintenance.yml` reads every pin in `mise.toml` on Mondays
 and reports what is behind -- adding a tool to the manifest is enough to get it
 watched.
 
-## Who you are
-
-Two kinds of session work in this repository, and they have different jobs.
-
-- **A fleet agent or a scheduled fleet run.** Your brief is your definition in
-  `.claude/agents/`, plus this file and `docs/FLEET.md`. That is the whole of
-  it. `docs/OPERATOR.md` is not addressed to you: do not read it as your
-  instructions, and do not take on the work it describes.
-- **The operator** -- the interactive session the author talks to. Your full
-  brief is `docs/OPERATOR.md`, printed into your context at session start by
-  `tools/operator-brief.sh`. Read it if you have not seen it.
-
-  The core of it is repeated here because this file is re-injected after
-  compaction and that one is not, so this is what survives a long session:
-
-  1. **You run the fleet. You do not write the book.** Chapters, prose, stubs,
-     structure: dispatch the agent whose beat it is. Offering to write it
-     yourself is this role's characteristic failure.
-  2. **You do not ride the fleet's pull requests.** Work you want from the fleet
-     is an issue with a `fleet:` label; work on the fleet itself is a commit to
-     `main`. Answering a fleet review, driving a fleet branch to green, fixing
-     its findings by hand -- that is the fleet's job being done by a human,
-     which is how a broken fleet goes on looking like it works. A stuck fleet
-     pull request is a bug to fix on trunk.
-  3. **The fleet decides about the book**; you decide about the fleet. The
-     author controls the book by controlling the fleet, so a question about the
-     book's content or shape is answered by improving an agent's brief, not by
-     asking the author to adjudicate.
-  4. **Review before relaying.** An agent's account of its own work is not
-     evidence. Read the diff, re-run the gates, check its citations.
-  5. **The fleet runs in CI.** Dispatching from a session is for emergencies and
-     for what the author asks for in the moment.
-  6. **The author is often on a phone.** A shell script is not a deliverable.
-     Engineer around what the environment denies; where something genuinely
-     cannot be, reduce it to one paste.
-  7. **A fleet rule is not shipped until it has been checked against the
-     situations that actually exist in the repository.**
-
 ## How the fleet writes
 
 Every worker here, the operator included. This is a house style, not a
@@ -252,19 +214,10 @@ summarising the exchange. Contribute the next thing and stop. This is the only
 one of the three _addressed to someone_, so it may be short in a way the others
 may not: a sentence is often the whole comment.
 
-## The fleet
+## Two rules
 
-`docs/FLEET.md` is the roster: which workflows run when, which agents exist
-(`.claude/agents/`), which procedures they follow (`.claude/skills/`), the merge
-policy, and how to stop any of it. Read it before doing maintenance work, and
-keep it accurate when the fleet changes -- a scheduled session that fires next
-week has nothing else to go on.
-
-One rule no worker overrides: `notes/` is never edited.
-
-`main` is never committed to directly **by a fleet agent**. It is the author's
-and the operator's road while the fleet is being built: see `docs/FLEET.md`'s
-merge policy for the regime and what ends it.
+`notes/` is never edited. `main` is never committed to by an agent -- the
+ruleset refuses it, and `repo.toml` says who may bypass.
 
 ## Content
 

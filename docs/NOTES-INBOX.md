@@ -27,8 +27,7 @@ enough to rewrite the book.
 
 A GitHub token cannot be scoped to "may only file a note". A Worker can. The
 note-taker holds a bearer token that reaches one endpoint; the GitHub credential
-lives in Cloudflare and never leaves it. That is the same principle as the
-GitHub App in `docs/IDENTITY.md` — _able to do the job and nothing else_ —
+lives in Cloudflare and never leaves it: able to do the job and nothing else,
 applied to a session nobody is supervising.
 
 Three layers of containment, none of which trusts the caller:
