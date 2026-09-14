@@ -8,10 +8,10 @@
 # there is nothing to read back yet; editing the prose around a value changes
 # nothing and is still compared. See `unapplied_reason` in
 # `tools/repo_state.py`. Where it does compare, two narrower parts still read
-# unread short of a wide credential: `actions/permissions/workflow`, which needs administration, and
-# the eight merge settings below, which GitHub omits from the repository
-# object it hands a CI token. Read what the run printed; do not infer
-# coverage from the exit code.
+# unread short of a wide credential: `actions/permissions/workflow`, which
+# needs administration, and the eight merge settings below, which GitHub
+# omits from the repository object it hands a CI token. Read what the run
+# printed; do not infer coverage from the exit code.
 # Before this file, the same claims lived in prose -- and prose about a
 # setting cannot be checked, so `docs/FLEET.md` spent months asserting a
 # ruleset that had changed under it. A pull request is now how a setting
