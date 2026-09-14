@@ -29,22 +29,35 @@ request with red CI is more urgent than anything below it).
    `main`, that is the most important thing in the repository and everything
    else waits.
 
-4. **Typst.** Compare every pin in `mise.toml` (`tools/pinned.py --all`) against its upstream
-   (`gh api repos/typst/typst/releases/latest --jq .tag_name`). If it is
-   behind, hand it to the `pipeline-gardener` agent: bump, `mise install`,
-   `mise run check`, and read a built chapter before believing it. The HTML export
-   is experimental, so an upgrade that builds is not automatically an upgrade
-   that renders.
+4. **Typst.** Compare every pin in `mise.toml` (`tools/pinned.py --all`) against
+   its upstream (`gh api repos/typst/typst/releases/latest --jq .tag_name`). If
+   it is behind, hand it to the `pipeline-gardener` agent: bump, `mise install`,
+   `mise run check`, and read a built chapter before believing it. The HTML
+   export is experimental, so an upgrade that builds is not automatically an
+   upgrade that renders.
 
-5. **Link rot.** Outbound links only; internal ones are checked on every
-   build. If `lychee` is unavailable locally, read the most recent CI run for
-   the `Outbound links` job instead of guessing.
+5. **Link rot.** Outbound links only; internal ones are checked on every build.
+   If `lychee` is unavailable locally, read the most recent CI run for the
+   `Check outbound links` step in the `CI` job instead of guessing.
 
-6. **Notes.** Is there anything in `notes/` first seen since the last sweep
-   that the book does not account for? If so, hand it to the
-   `notes-cartographer` agent. Structure proposals only.
+6. **Notes.** Is there anything in `notes/` first seen since the last sweep that
+   the book does not account for? If so, hand it to the `notes-cartographer`
+   agent. Structure proposals only.
 
-7. **Nothing else.** Do not reformat, reorganise, "improve" the stylesheet, or
+7. **What keeps being done by hand.** The one step that makes the sweep worth
+   more than the sum of its checks.
+
+   Read the review findings on pull requests merged since the last sweep --
+   `gh api repos/{owner}/{repo}/pulls/{n}/comments --jq '.[].body'` -- and group
+   them by what the finding is about rather than which file it landed in. A
+   class that appears three times is a gate this week: a check that fails, a
+   formatter setting, a self-test. If it genuinely cannot be mechanised, open an
+   issue saying why, so the next sweep does not rediscover it.
+
+   Two hits is a coincidence and three is a pattern. The evidence is already in
+   the API and nothing else in this repository reads it.
+
+8. **Nothing else.** Do not reformat, reorganise, "improve" the stylesheet, or
    refactor `tools/` because you would have written it differently. The fleet
    earns its autonomy by being boring.
 
@@ -52,11 +65,11 @@ request with red CI is more urgent than anything below it).
 
 Scheduled sessions are fired without MCP tools, so GitHub is reached through
 `gh`, which the SessionStart hook installs (`mise install`, pinned in
-`mise.toml`). Reads are unrestricted; a _mutating_ command may still be
-refused by the local permission layer. If one is, do not improvise a way
-around it -- use the GitHub MCP tools if this session has them, and otherwise
-stop and report what was refused and what it was for. A sweep that reports
-being unable to act is useful. One that finds another route is not.
+`mise.toml`). Reads are unrestricted; a _mutating_ command may still be refused
+by the local permission layer. If one is, do not improvise a way around it --
+use the GitHub MCP tools if this session has them, and otherwise stop and report
+what was refused and what it was for. A sweep that reports being unable to act
+is useful. One that finds another route is not.
 
 ## Merge policy
 
@@ -64,28 +77,27 @@ The author's standing decision: everything arrives as a pull request; green
 _chores_ may merge themselves.
 
 A chore is a change that touches none of `book/chapters/`, `book/book.toml`,
-`book/lib/`, `site/`, `.github/`, `.claude/` -- so: dependency and Typst
-bumps, tooling fixes, dead-link repairs outside prose, and `notes/`
-ingestion. Changes to the workflows or to the fleet's own definitions are
-never merged automatically, because that is the automation deciding its own
-future.
+`book/lib/`, `site/`, `.github/`, `.claude/` -- so: dependency and Typst bumps,
+tooling fixes, dead-link repairs outside prose, and `notes/` ingestion. Changes
+to the workflows or to the fleet's own definitions are never merged
+automatically, because that is the automation deciding its own future.
 
 You do not open or merge pull requests yourself. **Push a branch named
-`agent/<something>` and stop.** `agent-branches.yml` opens the pull request
-from your commit message and merges it if it is a chore and every check on
-its head commit is green; if it is not a chore, it stays open for the author.
+`agent/<something>` and stop.** `agent-branches.yml` opens the pull request from
+your commit message and merges it if it is a chore and every check on its head
+commit is green; if it is not a chore, it stays open for the author.
 
 So the commit message is the pull request: write it as one. And if a change
-should not merge itself even though it is a chore, say so in the commit
-message and apply the `hold` label if you can.
+should not merge itself even though it is a chore, say so in the commit message
+and apply the `hold` label if you can.
 
-Everything else -- prose, structure, styling, anything with a judgement in it
--- stays open for the author, with a body that can be read in two minutes.
+Everything else -- prose, structure, styling, anything with a judgement in it --
+stays open for the author, with a body that can be read in two minutes.
 
 ## Reporting
 
-Write the sweep's outcome as the pull request body, or as a comment on the
-pull request you acted on. Do not open an issue to announce that you looked.
-If a sweep finds a problem it cannot fix, open **one** issue naming the
-problem, what you tried, and what you would need -- and check for an existing
-open issue about it first.
+Write the sweep's outcome as the pull request body, or as a comment on the pull
+request you acted on. Do not open an issue to announce that you looked. If a
+sweep finds a problem it cannot fix, open **one** issue naming the problem, what
+you tried, and what you would need -- and check for an existing open issue about
+it first.

@@ -1,0 +1,143 @@
+# What this repository is configured to be.
+#
+# Every value here is a claim about `bugabinga/software` that
+# `mise run check-settings` reads back from GitHub's API and fails on. Not yet
+# in `mise run check`, and blind in CI -- `mise.toml` says why, and the line
+# that ends both is one `env:` in `ci.yml` after the first apply.
+# Before this file, the same claims lived in prose -- and prose about a
+# setting cannot be checked, so `docs/FLEET.md` spent months asserting a
+# ruleset that had changed under it. A pull request is now how a setting
+# changes, and the diff is the record of who decided what.
+#
+# **This is not a mirror.** The repository object alone returns 96 fields;
+# declaring all of them would mean fighting the API's shape forever and
+# rewriting this file every time GitHub adds a key. What is here is what
+# somebody decided on purpose. Anything absent is unchecked, deliberately.
+
+[repository]
+# Set once and easy to lose: the description and homepage are what the
+# repository looks like to somebody who has not opened it.
+description = "One programmer's thoughts about software. Written in Typst, published as a website, a PDF and an EPUB from one source tree, by a fleet of agents."
+homepage = "https://bugabinga.github.io/software/"
+default_branch = "main"
+
+# Squash only, to match the `Main` ruleset's `allowed_merge_methods`. Rebase
+# stays enabled at the repository level because the ruleset is what enforces
+# the policy on `main`, and turning it off here would only remove a button
+# from branches nobody protects.
+allow_squash_merge = true
+allow_merge_commit = false
+allow_rebase_merge = true
+
+# The commit a squash produces reads as the pull request did: its title, its
+# body. The alternative is a subject that says "Merge pull request #81".
+squash_merge_commit_title = "PR_TITLE"
+squash_merge_commit_message = "PR_BODY"
+
+# `strict_required_status_checks_policy` on the ruleset means a branch behind
+# `main` cannot land until it is updated. `allow_update_branch` is the button
+# that does it -- off, the two settings fight, and every merge after somebody
+# else's is a manual rebase.
+allow_update_branch = true
+allow_auto_merge = true
+delete_branch_on_merge = true
+
+# Issues carry the fleet's tasks and its notices. The other three are surfaces
+# nobody here writes to, and an empty wiki on a public repository is an
+# invitation to wonder what was meant to be in it.
+has_issues = true
+has_wiki = false
+has_projects = false
+has_discussions = false
+
+# Sorted, because GitHub returns them sorted and a diff should not be about
+# ordering.
+topics = [
+  "agents",
+  "book",
+  "ebook",
+  "github-pages",
+  "software-engineering",
+  "static-site-generator",
+  "typst",
+]
+
+[actions]
+# The one field behind "Actions is not permitted to create pull requests",
+# which is why `agent-branches.yml` has never once opened one and why every
+# fleet pull request to date was opened by the operator by hand. The name says
+# approve; the setting governs both.
+can_approve_pull_request_reviews = true
+
+# `GITHUB_TOKEN` starts read-only and each workflow raises what it needs, so
+# a workflow that forgets `permissions:` gets the safe default rather than the
+# convenient one.
+default_workflow_permissions = "read"
+
+# The `Main` ruleset, complete, down to the parameters: `repo_state.py` writes
+# this ruleset from this declaration, so a rule that is not here is a rule that
+# should not exist, and `compare()` only looks at parameters that are declared,
+# so one left out is one nothing would notice changing. That is what makes the
+# fleet able to unstick itself -- a rule that is wrong is fixed by a pull
+# request against this file.
+[ruleset.Main]
+enforcement = "active"
+bypass_actors = []
+include = ["~DEFAULT_BRANCH"]
+
+# Every one of these was a decision with a reason, and the reasons live in
+# `docs/FLEET.md`. Here they are only true or false.
+rules = [
+  "creation",
+  "deletion",
+  "non_fast_forward",
+  "required_linear_history",
+  "required_signatures",
+  "update",
+]
+
+[ruleset.Main.pull_request]
+allowed_merge_methods = ["squash"]
+# Zero, because the review requirement lives in the checks where the fleet can
+# satisfy it. Raising this to one means nothing the author opens can merge
+# without a second human, and there is no second human.
+required_approving_review_count = 0
+# False, because at zero approvals it was never a gate: #78 merged touching
+# `.github/` and `.claude/` with no approving review, having only requested
+# one. A rule that requests and then merges anyway is worse than no rule,
+# because the roster spent months describing it as the thing holding the line.
+# What actually refuses is `agent-branches.yml`, on the paths it names.
+require_code_owner_review = false
+dismiss_stale_reviews_on_push = true
+require_last_push_approval = false
+# False, and the responder's brief is what makes threads end resolved. Turning
+# it on would make a thread no agent can resolve into a merge nothing can
+# complete -- see `docs/FLEET.md`.
+required_review_thread_resolution = false
+# Declared because the section calls itself complete, and `compare()` only
+# looks at what is declared -- so an undeclared parameter is one GitHub could
+# change between two applies with nothing reporting it. Both are GitHub's
+# defaults and neither was a decision anybody made; they are here to be
+# checked, not because they are interesting.
+require_extra_approval_for_unattributed_changes = false
+required_reviewers = []
+
+[ruleset.Main.required_status_checks]
+# `CI` is one job covering build, spelling and links: requiring those three by
+# name would add contexts that never report, which blocks every merge. `Fleet
+# review` is the fleet reading its own work, required since 13 September.
+contexts = ["CI", "Fleet review"]
+strict = true
+# The same reason as the two undeclared `pull_request` parameters above.
+do_not_enforce_on_create = false
+
+# The branch `fleet-report.yml` appends a line to every Monday, so the fleet's
+# record outlives the API's 90-day window. Nothing may delete it or rewrite
+# its history; everything else about it is unguarded, because it is written
+# by a workflow and read by nobody who could be confused by a force-push that
+# is not allowed to happen.
+[ruleset."Fleet log"]
+enforcement = "active"
+bypass_actors = []
+include = ["refs/heads/fleet-log"]
+rules = ["deletion", "non_fast_forward"]

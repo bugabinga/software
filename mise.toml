@@ -241,6 +241,33 @@ run = "python3 tools/post_review.py --self-test"
 description = "The mechanical faults in the chapters a program can decide"
 run = ["python3 tools/prose_scan.py --self-test", "python3 tools/prose_scan.py"]
 
+[tasks.check-settings-logic]
+description = "repo_state.py's comparison rules, without a network"
+# Split from `check-settings` so it can be gated now. The reason that task is
+# held back is that `--check` is red until `settings.yml` has applied the
+# file; that reason does not reach the self-test, which needs no credential
+# and no network and is the only thing checking 600 lines of comparison.
+run = "python3 tools/repo_state.py --self-test"
+
+[tasks.check-settings]
+description = "The repository's settings, against what repo.toml declares"
+# Reads GitHub and compares; it never writes. A section the token cannot see
+# is reported as unread rather than as agreement, so it is honest about what
+# it managed to look at -- and today, in CI, that is nothing: `ci.yml`'s
+# Check step sets no `GH_TOKEN`, every call fails, all three sections read
+# unread and the task passes. Arming it is one `env:` line there, and it
+# cannot be added until `settings.yml` has applied `repo.toml` once, or the
+# gate blocks the merge that would satisfy it.
+#
+# So it is deliberately NOT in `check`'s depends yet. It is red today for
+# anyone holding a credential -- four settings declared and not applied --
+# and `pipeline-gardener`'s definition of done is a green `mise run check`,
+# so wiring it now would wedge the fleet on a difference only a merge can
+# fix. The follow-up that arms `GH_TOKEN` in `ci.yml` adds the line, and
+# that is the commit that can prove the gate works.
+depends = ["check-settings-logic"]
+run = "python3 tools/repo_state.py --check"
+
 [tasks.check]
 description = "Every gate CI runs"
 # check-skill (#60), check-review (#61) and check-prose (#66) landed on main
@@ -262,6 +289,7 @@ depends = [
   "check-lint",
   "check-types",
   "check-report",
+  "check-settings-logic",
 ]
 run = "echo 'all checks passed'"
 

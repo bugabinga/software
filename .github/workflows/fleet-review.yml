@@ -26,7 +26,9 @@ on:
   # no `pull_request` run, so without this the responder's fixes would carry
   # the failing verdict they answered -- and `Fleet review` is a required
   # check, so that pull request could never merge. `workflow_dispatch` is one
-  # of the two events a `GITHUB_TOKEN` may still raise.
+  # of the events a `GITHUB_TOKEN` may still raise, and it is also how
+  # `agent-branches.yml` starts this on a pull request it has just opened,
+  # for the same reason.
   workflow_dispatch:
     inputs:
       pr:

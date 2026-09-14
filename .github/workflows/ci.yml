@@ -22,18 +22,17 @@ concurrency:
   #
   # The group used to be the branch alone, so that a push and a pull request
   # for the same head did not both run. What actually happened is that one
-  # cancelled the other, and both produce check runs named `Build`,
-  # `Outbound links` and `Spelling` -- the names the ruleset requires. A
-  # required check that reads *Canceled* is not a check that passed, and on
-  # #59 the pull request showed `CI / Build (push)` as `Required · Canceled
-  # after 2s` beside a successful `CI / Build (pull_request)` for the same
-  # commit.
+  # cancelled the other, and both produce a check run named `CI` -- the name
+  # the ruleset requires (`repo.toml`). A required check that reads *Canceled*
+  # is not a check that passed, and on #59, when this was still three jobs,
+  # the pull request showed `CI / Build (push)` as `Required · Canceled after
+  # 2s` beside a successful `CI / Build (pull_request)` for the same commit.
   #
   # It did not block that merge, because the successful run was the later
   # one. That is a race, not a design: the day a pull request run finishes
   # first, the cancelled push run is the most recent check of that name and
-  # the merge is stuck with no way to satisfy it. Two runs cost a minute;
-  # this costs an afternoon.
+  # the merge is stuck with no way to satisfy it. Two runs cost two slots for
+  # a few seconds; this costs an afternoon.
   #
   # Superseding still works where it matters -- pushing twice to a branch
   # cancels the first run, because those share both event and branch.
@@ -42,14 +41,17 @@ concurrency:
 
 jobs:
   ci:
-    # One job, and the reason is billing rather than tidiness.
+    # One job, and the reason is concurrency rather than tidiness.
     #
     # This used to be three -- Build, Spelling, Outbound links -- running in
     # parallel. Measured on one push: nine jobs across all workflows, 131
-    # seconds of actual work, nine minutes billed, because GitHub rounds every
-    # job up to the whole minute. The three CI jobs were 21s, 17s and 12s of
-    # which roughly five seconds each was runner setup and checkout. Parallel
-    # saved perhaps fifteen seconds of wall clock and cost two minutes.
+    # seconds of actual work. Nothing here is billed -- the repository is
+    # public -- and the per-job round-up to a whole minute is a billing rule,
+    # so it is not what the author's other repositories queue behind: that is
+    # the 131 seconds, across nine concurrency slots held to spend it. The
+    # three CI jobs were 21s, 17s and 12s, roughly five seconds each of runner
+    # setup and checkout. Parallel bought perhaps fifteen seconds of wall
+    # clock and paid two extra checkouts and two extra slots for it.
     #
     # It also deletes the artifact round-trip: the link check used to download
     # the site that the build had just uploaded from the same commit.

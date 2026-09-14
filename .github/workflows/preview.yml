@@ -12,7 +12,8 @@ name: Preview
 # on the author's account. A `workflow_run` job executes in `main`'s context,
 # so it satisfies that rule without loosening it and without a second token.
 #
-# The cost is one extra job per pull request push, which is one billed minute.
+# The cost is one extra job per pull request push: no charge, one more
+# concurrency slot for as long as the job runs, and a slightly longer wait.
 # That is the price of a link, and it was judged worth paying.
 
 on:

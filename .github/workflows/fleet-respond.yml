@@ -12,9 +12,10 @@ name: Fleet respond
 #
 # The reviews it answers are the author's and the fleet's own. Copilot's
 # automated review is not among them: it needs a paid Copilot plan, and since
-# 1 June 2026 each review also bills Actions minutes, so the `copilot_code_review`
-# rule was removed from the ruleset rather than paid for. `pr-reviewer` covers
-# the same ground.
+# 1 June 2026 each review also spends Actions minutes -- unbilled here, drawn
+# from the account's shared concurrency -- so the `copilot_code_review` rule
+# was removed from the ruleset rather than paid for. `pr-reviewer` covers the
+# same ground.
 #
 # Three workflows, three verbs, so it stays clear which one to look at:
 #
@@ -341,11 +342,14 @@ jobs:
             --allowedTools "Bash,Read,Edit,Write,Grep,Glob"
 
       # The other half of the same rule. The agent pushes with the credential
-      # `actions/checkout` persisted, which is the workflow token, so its push
-      # starts no `pull_request` run: no CI, and no new verdict on the fixes
-      # it just made. `fleet.yml` hit this first and worked around it the same
-      # way, because `workflow_dispatch` is one of the two exceptions to the
-      # rule -- see the comment at `fleet.yml`'s "Say where it went".
+      # `actions/checkout` persisted, which is the workflow token. That push
+      # updates a pull request, so the `pull_request` runs it raises are
+      # created and then held in an approval-required state -- runs
+      # 34760403200 and 34760403209 -- which is silence with extra steps: no
+      # CI and no new verdict on the fixes just made. `workflow_dispatch` is
+      # an exception the token may still raise, so asking explicitly is the
+      # way through; `fleet.yml` hit the same wall from the other side, at
+      # its "Say where it went".
       #
       # Both are asked for, not just CI: `Fleet review` is a required check
       # now, so a pull request whose verdict is never re-run is a pull request

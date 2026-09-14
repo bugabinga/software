@@ -2,9 +2,13 @@
 """Check the GitHub Actions definitions before they are pushed.
 
 A broken workflow does not fail loudly -- it fails at 06:17 on a Monday, in a
-run nobody is watching. Two classes of mistake are worth catching locally:
+run nobody is watching. Six classes of mistake are worth catching locally:
 
 * invalid YAML (checked when PyYAML happens to be importable);
+* a program under `tools/` that no longer parses as Python;
+* a `uses:` that is not a commit SHA, or one carrying no version comment;
+* a tab, which YAML forbids for indentation;
+* a comment wrapped past the width the author reads at;
 * a shell heredoc inside a `run:` block whose terminator is indented past the
   block. YAML strips a block scalar's own indentation before the shell ever
   sees it, so a terminator sitting at exactly that indentation is correct and
@@ -26,6 +30,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 HEREDOC = re.compile(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?")
+
+# The width the comments are wrapped to. Not a style preference: the author
+# reads these on a phone, and every other language here has a formatter that
+# enforces one -- 80 for Markdown and TOML, 88 for Python. Nothing reflows a
+# YAML comment, and dprint's yaml plugin never will: it formats structure, not
+# prose. So the wrap stays a human decision and this is the gate that stops it
+# being a silent one. A round on #81 was spent on a line left at 89 columns by
+# an edit that replaced half a sentence, and two more on this gate.
+COMMENT_WIDTH = 80
+COMMENT = re.compile(r"^\s*#")
 
 
 def heredoc_opener(line: str) -> tuple[str, bool] | None:
@@ -223,6 +237,37 @@ def check_tools() -> list[str]:
     return problems
 
 
+def check_comment_width(path: Path) -> list[str]:
+    """Comment lines wrapped past `COMMENT_WIDTH`.
+
+    Comments only: a long `run:` line or a long expression is the YAML
+    formatter's business and sometimes unavoidable, while a comment is prose
+    and always wrappable. A line whose overflow is one unbroken token -- a URL,
+    a SHA, a long identifier -- is left alone, because breaking it would be
+    worse than the overflow and no wrap could have avoided it.
+
+    The escape hatch asks whether the longest token could have fitted on a
+    line of its own, not whether deleting it would bring this line under the
+    limit. The second question is the one this first asked, and almost every
+    line slightly over the limit answers it yes: an 89-column comment
+    containing `concurrency` was skipped, which is the exact line the rule was
+    written for.
+    """
+    problems: list[str] = []
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not COMMENT.match(line) or len(line) <= COMMENT_WIDTH:
+            continue
+        longest = max((len(word) for word in line.split()), default=0)
+        marker = line.index("#") + 2  # the indent, the "#" and the space
+        if marker + longest > COMMENT_WIDTH:
+            continue  # one long token; no wrapping would have helped
+        problems.append(
+            f"{path.relative_to(ROOT)}:{number}: comment is {len(line)} columns, "
+            f"over {COMMENT_WIDTH}"
+        )
+    return problems
+
+
 def main() -> None:
     paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted(
         (ROOT / ".github").rglob("*.yaml")
@@ -234,6 +279,7 @@ def main() -> None:
 
     for path in paths:
         problems += check_heredocs(path)
+        problems += check_comment_width(path)
         if "\t" in path.read_text(encoding="utf-8"):
             problems.append(
                 f"{path.relative_to(ROOT)}: contains a tab; "

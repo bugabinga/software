@@ -1,0 +1,102 @@
+name: Settings
+
+# Make the repository match `repo.toml`.
+#
+# The settings were the fifth source of truth and the only one in no file:
+# not diffable, not reviewable, and the place every surprise came from -- a
+# code-owner rule that blocks nothing, a required check the roster learned of
+# an hour late, an App grant whose own checker had not run since the policy
+# changed. `mise run check-settings` reads the settings back and fails on a
+# difference; it is not in `mise run check` yet, and in CI it sees nothing.
+# This is the half that makes GitHub agree.
+#
+# Deliberately dumb. It reads a file and PUTs the difference; there is no
+# judgement in it and no model behind it, which is the only reason it is safe
+# to hand a credential that may change the rules governing the fleet. What
+# bounds it is the pull request that changed `repo.toml`.
+#
+# It writes the ruleset too. `repo.toml` declares the whole of it, so what is
+# not declared is what should not exist -- and a fleet that cannot change the
+# rule blocking it is a fleet that stays blocked, which is the arrangement
+# this replaces.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "repo.toml"
+      - "tools/repo_state.py"
+      - ".github/workflows/settings.yml"
+      - ".github/actions/app-token/action.yml"
+  workflow_dispatch:
+
+# Nothing from `GITHUB_TOKEN`: every write here is the App's, and a job that
+# cannot write with the workflow token cannot quietly fall back to it.
+permissions: {}
+
+concurrency:
+  # One at a time, globally. Two runs reconciling the same settings would race
+  # over the same fields, and there is never a reason to want the older answer.
+  group: settings
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    name: Settings
+    # The App's key is an environment secret, so the job has to name the
+    # environment to see it at all. If this name is wrong the secret is simply
+    # absent and the run says so rather than failing obscurely.
+    environment: Bot
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: ./.github/actions/app-token
+        id: token
+        with:
+          app-id: ${{ vars.FLEET_APP_ID || secrets.FLEET_APP_ID }}
+          private-key: ${{ secrets.FLEET_APP_PRIVATE_KEY }}
+          # Administration covers all four paths `repo_state.py` touches --
+          # the repository object, its topics, the rulesets and
+          # `actions/permissions/workflow`, which reads as Administration
+          # rather than Actions despite its name (GitHub's REST description:
+          # read to get, write to set). Metadata because every call needs it.
+          # The App holds far more than these two.
+          permissions: '{"administration": "write", "metadata": "read"}'
+
+      - name: Apply repo.toml
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: python3 tools/repo_state.py --apply
+
+      # An installation token lives about an hour and this job takes minutes,
+      # so without this there is a credential able to rewrite the `Main`
+      # ruleset sitting valid for the rest of that hour after the only thing
+      # that needed it has finished. One call ends it. It belongs here rather
+      # than in the composite action because a composite cannot carry a post
+      # step, and `always()` because the run that failed is the one whose
+      # token is most worth not leaving alive.
+      - name: Revoke the installation token
+        if: always() && steps.token.outputs.token != ''
+        env:
+          TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          set -euo pipefail
+          # `|| code=000` because `set -e` would take the job down on a
+          # transport failure -- DNS, TLS, a timeout -- which is the one
+          # outcome the branch below exists to turn into a warning. `-sS`
+          # without `-f` already keeps HTTP statuses out of the exit code.
+          code=$(curl -sS -o /dev/null -w '%{http_code}' -X DELETE \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/installation/token) || code=000
+          # 204 is revoked; 401 is a token GitHub had already invalidated,
+          # which is the same outcome. Anything else is worth a line, and
+          # worth not failing the job over: the apply already happened.
+          if [ "$code" = "204" ] || [ "$code" = "401" ]; then
+            echo "::notice::installation token revoked ($code)"
+          else
+            echo "::warning::could not revoke the installation token (HTTP $code); it expires within the hour"
+          fi

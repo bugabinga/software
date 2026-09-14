@@ -1,0 +1,114 @@
+name: App token
+description: >-
+  Mint a short-lived installation token for the fleet's GitHub App, for the
+  one job that needs to write what `GITHUB_TOKEN` may not.
+
+inputs:
+  app-id:
+    description: The app's numeric ID
+    required: true
+  private-key:
+    description: The app's PEM private key
+    required: true
+  permissions:
+    description: >-
+      The permissions to mint the token with, as a JSON object. Required and
+      without a default on purpose: a POST with no body mints a token carrying
+      everything the installation holds, which here is push, merge and the
+      secrets. The scope belongs at the call site, where the reader of the
+      workflow can see it.
+    required: true
+
+outputs:
+  token:
+    description: An installation access token, valid for about an hour
+    value: ${{ steps.mint.outputs.token }}
+
+runs:
+  using: composite
+  steps:
+    # Built with openssl rather than a third-party action, for the reason the
+    # workflows skill gives: an action runs with every secret this job holds,
+    # and this job holds the key to an app that may change the repository's
+    # settings. Twenty lines of shell against that is a good trade.
+    - name: Mint an installation token
+      id: mint
+      shell: bash
+      env:
+        APP_ID: ${{ inputs.app-id }}
+        KEY: ${{ inputs.private-key }}
+        REPO: ${{ github.repository }}
+        PERMISSIONS: ${{ inputs.permissions }}
+      run: |
+        set -euo pipefail
+
+        # Checked before anything uses it, because the alternative is what
+        # this replaced: an empty PEM, `openssl dgst` exiting with "unable to
+        # load key", and the two annotations that would have named the cause
+        # sitting further down the script. A wrong `environment:` name makes
+        # the secret simply absent, and that is the likeliest way this fails.
+        if [ -z "$KEY" ] || [ -z "$APP_ID" ]; then
+          echo "::error::FLEET_APP_ID or FLEET_APP_PRIVATE_KEY is empty. Both live on the Bot environment; check the job names it."
+          exit 1
+        fi
+
+        printf '%s' "$KEY" > /tmp/app.pem
+        chmod 600 /tmp/app.pem
+
+        # base64url is plain base64 with two characters swapped and the
+        # padding dropped.
+        b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+
+        now=$(date +%s)
+        header=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
+        # Backdated a minute against clock skew; GitHub allows ten.
+        payload=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' \
+          "$((now - 60))" "$((now + 480))" "$APP_ID" | b64url)
+        signature=$(printf '%s.%s' "$header" "$payload" \
+          | openssl dgst -sha256 -sign /tmp/app.pem -binary | b64url)
+        jwt="$header.$payload.$signature"
+        rm -f /tmp/app.pem
+        echo "::add-mask::$jwt"
+
+        api() {
+          curl -sS --fail-with-body \
+            -H "Authorization: Bearer $jwt" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" "$@"
+        }
+
+        if ! api "https://api.github.com/repos/$REPO/installation" > /tmp/i.json; then
+          echo "::error::The app is not installed on $REPO, or the id and key do not match."
+          cat /tmp/i.json >&2 || true
+          exit 1
+        fi
+        id=$(python3 -c 'import json,sys; print(json.load(open("/tmp/i.json"))["id"])')
+
+        # Scoped down from everything the App holds, and to this repository.
+        # A POST with no body mints a token carrying every permission the
+        # installation has, which here is all of them -- push, merge, secrets
+        # -- for a job that PUTs a handful of settings. Built with python
+        # rather than string-spliced into the JSON so the repository name
+        # cannot end the quote.
+        body=$(python3 -c 'import json, os; print(json.dumps({"repositories": [os.environ["REPO"].split("/", 1)[1]], "permissions": json.loads(os.environ["PERMISSIONS"])}))')
+        if ! api -X POST -H "Content-Type: application/json" -d "$body" \
+          "https://api.github.com/app/installations/$id/access_tokens" > /tmp/t.json; then
+          echo "::error::The app authenticated but would not issue an installation token."
+          cat /tmp/t.json >&2 || true
+          # A permission asked for above what the installation holds is a 422,
+          # and the body does not name which one. The installation document
+          # already fetched does, so print both sides: on 2026-09-12 this app
+          # held `administration` at read while `repo_state.py` needs write,
+          # and that mismatch is the likeliest reason to be reading this.
+          echo "::error::asked for: $body"
+          echo "::error::installation grants: $(python3 -c 'import json; print(json.dumps(json.load(open("/tmp/i.json")).get("permissions", {}), sort_keys=True))')"
+          exit 1
+        fi
+        token=$(python3 -c 'import json; print(json.load(open("/tmp/t.json"))["token"])')
+        rm -f /tmp/t.json /tmp/i.json
+
+        # Masked before it is written anywhere, including this step's own
+        # output, so a later step that echoes it leaks nothing.
+        echo "::add-mask::$token"
+        echo "token=$token" >> "$GITHUB_OUTPUT"
+        echo "::notice::minted an installation token for $REPO"

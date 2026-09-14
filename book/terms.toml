@@ -17,14 +17,15 @@
 # ## Who maintains it
 #
 # `prose-editor`: terminology is its beat and "one term, one meaning" is the
-# thing it protects. It proposes entries; the author approves them, because
-# `.github/CODEOWNERS` owns this file.
+# thing it protects. It proposes entries; the author approves them.
 #
-# That ownership is deliberate and it is not distrust. This file is a rule the
-# fleet has to satisfy, and the cheapest way past a failing rule is to delete
-# the rule -- an agent that can drop an entry instead of fixing a chapter has
-# a gate that is really a suggestion. It is also the one place where what the
-# book *calls* things is written down, which is the author's to settle.
+# Nothing enforces that, deliberately -- `.github/CODEOWNERS` used to claim to
+# and did not, requesting a review GitHub then merged without. It is a rule the
+# fleet keeps because the reason is legible: this file is a rule the fleet has
+# to satisfy, the cheapest way past a failing rule is to delete the rule, and
+# an agent that drops an entry instead of fixing a chapter has turned a gate
+# into a suggestion. It is also the one place where what the book *calls*
+# things is written down, which is the author's to settle.
 #
 # ## Format
 #
