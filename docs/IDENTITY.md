@@ -107,10 +107,12 @@ installation token with `.github/actions/app-token` needs the App key, and that
 key is a `Bot` environment secret -- while `fleet-respond.yml` already declares
 `environment: Fleet` for the model credential. A job may name one environment
 and not two (actionlint: _"environment" section is sequence node but mapping
-node is expected_), and the table below says why these two cannot become one:
-`Bot` is `main` only and `Fleet` cannot be. So this is a restructuring of that
-workflow rather than a `token:` line, and the decision is to do it, or to accept
-that a workflow finding always waits for a human and say so in the roster.
+node is expected_), and "Where the credentials live" below says why these two
+cannot become one: the table puts the App key in `Bot`, `main` only, and the
+paragraph under it says a `main`-only `Fleet` would block every `Fleet review`.
+So this is a restructuring of that workflow rather than a `token:` line, and the
+decision is to do it, or to accept that a workflow finding always waits for a
+human and say so in the roster.
 
 **Three grants sit outside that file's reach**, and they are the three the
 earlier version of this document forbade by name: Secrets, Variables and

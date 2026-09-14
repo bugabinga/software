@@ -371,7 +371,7 @@
     *, *::before, *::after { animation: none !important; transition: none !important; }
     h1 { color: var(--gold); }
     .sky, .stars, .grain, .vignette, .unicorn { display: none; }
-    main { border-color: var(--line); background: #0d1128; }
+    main { background: #0d1128; }
   }
 </style>
 </head>
@@ -613,9 +613,10 @@ if (form) {
   const given = new URLSearchParams(location.search).get("inbox");
   if (given && /^https:\/\//.test(given)) {
     document.getElementById("endpoint").value = given.trim().replace(/\/+$/, "");
-    // The hint below the field explains where the address comes from, which
-    // is a question the reader no longer has once it is in the box. Saying
-    // who filled it is the useful thing at that point.
+    // The hint beside this label is empty until now: with the box empty
+    // there is nothing to say that the placeholder does not already show.
+    // Once the address is in, the question is no longer where it comes
+    // from but who put it there.
     document.getElementById("endpoint-hint").textContent = "✦ from your deploy";
   }
 }
