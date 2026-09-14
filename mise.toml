@@ -269,6 +269,11 @@ description = "The repository's settings, against what repo.toml declares"
 # It could not be wired until #81 merged: it was red on four declared and
 # unapplied settings, and a gate red on the merge that would satisfy it is a
 # gate that blocks its own fix. Run 34791533048 applied them.
+#
+# The same shape recurs on every branch that edits `repo.toml`, so it is
+# handled rather than avoided: `unapplied_reason` compares this checkout's
+# file to the one the last successful `settings.yml` run was applied from,
+# and compares nothing when they differ. See its docstring.
 depends = ["check-settings-logic"]
 run = "python3 tools/repo_state.py --check"
 

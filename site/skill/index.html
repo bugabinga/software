@@ -368,7 +368,7 @@
     <input id="token" type="password" required spellcheck="false"
            placeholder="NOTES_INTAKE_TOKEN" autocomplete="off">
 
-    <label for="book">about</label>
+    <label for="book">about <span class="hint">when the skill applies</span></label>
     <input id="book" type="text" value="one programmer's thoughts about software"
            autocomplete="off">
 
@@ -667,6 +667,10 @@ if (form) form.addEventListener("submit", (event) => {
     for (let i = 0; i < (count || 34); i++) {
       const spark = document.createElement("span");
       spark.className = "spark";
+      // Decoration, and the accessibility tree should not hear about it: a
+      // screen reader would otherwise announce a stream of loose emoji over
+      // whatever the status line is trying to say.
+      spark.setAttribute("aria-hidden", "true");
       spark.textContent = CAST[Math.floor(Math.random() * CAST.length)];
 
       // Fired upward more often than down, because confetti that only falls

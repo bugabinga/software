@@ -31,6 +31,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import shutil
 import subprocess
@@ -102,6 +103,81 @@ def fetch(path: str) -> Any | None:
         return json.loads(body)
     except json.JSONDecodeError:
         return None
+
+
+# The workflow that makes GitHub agree with the file. Named here because
+# this is the only thing that can answer "is the declaration I am holding the
+# one that was applied?", and the answer decides whether comparing means
+# anything at all.
+APPLIER = "settings.yml"
+
+
+def unapplied_reason(
+    here: bytes, applied: bytes | None, sha: str | None, run: str | None
+) -> str | None:
+    """Why reading the settings back would prove nothing, or `None`.
+
+    `repo.toml` on a branch is a claim about what the repository is *about to*
+    be. `settings.yml` applies it on a push to `main`, so between the edit and
+    that run the live repository cannot agree -- and a check that called the
+    gap a difference would fail every branch that touches the file, including
+    the one merge that would fix it. Withholding the token off `main` was the
+    first answer and it was the wrong lever: it blinds the check rather than
+    teaching it, it leaves the check unarmed on the branches CI runs on most,
+    and it does not reach the agents at all -- `fleet.yml` and
+    `fleet-respond.yml` hand `github.token` to the step the agent works in, so
+    an agent that edited `repo.toml` would fail its own definition of done
+    with no way to satisfy it.
+
+    It also does not survive the race. `settings.yml` and `ci.yml` fire on the
+    same push to `main`: on 6aa0507 the apply ran 00:05:03-00:05:12 and the
+    Check step started at 00:05:22, and `concurrency: group: settings` can
+    queue the apply behind an earlier one for longer than that. Arming on
+    `main` means arming exactly where the two collide.
+
+    So the discriminator is not the branch, it is the bytes. Compare only when
+    the file in this checkout is the file the last successful apply was run
+    from; anything else is unread, with the reason said out loud. That answer
+    is the same on a pull request, on `main`, inside an agent and on a laptop,
+    which is why it belongs here rather than in three copies of a workflow
+    condition.
+    """
+    if applied is None or sha is None:
+        return (
+            f"the last successful `{APPLIER}` run could not be read, so "
+            "whether this declaration has been applied is unknown"
+        )
+    if applied != here:
+        return (
+            f"this file is not the one run {run} applied (it ran on {sha[:7]}): "
+            "declared here, not yet applied, so there is nothing to read back"
+        )
+    return None
+
+
+def applied_declaration(repo: str, declared_path: Path) -> str | None:
+    """`unapplied_reason`, with the two fetches it needs."""
+    runs = fetch(
+        f"repos/{repo}/actions/workflows/{APPLIER}/runs"
+        "?status=success&per_page=1&exclude_pull_requests=true"
+    )
+    found = (runs or {}).get("workflow_runs") or []
+    sha = found[0].get("head_sha") if found else None
+    run = str(found[0].get("id")) if found else None
+
+    applied = None
+    if sha:
+        # The contents API rather than git: the checkout CI works in is
+        # shallow and the agents' is a branch, so the applied commit is not
+        # reliably in either tree.
+        blob = fetch(f"repos/{repo}/contents/{declared_path.name}?ref={sha}")
+        if isinstance(blob, dict) and blob.get("encoding") == "base64":
+            try:
+                applied = base64.b64decode(blob.get("content", ""))
+            except (ValueError, TypeError):
+                applied = None
+
+    return unapplied_reason(declared_path.read_bytes(), applied, sha, run)
 
 
 # The eight fields GitHub removes from the repository object it hands a
@@ -525,6 +601,17 @@ def ruleset_payload(name: str, want: dict[str, Any]) -> dict[str, Any]:
 def check(repo: str, declared_path: Path = DECLARED) -> int:
     declared = tomllib.loads(declared_path.read_text(encoding="utf-8"))
 
+    print(f"repo state: {repo}, against {declared_path.name}")
+
+    pending = applied_declaration(repo, declared_path)
+    if pending is not None:
+        print(f"  unread  {declared_path.name}\n            {pending}")
+        print(
+            "\nNothing was compared. That is not agreement: this run cannot "
+            "tell you whether the repository matches the file."
+        )
+        return 0
+
     sections = [
         ("repository", check_repository, declared.get("repository", {})),
         ("actions", check_actions, declared.get("actions", {})),
@@ -546,7 +633,6 @@ def check(repo: str, declared_path: Path = DECLARED) -> int:
             lines.append(f"  DIFFERS {name}")
         lines += [f"            {finding}" for finding in findings]
 
-    print(f"repo state: {repo}, against {declared_path.name}")
     print("\n".join(lines))
 
     if unread:
@@ -602,6 +688,20 @@ def self_test() -> int:
     assert compare({"t": ["a"]}, {"t": ["a", "b"]}, "x")[0] != []
     # Nested tables belong to their own section.
     assert compare({"n": {"deep": 1}}, {}, "x") == ([], [])
+
+    # The gate that decides whether comparing means anything. Same bytes as
+    # the last successful apply: compare. Anything else: say why not, and
+    # compare nothing. Pinned here because it is the one branch that can turn
+    # the whole check into a no-op, so a change to it should have to be
+    # deliberate.
+    assert unapplied_reason(b"x", b"x", "6aa0507", "34791533048") is None
+    edited = unapplied_reason(b"y", b"x", "6aa0507", "34791533048")
+    assert edited is not None and "not yet applied" in edited
+    blind = unapplied_reason(b"x", None, None, None)
+    assert blind is not None and "could not be read" in blind
+    # A run whose head SHA is known but whose file would not decode is the
+    # same answer as no run at all: unknown, not applied.
+    assert unapplied_reason(b"x", None, "6aa0507", "1") is not None
 
     checks = {
         "required_status_checks": [{"context": "CI", "integration_id": 15368}],

@@ -63,6 +63,11 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      # `check-settings` asks which commit the last successful `Settings` run
+      # applied, to know whether comparing `repo.toml` to the live repository
+      # would prove anything. Without this the question is unreadable and the
+      # check declines rather than failing -- correct, and useless.
+      actions: read
       # For the prose scan's SARIF. Without it the upload fails with a 403
       # that reads like a missing file.
       security-events: write
@@ -92,21 +97,20 @@ jobs:
           # `check-settings` compares the live repository against `repo.toml`,
           # and without a token every `gh api` call fails, every section reads
           # `unread`, and the task passes having compared nothing. So the
-          # token is what arms it -- and it is armed on `main` only.
+          # token is what arms it, everywhere, on every branch.
           #
-          # A pull request that edits `repo.toml` declares what the repository
-          # is *about to* be. `settings.yml` applies on a push to `main`, so
-          # the live repository cannot agree until the merge, and a required
-          # `CI` that demanded agreement first would refuse every such merge
-          # -- permanently, not once. On `main` the declaration is live or
-          # the run says so, which is the question worth asking.
-          #
-          # The `||` is safe here in a way `fetch-depth: ${{ x && 0 || 1 }}`
-          # was not: the middle operand is `github.token`, which is always
-          # truthy, so the expression yields it when the branch matches and
-          # the empty string otherwise. A `0` there would have been falsy and
-          # the `||` would have swallowed it.
-          GH_TOKEN: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.token || '' }}
+          # It was briefly armed on `main` only, because a branch that edits
+          # `repo.toml` declares what the repository is *about to* be and
+          # `settings.yml` cannot have applied it yet. Withholding the token
+          # is the wrong lever for that: it blinds the check on the branches
+          # CI runs on most, it cannot reach the agents -- `fleet.yml` and
+          # `fleet-respond.yml` hand `github.token` to the step the agent
+          # works in -- and on `main` it arms the check exactly where
+          # `settings.yml` is running concurrently. `unapplied_reason` in
+          # `tools/repo_state.py` does it properly: compare when this file is
+          # the file the last successful apply ran from, and say why not
+          # otherwise. One answer, true in CI, in an agent and on a laptop.
+          GH_TOKEN: ${{ github.token }}
         run: mise run check
 
       - name: Check spelling
