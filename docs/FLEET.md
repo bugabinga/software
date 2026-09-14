@@ -229,10 +229,10 @@ They are linked once, from the foot of the front page, under "Also here". Before
 that they were not reachable at all -- `<site>/skill/` served for a day and the
 only way to find it was to know the URL.
 
-| Page            | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `<site>/skill/` | Builds the note-taker's skill. Two fields in, a zip out, assembled in the browser so the intake token never leaves the page -- there is no server behind a static file on Pages, which is the whole reason this is a page rather than an endpoint. `?inbox=` prefills the address, and `worker-deploy.yml` links here with it filled in. `tools/make_skill.py` builds the same zip from this page's script, for anyone with a checkout; see `docs/NOTES-INBOX.md`. |
-| `<site>/fleet/` | The weekly fleet report, folded in by `publish.yml` from the `fleet-log` branch.                                                                                                                                                                                                                                                                                                                                                                                   |
+| Page            | What it is                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `<site>/skill/` | Builds the note-taker's skill. Three fields in -- the inbox, its token, and one line on what the notes are for -- and a zip out, assembled in the browser so the intake token never leaves the page -- there is no server behind a static file on Pages, which is the whole reason this is a page rather than an endpoint. `?inbox=` prefills the address, and `worker-deploy.yml` links here with it filled in. `tools/make_skill.py` builds the same zip from this page's script, for anyone with a checkout; see `docs/NOTES-INBOX.md`. |
+| `<site>/fleet/` | The weekly fleet report, folded in by `publish.yml` from the `fleet-log` branch.                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 Anything under `site/` that is not `assets` or `templates` is copied to the site
 root by `tools/build.py`, so a new standalone page is a directory -- plus an
@@ -251,12 +251,13 @@ corrupt download at the moment they are setting up their note-taker.
 34695708756's `Key in the Bot environment` job signed a JWT with
 `FLEET_APP_PRIVATE_KEY` from the `Bot` environment and read the installation's
 own grants. That reading, on 2026-09-12, also says `administration` was granted
-at **read**, and `settings.yml` mints its token asking for write. The author has
-since said the grant was widened; nothing here can check that, because the only
-thing that could read it was `bot-check.yml` and it is deleted. The first
-`Settings` run is the measurement, and it fails at the token step with a 422
-naming both sides if the grant is still read. An SSH signing key, which is what
-would make the fleet's commits read Verified, does not exist and is not urgent.
+at **read**, and `settings.yml` mints its token asking for write. That was
+settled by the first `Settings` run: 34791533048 minted the token and applied
+all five settings, which a Read grant would have refused with a 422, so
+`administration` is Read and write now. If a later run dies at the token step,
+the annotation prints what it asked for against what the installation holds. An
+SSH signing key, which is what would make the fleet's commits read Verified,
+does not exist and is not urgent.
 
 ## Nothing here needs setting up
 
@@ -357,9 +358,28 @@ Three things are meant to keep it from running forever:
 - **Three rounds.** `fleet-respond.yml` counts the fleet's own changes-requested
   reviews. On the fourth it does not run the agent at all: it labels the pull
   request `hold`, says once why, and leaves it. Two agents disagreeing is the
-  author's to settle. **The `hold` has never been applied**, because until #75
-  was fixed the count was never taken on a pull request only the fleet had
-  reviewed -- #78 passed the third round without one, and kept going to twelve.
+  author's to settle. It first fired on #82, at 01:35 on 14 September; before
+  that the count was never taken on a pull request only the fleet had reviewed,
+  because of #75 -- #78 passed the third round without one and kept going to
+  twelve. What `hold` stops is only the answering: `Fleet review` has no `hold`
+  check and fires on every `synchronize`, so the reviewer went on posting
+  verdicts, and most of the ones on #82 came after the label rather than before
+  it. Count them rather than trust a number written here -- the reviews whose
+  body contains `Fleet review`, against the label's timestamp -- because a tally
+  of a thing still running is stale by the time it is read. That is an exposure
+  rather than a design -- the model is the cost that grows with use
+  (`docs/FLEET.md:43`) and `hold` is the author's only brake -- named here
+  rather than closed because the remedy is not a guard on the trigger:
+  `Fleet review` is a required context on the `Main` ruleset (`repo.toml:139`),
+  so whatever stops the reviewing still has to report a verdict. The cost is not
+  flat either: the reviewer re-reads the whole diff each round, so run
+  34834205194 hit its 60-turn ceiling on #82 at twelve rounds and wrote no
+  verdict -- 61 turns, $6.41 -- which reads as a failed required check. Raising
+  the ceiling is not a fix a long-running branch can apply to itself: editing
+  `fleet-review.yml` makes the reviewer decline for the rest of that branch's
+  life (`fleet-review.yml:320`), so a pull request that raises it is one the
+  reviewer never reads again, and its last objection is never dismissed. The
+  raise has to land on its own.
 - **The responder does not answer itself.** The bot comes through only on a
   `pull_request_review` that requests changes, never on a
   `pull_request_review_comment`, which is what its own replies are. The author
@@ -419,6 +439,14 @@ are held in an approval-required state and never execute -- runs 34760403200 and
 `fleet-review.yml` by dispatch afterwards, which a `GITHUB_TOKEN` may raise.
 Without that the fixes would carry the verdict they answered, and `Fleet review`
 is required.
+
+The same token is why **a finding about a workflow file always waits for a
+human**. GitHub refuses `GITHUB_TOKEN` any write under `.github/workflows/`, and
+no `permissions:` block changes that -- `workflows` is not one of the sixteen
+scopes a workflow may ask for. The responder answers such a finding on its
+thread with the replacement text and cannot land it. There is no route that
+would, yet: `docs/IDENTITY.md` says why the one `settings.yml` uses does not
+transfer, and leaves the restructuring that would as an open decision.
 
 ## Which model runs which agent
 
@@ -482,9 +510,15 @@ asked in the spring about a run in the winter has nothing else to read. One line
 per agent run: trigger, agent, model asked for, model served, turns, seconds,
 cost, branch, pull request, and the commit it started from.
 
-A run that died before calling the model still gets a line. `always()` on the
-recording step is deliberate: the runs worth tracing are disproportionately the
-ones that failed.
+A run that died before calling the model still gets a line, and the recording
+step is not what keeps that promise -- all three agent workflows gate the upload
+of its file, `Keep the run's record`, on `steps.key.outputs.present`, so a run
+that died before the credential check uploads nothing. `append_runs` in
+`tools/fleet_report.py` writes the line from the API's own run listing and fills
+the provenance fields from the bundle when one reached it, empty when none did.
+The promise is the report's, and it is deliberate: the runs worth tracing are
+disproportionately the ones that failed, which is why the line cannot depend on
+the run's own cooperation.
 
 `fleet-log` is append-only in the git sense as well as the file sense: the
 report commits on top of what is there and pushes a fast-forward. It used to
@@ -539,9 +573,11 @@ label a pull request `hold`.
 
 `main` carries a ruleset and `repo.toml` is what it says, so nothing here
 restates it -- read the file. `mise run check-settings` reads it back and fails
-on a difference, wherever a credential is held; it is not in `mise run check`
-and CI cannot see the settings at all, so no gate enforces the file today.
-`settings.yml` makes GitHub agree.
+on a difference, and `mise run check` runs it. What it compared is not fixed and
+is not restated here either: it prints, every run, which sections it read and
+which it could not, including the case where the answer is none of them. A green
+run is not a claim of coverage; its output is. `settings.yml` makes GitHub
+agree.
 
 Three things the file cannot say, because they are measurements rather than
 settings:

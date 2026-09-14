@@ -28,6 +28,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import re
 import shutil
@@ -42,8 +43,6 @@ from check_skill_page import extract_script
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / "site" / "skill" / "index.html"
 WRANGLER = ROOT / "worker" / "notes-intake" / "wrangler.jsonc"
-
-DEFAULT_BOOK = "a book about software, written in Typst"
 
 # The zip is assembled by the page's own `zip()`; this only feeds it and
 # writes the bytes out. `arrayBuffer()` because the page produces a Blob,
@@ -71,6 +70,28 @@ def worker_name(config: Path) -> str:
     if not match:
         sys.exit(f"{config}: no worker name in it")
     return match.group(1)
+
+
+def default_book(page: Path = PAGE) -> str:
+    """What the page prefills its `about` field with.
+
+    Read out of the page rather than restated here, for the reason in this
+    module's docstring. A constant holding the same sentence is a second
+    generator in miniature, and it drifted on its first opportunity: the page
+    was reworded and the constant kept the old string, which is what anyone
+    with a checkout got from `--book`. Nothing caught it, and nothing was
+    going to -- the self-test asserts the endpoint and the token and
+    deliberately not the prose around them.
+
+    A regex rather than an HTML parser, for the same reason `worker_name`
+    uses one: the attribute is on one line and unambiguous. A page that moves
+    it exits here with the file named, which is the direction to fail in.
+    """
+    text = page.read_text(encoding="utf-8")
+    match = re.search(r'id="book"[^>]*\svalue="([^"]*)"', text)
+    if not match:
+        sys.exit(f"{page}: the `about` field has no value to default to")
+    return html.unescape(match.group(1))
 
 
 def endpoint_for(subdomain: str, config: Path = WRANGLER) -> str:
@@ -140,7 +161,7 @@ def self_test() -> int:
         build(
             "https://notes-intake.example.workers.dev",
             "a-very-long-random-intake-token",
-            DEFAULT_BOOK,
+            default_book(),
             out,
         )
         with zipfile.ZipFile(out) as archive:
@@ -150,6 +171,10 @@ def self_test() -> int:
     # around them, which is the page's to change.
     assert "notes-intake.example.workers.dev/note" in skill
     assert "a-very-long-random-intake-token" in skill
+    # Not the prose-pinning the line above refuses: both sides of this are
+    # the page's, and what it asserts is that the default still travels from
+    # the field to the file rather than being copied out on the way.
+    assert default_book() in skill
     print("make_skill: this tool's zip is the page's zip")
     return 0
 
@@ -159,7 +184,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--subdomain", help="the account's workers.dev subdomain name")
     parser.add_argument("--out", type=Path, help="where to write the zip")
     parser.add_argument(
-        "--book", default=DEFAULT_BOOK, help="one line on what the notes are for"
+        # Not `default=default_book()`: that reads the page when the parser
+        # is built, so `--print-endpoint` -- which `worker-deploy.yml` calls,
+        # and which has nothing to do with the page's prose -- would die on a
+        # page edit that moved the `value=` attribute. Resolved at use.
+        "--book",
+        help="one line on what the notes are for (default: the page's)",
     )
     parser.add_argument(
         "--print-endpoint",
@@ -183,7 +213,9 @@ def main(argv: list[str] | None = None) -> int:
     if len(token) < 16:
         sys.exit("no token on stdin, or one too short to be the real one")
 
-    return build(endpoint_for(args.subdomain), token, args.book, args.out)
+    return build(
+        endpoint_for(args.subdomain), token, args.book or default_book(), args.out
+    )
 
 
 if __name__ == "__main__":

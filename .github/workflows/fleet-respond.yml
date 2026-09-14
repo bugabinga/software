@@ -147,8 +147,14 @@ jobs:
           [ "$draft" = "false" ] || stop "#$pr is a draft"
 
           if [ "$EVENT" = "workflow_run" ]; then
+            # One `.state` per line and `tail`, not `| last` inside the
+            # filter: `gh api --paginate` runs the jq once per page, so an
+            # aggregate returns one answer per page. At 100 reviews this
+            # started yielding two lines and the comparison below silently
+            # went false -- the responder declining to answer a real verdict.
             state=$(gh api "repos/$REPO/pulls/$pr/reviews" --paginate \
-              --jq '[.[] | select(.body | contains("Fleet review"))] | last | .state // empty')
+              --jq '.[] | select(.body | contains("Fleet review")) | .state' \
+              | tail -n 1)
             [ "$state" = "CHANGES_REQUESTED" ] \
               || stop "the last fleet verdict on #$pr is ${state:-none}, so there is nothing to answer"
           fi
@@ -160,11 +166,37 @@ jobs:
           echo "proceed=true" >> "$GITHUB_OUTPUT"
           echo "::notice::answering the review on #$pr ($branch)"
 
+      # The five red runs on 2026-09-13 (34788221741, 34788857763,
+      # 34789428196, 34790028463, 34790149693) were a no-op reporting itself
+      # as a failure: `about` *succeeded*, set `proceed=false` at "nothing to
+      # answer", this step was skipped, and `Record what this run was` --
+      # `always()`, and a `python3 tools/...` -- then died on the missing
+      # tree. The fix was briefly `always()` here, which cured it by cloning
+      # on every no-op to run a step whose output that same run throws away:
+      # `Keep the run's record` needs `steps.key.outputs.present`, which a
+      # run that did not proceed never sets. The record step carries the
+      # condition instead: nothing is cloned that has nothing to do
+      # (`docs/FLEET.md:41`), and nothing it now skips would have left a
+      # record anyway -- a no-op has no tree to record from, and a run held
+      # at three rounds or without a credential has a tree but nothing
+      # `Keep the run's record` would have kept.
+      #
+      # None of it was ever the row's keeper: `append_runs` in
+      # `tools/fleet_report.py` writes a line for every agent run from the
+      # API's own listing, with the provenance fields empty when no bundle
+      # reached it. What the record step adds is the provenance.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         if: steps.about.outputs.proceed == 'true'
         with:
           # The pull request's own branch, because that is where the fixes go.
           ref: ${{ steps.about.outputs.branch }}
+          # Full history, like `fleet.yml:80` and `fleet-review.yml:72`. This
+          # step now runs only when there is an answer to push, and pushing
+          # wants the history, so there is no longer a second case to vary
+          # over -- which is just as well, because varying it is a trap:
+          # `${{ x && 0 || 1 }}` is always 1, since `0` is falsy in an Actions
+          # expression and `||` then takes the 1, handing the answering case
+          # the shallow tree it has to commit, fetch and push from.
           fetch-depth: 0
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
@@ -183,9 +215,15 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # `wc -l`, not `| length` inside the filter: see the same fix in
+          # `about`. This one did not fail quietly -- run 34809724830 put
+          # "6\n1" into `$rounds`, `[ -lt ]` said "integer expression
+          # expected", and the multi-line value broke `$GITHUB_OUTPUT`. The
+          # responder was dead on this pull request until it was fixed.
           rounds=$(gh api "repos/$REPO/pulls/$PR/reviews" --paginate \
-            --jq '[.[] | select(.state == "CHANGES_REQUESTED")
-                       | select(.body | contains("Fleet review"))] | length')
+            --jq '.[] | select(.state == "CHANGES_REQUESTED")
+                      | select(.body | contains("Fleet review")) | .id' \
+            | wc -l)
           echo "count=$rounds" >> "$GITHUB_OUTPUT"
 
           if [ "$rounds" -lt 3 ]; then
@@ -382,17 +420,17 @@ jobs:
           ask ci.yml
           ask fleet-review.yml -f pr="$PR"
 
-      # The evidence, kept. `tools/fleet_report.py` reads this to say what the
-      # fleet cost and how hard it worked; without it the weekly report can
-      # only count runs. `always()` because a run that failed is exactly the
-      # one worth having a record of.
       # What this run was for, next to what it cost. The execution output
       # says turns and dollars; without this the report cannot say which
       # agent, which trigger, or what it was pointed at -- `fleet.yml`
       # dispatches six agents and the workflow name tells them apart not at
-      # all. `always()` because a run that died is the one worth tracing.
+      # all. `always()` because a run that died mid-answer is the one worth
+      # tracing; `key.present` because a run without it has nothing that
+      # would survive anyway -- `Keep the run's record` below is gated the
+      # same way and would drop the file. Same pair of conditions, so the
+      # two cannot disagree.
       - name: Record what this run was
-        if: always()
+        if: always() && steps.key.outputs.present == 'true'
         env:
           FLEET_BRANCH: ${{ steps.about.outputs.branch }}
           FLEET_PR: ${{ steps.about.outputs.pr }}
@@ -404,6 +442,13 @@ jobs:
             --model "${{ steps.brief.outputs.model }}" \
             --brief /tmp/brief.md
 
+      # The evidence, kept. `tools/fleet_report.py` reads this to say what the
+      # fleet cost and how hard it worked; without it the weekly report can
+      # only count runs. `key.present` as well as `always()` -- the same pair
+      # `fleet.yml` and `fleet-review.yml` carry on this step. What differs
+      # here is the step above: those two write the record on `always()`
+      # alone, and this file cannot, because a run that stopped at "nothing
+      # to answer" never checked out a tree to write it from.
       - name: Keep the run's record
         if: always() && steps.key.outputs.present == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

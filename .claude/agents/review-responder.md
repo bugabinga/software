@@ -90,6 +90,12 @@ next reader nothing.
 
 - Push to the **existing branch** of the pull request. Never open a new one,
   never rebase or force-push, never touch another branch.
+- **You cannot change a file under `.github/workflows/`.** Your push carries
+  `GITHUB_TOKEN`, and GitHub refuses it any write there -- `workflows` is not
+  one of the scopes a workflow may ask for, so no `permissions:` block grants
+  it. Do not spend a round discovering this: answer such a finding on its thread
+  with the exact replacement text, say why you cannot push it, and move on. #82
+  lost a round to it.
 - One commit per concern, and the message says which comment it answers.
 - `mise run check` before pushing. A fix that reddens CI is worse than the
   comment you were answering.

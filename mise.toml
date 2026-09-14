@@ -173,7 +173,11 @@ description = "The Actions definitions, and that every tool compiles"
 # backticks and sed syntax inside single quotes, all correct; each now
 # carries a `# shellcheck disable=SC2016` and a reason at the line it is
 # about. A blanket filter hides the next finding too.
-run = ["actionlint", "python3 tools/check_workflows.py"]
+run = [
+  "actionlint",
+  "python3 tools/check_workflows.py --self-test",
+  "python3 tools/check_workflows.py",
+]
 
 [tasks.check-lint]
 description = "Lint the Python and the JavaScript, strictly"
@@ -181,9 +185,20 @@ description = "Lint the Python and the JavaScript, strictly"
 # `{{placeholder}}` inside `<style>` and `lang="{{lang}}"`, which no HTML or
 # CSS parser accepts and which `tools/build.py` substitutes before anything
 # renders them. Their findings were false for that reason, not ignored.
+# `--error-on-warnings`, because without it biome exits 0 on a warning:
+# `CLAUDE.md` says a warning fails the build like an error does, and that was
+# true of every gate here except this one. Measured on the head before
+# `biome.jsonc`'s override landed -- the skill page's two `noImportantStyles`
+# warnings gave exit 0 bare and exit 1 with the flag. That override switches
+# the rule off for the only file in the tree carrying `!important`
+# (`site/skill/index.html:400`), so nothing in the tree exercises the flag
+# today: it is armed for the next warning, not holding a current one. It does
+# not cover biome's `info` tier, which has no such flag; those are visible in
+# the output and fixed rather than gated.
+# `ruff check` already exits non-zero on any finding.
 run = [
   "ruff check tools/",
-  "biome lint worker/ site/assets/ site/skill/",
+  "biome lint --error-on-warnings worker/ site/assets/ site/skill/",
 ]
 
 [tasks.check-types]
@@ -243,28 +258,33 @@ run = ["python3 tools/prose_scan.py --self-test", "python3 tools/prose_scan.py"]
 
 [tasks.check-settings-logic]
 description = "repo_state.py's comparison rules, without a network"
-# Split from `check-settings` so it can be gated now. The reason that task is
-# held back is that `--check` is red until `settings.yml` has applied the
-# file; that reason does not reach the self-test, which needs no credential
-# and no network and is the only thing checking 600 lines of comparison.
+# Its own task because it needs no credential and no network, so it is worth
+# running where `check-settings` cannot reach the API at all.
 run = "python3 tools/repo_state.py --self-test"
 
 [tasks.check-settings]
 description = "The repository's settings, against what repo.toml declares"
 # Reads GitHub and compares; it never writes. A section the token cannot see
-# is reported as unread rather than as agreement, so it is honest about what
-# it managed to look at -- and today, in CI, that is nothing: `ci.yml`'s
-# Check step sets no `GH_TOKEN`, every call fails, all three sections read
-# unread and the task passes. Arming it is one `env:` line there, and it
-# cannot be added until `settings.yml` has applied `repo.toml` once, or the
-# gate blocks the merge that would satisfy it.
+# is reported as unread rather than as agreement, so a run behind a proxy
+# that refuses whole API paths says what it managed to look at rather than
+# calling silence agreement. `ci.yml`'s Check step passes `github.token`, so
+# the rulesets and half of `[repository]` are compared there. Not the rest:
+# the repository object a `contents: read` token receives has no merge
+# settings in it at all, so those read unread in CI and are compared only
+# where somebody holds a wider credential -- `TRIMMED_BY_PERMISSION` in
+# `tools/repo_state.py` is the list, and `repo.toml` points at it rather than
+# counting it, for the same reason. `actions` needs administration and is
+# unread everywhere but the apply.
 #
-# So it is deliberately NOT in `check`'s depends yet. It is red today for
-# anyone holding a credential -- four settings declared and not applied --
-# and `pipeline-gardener`'s definition of done is a green `mise run check`,
-# so wiring it now would wedge the fleet on a difference only a merge can
-# fix. The follow-up that arms `GH_TOKEN` in `ci.yml` adds the line, and
-# that is the commit that can prove the gate works.
+# It could not be wired until #81 merged: it was red on four declared and
+# unapplied settings, and a gate red on the merge that would satisfy it is a
+# gate that blocks its own fix. Run 34791533048 applied them.
+#
+# The same shape recurs on every branch that changes a value in `repo.toml`,
+# so it is handled rather than avoided: `unapplied_reason` compares the
+# settings this checkout declares against the ones the last successful
+# `settings.yml` run was applied from, and compares nothing when they differ.
+# Values, not bytes -- that file is mostly prose. See its docstring.
 depends = ["check-settings-logic"]
 run = "python3 tools/repo_state.py --check"
 
@@ -290,6 +310,7 @@ depends = [
   "check-types",
   "check-report",
   "check-settings-logic",
+  "check-settings",
 ]
 run = "echo 'all checks passed'"
 

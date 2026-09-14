@@ -11,8 +11,10 @@ by a gate.
 So the settings become a file, and this reads them back.
 
 **Three outcomes per claim, not two.** Matches, differs, or could not be read.
-The third is not a detail: this runs both in CI, where the token sees
-everything, and in a session behind a proxy that refuses whole API paths. A
+The third is not a detail, and it is not only the proxy's doing: in CI the
+workflow token is refused whole sections and has fields trimmed out of others
+(`TRIMMED_BY_PERMISSION`), and a session behind a proxy loses whole API paths
+on top of that. A
 checker that called an unreadable section a difference would fail every local
 run and teach everyone to ignore it; one that called it agreement would lie.
 So unread is reported, loudly, and does not fail.
@@ -31,7 +33,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import base64
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -104,18 +108,196 @@ def fetch(path: str) -> Any | None:
         return None
 
 
-def compare(declared: dict[str, Any], actual: dict[str, Any], where: str) -> list[str]:
-    """Every declared key that the API answers differently.
+# The workflow that makes GitHub agree with the file. Named here because
+# this is the only thing that can answer "is the declaration I am holding the
+# one that was applied?", and the answer decides whether comparing means
+# anything at all.
+APPLIER = "settings.yml"
+
+
+def _at(path: Path) -> str:
+    """`path` as the contents API wants it: relative to the repository root.
+
+    `path.name` alone was right only while `repo.toml` sat at the top of the
+    tree. Moved or renamed into a directory it would 404, `applied` would
+    stay `None`, and every run everywhere would decline and exit 0 -- the
+    gate off, silently and permanently, which is the shape the missing
+    `branch=main` filter had. The fallback is for a file outside the tree,
+    which only a caller passing its own path can produce.
+    """
+    try:
+        return path.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.name
+
+
+def unapplied_reason(
+    here: bytes, applied: bytes | None, sha: str | None, run: str | None
+) -> str | None:
+    """Why reading the settings back would prove nothing, or `None`.
+
+    `repo.toml` on a branch is a claim about what the repository is *about to*
+    be. `settings.yml` applies it on a push to `main`, so between the edit and
+    that run the live repository cannot agree -- and a check that called the
+    gap a difference would fail every branch that touches the file, including
+    the one merge that would fix it. Withholding the token off `main` was the
+    first answer and it was the wrong lever: it blinds the check rather than
+    teaching it, it leaves the check unarmed on the branches CI runs on most,
+    and it does not reach the agents at all -- `fleet.yml` and
+    `fleet-respond.yml` hand `github.token` to the step the agent works in, so
+    an agent that edited `repo.toml` would fail its own definition of done
+    with no way to satisfy it.
+
+    It also does not survive the race. `settings.yml` and `ci.yml` fire on the
+    same push to `main`: on 6aa0507 the apply ran 00:05:03-00:05:12 and the
+    Check step started at 00:05:22, and `concurrency: group: settings` can
+    queue the apply behind an earlier one for longer than that. Arming on
+    `main` means arming exactly where the two collide.
+
+    So the discriminator is not the branch, it is the declaration. Compare
+    only when the settings this checkout declares are the settings the last
+    successful apply was run from; anything else is unread, with the reason
+    said out loud. That answer is the same on a pull request, on `main`,
+    inside an agent and on a laptop, which is why it belongs here rather than
+    in three copies of a workflow condition.
+    """
+    # Two failures, two sentences, and the first covers two causes it cannot
+    # tell apart: `sha` is None both when the run listing could not be read
+    # and when it held no successful run. The second is not a fault -- the
+    # API's listing stops at 90 days (`docs/FLEET.md`), so a `repo.toml`
+    # nobody has changed since then arrives here clean -- so the sentence
+    # names both rather than sending that reader hunting a permissions fault.
+    # `applied` is None whenever the contents fetch 404s, is refused, or is
+    # not base64, with the run in hand; `_at`'s docstring names the 404 case
+    # exactly, so it is the one that line is most likely to describe.
+    if sha is None:
+        return (
+            f"no successful `{APPLIER}` run on `main` was found -- either the "
+            "listing could not be read, or none is in it, which a repository "
+            "whose settings have been stable for 90 days reaches with nothing "
+            "wrong -- so whether this declaration has been applied is unknown"
+        )
+    if applied is None:
+        return (
+            f"run {run} applied {sha[:7]}, but the file it applied could not "
+            "be read back, so whether this declaration matches it is unknown"
+        )
+
+    # Values, not bytes. This file is mostly the reasoning behind its values,
+    # so comparing raw bytes made a prose edit indistinguishable from a
+    # settings change -- and turned the whole check into a no-op on the branch
+    # that made one. Measured on #82: three commits moved comments only, the
+    # head declared exactly what run 34791533048 had applied, and the gate
+    # compared nothing for nine commits while six documents described what it
+    # was checking. `settings.yml` applies values, so values are what decide
+    # whether reading them back proves anything. A file that will not parse
+    # falls back to its bytes, which can then only differ.
+    def declaration(raw: bytes) -> Any:
+        try:
+            return tomllib.loads(raw.decode("utf-8"))
+        except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+            return raw
+
+    if declaration(applied) != declaration(here):
+        return (
+            f"the values here are not the ones run {run} applied (it ran on "
+            f"{sha[:7]}): declared here, not yet applied, so there is nothing "
+            "to read back"
+        )
+    return None
+
+
+def applied_declaration(repo: str, declared_path: Path) -> str | None:
+    """`unapplied_reason`, with the two fetches it needs."""
+    # `branch=main` because a push is not the only way `settings.yml` runs:
+    # it carries a `workflow_dispatch` too, which accepts any ref. Without
+    # this, one dispatch on a branch makes that branch's head the reference
+    # every check anywhere is measured against -- so `main`'s own file would
+    # differ from it, decline, and exit 0 with the gate silently off until
+    # the next push to `main` touching one of the four paths. The literal
+    # mirrors `settings.yml`'s own `branches: [main]`, which is the trigger
+    # that makes an apply an apply.
+    runs = fetch(
+        f"repos/{repo}/actions/workflows/{APPLIER}/runs"
+        "?status=success&per_page=1&exclude_pull_requests=true&branch=main"
+    )
+    found = (runs or {}).get("workflow_runs") or []
+    sha = found[0].get("head_sha") if found else None
+    run = str(found[0].get("id")) if found else None
+
+    applied = None
+    if sha:
+        # The contents API rather than git: the checkout CI works in is
+        # shallow and the agents' is a branch, so the applied commit is not
+        # reliably in either tree.
+        blob = fetch(f"repos/{repo}/contents/{_at(declared_path)}?ref={sha}")
+        if isinstance(blob, dict) and blob.get("encoding") == "base64":
+            try:
+                applied = base64.b64decode(blob.get("content", ""))
+            except (ValueError, TypeError):
+                applied = None
+
+    return unapplied_reason(declared_path.read_bytes(), applied, sha, run)
+
+
+# The eight fields GitHub removes from the repository object it hands a
+# `contents: read` workflow token, rather than reporting them. Measured
+# rather than reasoned about: run 34793557043's Check step reported exactly
+# these eight unread and every other declared field compared, and a session
+# token holding more gets all fifteen back. Before the check distinguished
+# the two, an absent key and a null one looked identical through `.get()`,
+# so arming this in CI turned these eight from matching into disagreeing --
+# run 34793388031, the red one that started this.
+#
+# Named rather than inferred from absence, and that is the point. "Any key
+# the document does not carry is unread" would also swallow `has_wikis` for
+# `has_wiki` -- a hand-written file's most likely fault, silently unchecked
+# under every credential. A key missing from this list is a difference, so a
+# typo fails and a trim GitHub adds later fails too, which is the direction
+# to fail in.
+TRIMMED_BY_PERMISSION = frozenset(
+    {
+        "allow_auto_merge",
+        "allow_merge_commit",
+        "allow_rebase_merge",
+        "allow_squash_merge",
+        "allow_update_branch",
+        "delete_branch_on_merge",
+        "squash_merge_commit_message",
+        "squash_merge_commit_title",
+    }
+)
+
+
+def compare(
+    declared: dict[str, Any],
+    actual: dict[str, Any],
+    where: str,
+    may_be_hidden: frozenset[str] = frozenset(),
+) -> tuple[list[str], list[str]]:
+    """Declared keys the API answers differently, and ones it does not answer.
 
     Only declared keys are looked at. `repo.toml` is a set of assertions, not
     a mirror of the API, so a key GitHub adds next year is not this file's
     business until somebody decides it is.
+
+    A key absent from the document is unread *if the caller says that key can
+    be hidden by permission* -- see `TRIMMED_BY_PERMISSION`. Otherwise absence
+    is a difference, because the likeliest reason a hand-written file names a
+    field the API does not carry is that the field is misspelled.
     """
-    findings = []
+    findings: list[str] = []
+    unread: list[str] = []
     for key, want in sorted(declared.items()):
         if isinstance(want, dict):
             continue  # a nested table; its own section handles it
-        have = actual.get(key)
+        if key not in actual:
+            if key in may_be_hidden:
+                unread.append(f"{where}.{key}: the token cannot see this field")
+            else:
+                findings.append(f"{where}.{key}: declared {want!r}, found nothing")
+            continue
+        have = actual[key]
         # Lists are compared as sets where order is GitHub's to choose.
         same = (
             sorted(want) == sorted(have)
@@ -124,7 +306,7 @@ def compare(declared: dict[str, Any], actual: dict[str, Any], where: str) -> lis
         )
         if not same:
             findings.append(f"{where}.{key}: declared {want!r}, found {have!r}")
-    return findings
+    return findings, unread
 
 
 def check_repository(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]:
@@ -132,8 +314,7 @@ def check_repository(declared: dict[str, Any], repo: str) -> tuple[str, list[str
     if actual is None:
         return UNREAD, ["repository: could not be read"]
     fields = {k: v for k, v in declared.items() if k != "topics"}
-    findings = compare(fields, actual, "repository")
-    unread: list[str] = []
+    findings, unread = compare(fields, actual, "repository", TRIMMED_BY_PERMISSION)
 
     if "topics" in declared:
         topics = fetch(f"repos/{repo}/topics")
@@ -143,11 +324,13 @@ def check_repository(declared: dict[str, Any], repo: str) -> tuple[str, list[str
             # nobody could read is not a setting that disagrees.
             unread.append("repository.topics: could not be read")
         else:
-            findings += compare(
+            more, more_unread = compare(
                 {"topics": declared["topics"]},
                 {"topics": topics.get("names")},
                 "repository",
             )
+            findings += more
+            unread += more_unread
     return _verdict(findings, unread)
 
 
@@ -163,7 +346,7 @@ def check_actions(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]:
         return UNREAD, [
             "actions: could not be read (the token or the proxy refuses this path)"
         ]
-    return _verdict(compare(declared, actual, "actions"))
+    return _verdict(*compare(declared, actual, "actions"))
 
 
 def check_rulesets(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]:
@@ -292,7 +475,13 @@ def _compare_rule_parameters(
             "contexts": contexts,
             "strict": have.get("strict_required_status_checks_policy"),
         }
-    return compare(want, have, where)
+    # No `may_be_hidden`: a ruleset's own document is not trimmed by
+    # permission the way the repository object is, so a parameter missing
+    # here is real drift and reads as one -- "declared X, found nothing"
+    # rather than a message about a token, which would send whoever is
+    # holding the red run to the App's grant instead of to the ruleset.
+    findings, _ = compare(want, have, where)
+    return findings
 
 
 def _actors(actors: list[Any]) -> list[str]:
@@ -472,6 +661,30 @@ def ruleset_payload(name: str, want: dict[str, Any]) -> dict[str, Any]:
 def check(repo: str, declared_path: Path = DECLARED) -> int:
     declared = tomllib.loads(declared_path.read_text(encoding="utf-8"))
 
+    print(f"repo state: {repo}, against {declared_path.name}")
+
+    pending = applied_declaration(repo, declared_path)
+    if pending is not None:
+        print(f"  unread  {declared_path.name}\n            {pending}")
+        notice = (
+            "Nothing was compared. That is not agreement: this run cannot "
+            "tell you whether the repository matches the file."
+        )
+        print()
+        print(notice)
+        # The job summary rather than a `::warning::`. The runner reads a
+        # workflow command only from a line beginning `::`, and `mise run
+        # check` -- the only way this is reached in CI -- prefixes every line
+        # a task prints: measured with the decline forced, the line arrives as
+        # `[check-settings] ::warning::Nothing was compared`. `check_epub.py`
+        # gets away with the same trick because `release.yml:87` calls it
+        # directly. A summary is a file, so no prefix can reach it.
+        summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary:
+            with Path(summary).open("a", encoding="utf-8") as handle:
+                handle.write(f"### `check-settings` compared nothing\n\n{pending}\n")
+        return 0
+
     sections = [
         ("repository", check_repository, declared.get("repository", {})),
         ("actions", check_actions, declared.get("actions", {})),
@@ -493,7 +706,6 @@ def check(repo: str, declared_path: Path = DECLARED) -> int:
             lines.append(f"  DIFFERS {name}")
         lines += [f"            {finding}" for finding in findings]
 
-    print(f"repo state: {repo}, against {declared_path.name}")
     print("\n".join(lines))
 
     if unread:
@@ -516,17 +728,63 @@ def self_test() -> int:
     value: a declared key that GitHub answers differently is a finding, an
     undeclared key is not, and an unreadable section is neither.
     """
-    assert compare({"a": 1}, {"a": 1}, "x") == []
-    assert compare({"a": 1}, {"a": 2}, "x") == ["x.a: declared 1, found 2"]
+    assert compare({"a": 1}, {"a": 1}, "x") == ([], [])
+    assert compare({"a": 1}, {"a": 2}, "x") == (["x.a: declared 1, found 2"], [])
     # Undeclared keys are not this file's business.
-    assert compare({"a": 1}, {"a": 1, "b": 9}, "x") == []
-    # A key the API does not return at all reads as a difference, not a crash.
-    assert compare({"a": 1}, {}, "x") == ["x.a: declared 1, found None"]
+    assert compare({"a": 1}, {"a": 1, "b": 9}, "x") == ([], [])
+    # A key the caller says can be hidden by permission is unread when it is
+    # absent. This is what arming the check in CI needed: the repository
+    # object a `contents: read` token receives has no merge settings in it,
+    # and calling that eight disagreements turned the gate red on a
+    # repository that matched.
+    findings, unread = compare({"a": 1}, {}, "x", frozenset({"a"}))
+    assert findings == []
+    assert unread == ["x.a: the token cannot see this field"]
+    # A key that is absent and *not* on that list is a difference, because
+    # the likeliest cause is a misspelling in a hand-written file. Without
+    # this, `has_wikis` for `has_wiki` would pass under every credential.
+    assert compare({"has_wikis": True}, {"has_wiki": True}, "repository") == (
+        ["repository.has_wikis: declared True, found nothing"],
+        [],
+    )
+    # And every trimmed field is one this file actually declares, so the list
+    # cannot rot into permission for a key nobody asserts.
+    declared_repo = tomllib.loads(DECLARED.read_text(encoding="utf-8"))["repository"]
+    assert set(declared_repo) >= TRIMMED_BY_PERMISSION
+    # A key present and null is an answer, and answers are compared.
+    assert compare({"a": 1}, {"a": None}, "x") == (
+        ["x.a: declared 1, found None"],
+        [],
+    )
     # Order is GitHub's to choose for lists.
-    assert compare({"t": ["b", "a"]}, {"t": ["a", "b"]}, "x") == []
-    assert compare({"t": ["a"]}, {"t": ["a", "b"]}, "x") != []
+    assert compare({"t": ["b", "a"]}, {"t": ["a", "b"]}, "x") == ([], [])
+    assert compare({"t": ["a"]}, {"t": ["a", "b"]}, "x")[0] != []
     # Nested tables belong to their own section.
-    assert compare({"n": {"deep": 1}}, {}, "x") == []
+    assert compare({"n": {"deep": 1}}, {}, "x") == ([], [])
+
+    # The gate that decides whether comparing means anything. Same bytes as
+    # the last successful apply: compare. Anything else: say why not, and
+    # compare nothing. Pinned here because it is the one branch that can turn
+    # the whole check into a no-op, so a change to it should have to be
+    # deliberate.
+    assert unapplied_reason(b"x", b"x", "6aa0507", "34791533048") is None
+    edited = unapplied_reason(b"y", b"x", "6aa0507", "34791533048")
+    assert edited is not None and "not yet applied" in edited
+    # The case that made the gate a no-op on #82 for nine commits: the same
+    # settings, different prose. Bytes said "not applied"; values say applied.
+    same = b"[repository]\nhas_wiki = false\n"
+    commented = b"# why\n[repository]\nhas_wiki = false  # still why\n"
+    assert unapplied_reason(commented, same, "6aa0507", "1") is None
+    changed = b"[repository]\nhas_wiki = true\n"
+    assert unapplied_reason(changed, same, "6aa0507", "1") is not None
+    # Unparsable falls back to bytes, which can then only differ.
+    assert unapplied_reason(b"{{{", b"[a]\n", "6aa0507", "1") is not None
+
+    blind = unapplied_reason(b"x", None, None, None)
+    assert blind is not None and "could not be read" in blind
+    # A run whose head SHA is known but whose file would not decode is the
+    # same answer as no run at all: unknown, not applied.
+    assert unapplied_reason(b"x", None, "6aa0507", "1") is not None
 
     checks = {
         "required_status_checks": [{"context": "CI", "integration_id": 15368}],

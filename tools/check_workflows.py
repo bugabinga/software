@@ -2,7 +2,9 @@
 """Check the GitHub Actions definitions before they are pushed.
 
 A broken workflow does not fail loudly -- it fails at 06:17 on a Monday, in a
-run nobody is watching. Six classes of mistake are worth catching locally:
+run nobody is watching. These classes of mistake are worth catching locally
+-- counted by reading the list, not by a number here that the list can
+outgrow, which is how it came to say six while catching seven:
 
 * invalid YAML (checked when PyYAML happens to be importable);
 * a program under `tools/` that no longer parses as Python;
@@ -17,13 +19,17 @@ run nobody is watching. Six classes of mistake are worth catching locally:
   delimited by end-of-file"). One at column 0 in the file is not a shell
   problem at all -- it ends the YAML block early, which the syntax check
   catches. Both are easy to write and neither is visible by eye.
+* `gh api --paginate` with a jq filter that aggregates, which answers once
+  per page. See `paginate_findings`; `--self-test` is its fixture table.
 
 Usage:
     tools/check_workflows.py
+    tools/check_workflows.py --self-test
 """
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from pathlib import Path
@@ -268,7 +274,313 @@ def check_comment_width(path: Path) -> list[str]:
     return problems
 
 
+DOCSTRING_OWNERS = (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+
+COMMENT_LINE = re.compile(r"^\s*#")
+
+# jq filters that answer once for the whole input. Harmless alone; wrong under
+# `--paginate`, which is the point of the check below.
+AGGREGATE = re.compile(
+    r"(\||^)\s*(length|last|first|add|min|max|any|all|unique|sort|group_by)\b"
+)
+
+# The quoted arguments after `--jq`, which is where a jq filter lives. Matching
+# the window instead read every pipe in it as jq's: YAML's `run: |` joins to
+# the next line, so a shell variable named `last` was a finding, and `| sort -u`
+# after the call was coreutils reported as jq. Both were correct code the rule
+# has no suppression for, and the first was the very idiom it exists to
+# require -- `fleet-respond.yml`'s fixed call escaped only because its variable
+# happens to be named `state`.
+QUOTED = re.compile(r"'([^']*)'|\"([^\"]*)\"")
+
+JQ_FLAG = re.compile(r"--jq[\"']?[\s,]*")
+
+BETWEEN_PARTS = re.compile(r"[\s,\\]*")
+
+
+def _jq_filter(window: str, near: int) -> str:
+    """Everything quoted after the `--jq` nearest `near` in `window`, joined.
+
+    Nearest, not first: the window reaches six lines backwards, so an ordinary
+    `gh api ... --jq` above a paginated call would otherwise lend it that
+    filter and the rule would pass in silence -- a false negative on exactly
+    the bug it exists to find. `fleet-respond.yml`'s own `--jq '.draft'` sits
+    five lines above the window today, kept outside it by the length of the
+    comment above the call it guards.
+
+    Joined rather than tested one at a time because Python splits a long
+    filter across adjacent string literals, and the aggregate can land on
+    either side of the seam -- `rounds_so_far` had `| length` in the second
+    of two.
+    """
+    # Past the flag *and* its own closing quote: in Python the argument is
+    # `"--jq",` and starting at the `-` leaves that quote to be read as the
+    # filter's opening one, which swallows the filter and misses the bug.
+    flags = list(JQ_FLAG.finditer(window))
+    if not flags:
+        return ""
+    flag = min(flags, key=lambda found: abs(found.start() - near))
+    rest = window[flag.end() :]
+
+    # Only the first run of quoted strings, not every quote to the end of the
+    # window: a second `gh api` six lines down would otherwise lend this call
+    # its filter, and there is no suppression to answer that with. A run is
+    # what Python's implicit concatenation produces -- strings separated by
+    # nothing but whitespace, commas or a continuation -- so the first token
+    # that is none of those ends the filter.
+    parts: list[str] = []
+    seam = 0
+    for found in QUOTED.finditer(rest):
+        if parts and BETWEEN_PARTS.fullmatch(rest[seam : found.start()]) is None:
+            break
+        parts.append(found.group(1) if found.group(1) is not None else found.group(2))
+        seam = found.end()
+    return " ".join(parts)
+
+
+def _without_prose(where: str, lines: list[str]) -> list[str]:
+    """A copy of `lines` with comments and Python docstrings blanked.
+
+    Blanked rather than removed so an index is still a line number.
+
+    `ast` for the docstrings rather than counting triple quotes, because a
+    one-line docstring has two of them and a counter reads that as no
+    docstring at all -- which is exactly the shape `post_review.py`'s prose
+    would take if anyone shortened it. A parser also cannot mistake the jq
+    filter itself for prose, which a quote-counter can when the filter is
+    triple-quoted. A file that will not parse keeps its comments blanked and
+    nothing else, which is the old behaviour rather than a new hole.
+    """
+    prose = {number for number, line in enumerate(lines, 1) if COMMENT_LINE.match(line)}
+    if where.endswith(".py"):
+        try:
+            tree = ast.parse("\n".join(lines))
+        except SyntaxError:
+            tree = None
+        for node in ast.walk(tree) if tree else ():
+            if not isinstance(node, DOCSTRING_OWNERS):
+                continue
+            first = node.body[0] if node.body else None
+            if (
+                isinstance(first, ast.Expr)
+                and isinstance(first.value, ast.Constant)
+                and isinstance(first.value.value, str)
+            ):
+                prose.update(
+                    range(first.lineno, (first.end_lineno or first.lineno) + 1)
+                )
+    return ["" if number in prose else line for number, line in enumerate(lines, 1)]
+
+
+def _same_call(code: list[str], index: int) -> str:
+    """The one command the line at `index` belongs to.
+
+    Backslash continuation only, which is how every wrapped `gh` call in
+    this tree is written. A Python call wrapped inside its parentheses is
+    not joined, and does not need to be: what this is for is `--slurp`,
+    and `--slurp` beside `--paginate` is one flag list on one line unless
+    the shell wrapped it. Deliberately narrower than the window the
+    aggregate is looked for in -- a neighbour's flags are not this call's,
+    which is the whole point.
+    """
+    start = index
+    while start > 0 and code[start - 1].rstrip().endswith("\\"):
+        start -= 1
+    end = index
+    while end < len(code) - 1 and code[end].rstrip().endswith("\\"):
+        end += 1
+    return "\n".join(code[start : end + 1])
+
+
+def paginate_findings(where: str, lines: list[str]) -> list[str]:
+    """`gh api --paginate` with a jq filter that aggregates.
+
+    `--paginate` runs the filter once per page and concatenates what each
+    returns, so `| length` over 101 reviews answers "6\\n1" rather than 7.
+    Three call sites had this and all three broke on #82 the day its review
+    count crossed 100: one killed `fleet-respond` outright (run 34809724830,
+    a multi-line value into `$GITHUB_OUTPUT`), and two failed silently --
+    a `| last | .state` comparison that quietly went false, and a
+    `raw.isdigit()` fallback that reset the round counter to zero, which
+    mislabels a review header -- the three-round guard is a separate count in
+    `fleet-respond.yml`. The shape that works was already in the same file:
+    emit one line per match and count the lines in the caller.
+
+    A window rather than a parse, because the call spans lines in YAML and in
+    Python alike and both wrap it differently. Three lines is the furthest any
+    of the three reached, from the `--paginate` to the aggregate; six is slack
+    against a wrap nobody has written yet. It reaches both ways, because `gh`
+    takes the flags in either order and a window that only looks forward holds
+    only for as long as the next writer wraps the call the way the last three
+    did. There is no suppression for a false positive here, so one is answered
+    by rewriting the call or narrowing this rule, and this class costs a fleet
+    outage.
+    """
+    problems: list[str] = []
+    # Blanked, not dropped, so the line numbers still point at the call.
+    # Reaching backwards means reaching over the prose that explains the fix,
+    # and that prose quotes the aggregates: `fleet-respond.yml`'s comment
+    # names `| length` and `| last`, and `post_review.py`'s docstring names
+    # both `| length` and `gh api --paginate`. Docstrings are blanked for the
+    # second: no file in the tree needs it today -- measured, with the ast
+    # pass and without it, no findings either way -- but a docstring naming
+    # the flag and an aggregate within six lines of each other would be
+    # reported, and there is no suppression to answer that with.
+    code = _without_prose(where, lines)
+    for number, line in enumerate(code, 1):
+        if "--paginate" not in line:
+            continue
+        start = max(0, number - 7)
+        window = "\n".join(code[start : number + 6])
+        # Where the `--paginate` itself sits inside the window, so
+        # `_jq_filter` takes the flag belonging to *this* call rather than a
+        # neighbour's. The token, not the line: measured from the line start,
+        # a `--jq` late on the previous line beats this call's own, which is
+        # the false negative in the shape this rule was written for.
+        near = sum(len(text) + 1 for text in code[start : number - 1])
+        near += line.index("--paginate")
+        # `--slurp` is gh's own answer to this bug -- one array over every
+        # page, so an aggregate over it is correct -- and it does need the
+        # carve-out. Not for the reason it looks like: gh 2.63.2 refuses
+        # `--slurp` together with `--jq` ("the `--slurp` option is not
+        # supported with `--jq` or `--template`", measured with the pinned
+        # binary), so a slurped call has no `--jq` of its own for
+        # `_jq_filter` to read. It reads the nearest one in the window
+        # instead, and beside an unpaginated neighbour that passes `--jq`
+        # the nearest is the neighbour's -- so the rule reported the fix it
+        # asks for, with no suppression to answer that with. The exemption
+        # is the call's own flags, not the window's: `--slurp` next to this
+        # `--paginate` in one flag list.
+        if "--slurp" in _same_call(code, number - 1):
+            continue
+        # Only what `--jq` was actually given, which is also what keeps this
+        # file's own prose about the flag from being its first finding.
+        if AGGREGATE.search(_jq_filter(window, near)):
+            problems.append(
+                f"{where}:{number}: `gh api --paginate` with an "
+                "aggregating jq filter; it answers once per page"
+            )
+    return problems
+
+
+def check_paginate_aggregate(path: Path) -> list[str]:
+    """`paginate_findings` over a file. The split is the self-test's seam."""
+    return paginate_findings(
+        str(path.relative_to(ROOT)), path.read_text(encoding="utf-8").splitlines()
+    )
+
+
+def self_test() -> int:
+    """`paginate_findings`, against every shape it has been wrong about.
+
+    Each case is a correction this rule needed after it landed, and a reader
+    found every one, because a scanner that has stopped firing reads exactly
+    like a scanner with nothing to report. Half assert *caught* for that
+    reason: a false negative is what fixing a false positive tends to
+    produce. Which corrections, and how many, is a question for this file's
+    own `git log` -- enumerating them here is the drift the module docstring
+    above stopped, and the enumeration had outgrown its commits by the time
+    anybody read it back.
+    """
+    # `<P>` rather than the flag itself: these cases are source in a file
+    # `main()` scans, so spelling it out would make the rule report its own
+    # fixtures -- and there is no suppression to answer that with.
+    # Which lines, not whether any: `beside a slurp` passed as a boolean
+    # while reporting the slurped call as well as the bug beneath it, and
+    # a table that cannot tell a right catch from a wrong one is the shape
+    # of test that let the two false negatives through.
+    clean: list[int] = []
+    cases: list[tuple[str, list[int], str]] = [
+        # The bug itself: an aggregate over a paginated call answers per page.
+        ("first", [1], 'gh("api", "x", "<P>", "--jq", "[.[]] | length")'),
+        # gh takes the flags in either order.
+        ("reversed", [1], "gh api --jq '[.[]] | length' repos/x <P>"),
+        # A filter that *is* the aggregate: `AGGREGATE` wanted a `|` before
+        # it, so the terse way to count a listing was the one shape invisible
+        # to the rule. All three real instances were bracketed, which is
+        # history and not a constraint.
+        ("bare aggregate", [1], "gh api repos/x <P> --jq 'length'"),
+        # Prose above a call must not shield it.
+        (
+            "under prose",
+            [3],
+            'def f():\n    """Mentions `| length` and `gh api <P>`."""\n'
+            '    gh("api", "<P>", "--jq", "[.[]] | length")',
+        ),
+        # A neighbour's filter must not be read as this call's.
+        (
+            "after a neighbour",
+            [2],
+            "b=$(gh api repos/x --jq '.head.ref')\n"
+            "s=$(gh api repos/x/reviews <P> \\\n"
+            "  --jq '[.[]] | last | .state')",
+        ),
+        # Line 2 only. A slurped neighbour must not shield the call beside
+        # it, and the slurped call must not be reported on the neighbour's
+        # filter -- the pair that a boolean read as one pass.
+        (
+            "beside a slurp",
+            [2],
+            "a=$(gh api repos/x <P> --slurp | jq '[.[][]] | length')\n"
+            "b=$(gh api repos/y <P> --jq '[.[]] | length')",
+        ),
+        # `--slurp` is gh's own answer to this bug: one array over every page,
+        # so an aggregate is correct and forbidding it forbids the fix.
+        ("slurped", clean, "gh api x <P> --slurp | jq '[.[][]] | length'"),
+        # The exemption is the call's own flags, so a wrapped one keeps it.
+        (
+            "slurped across a wrap",
+            clean,
+            "gh api x <P> \\\n  --slurp | jq '[.[][]] | length'",
+        ),
+        # An aggregate quoted in the comment that explains the fix.
+        (
+            "comment quotes it",
+            clean,
+            "# `wc -l`, not `| length`, and not `| last` either.\n"
+            "n=$(gh api repos/x <P> --jq '.[] | .id' | wc -l)",
+        ),
+        # YAML's `run: |` joins to the next line, so matching any pipe read
+        # the block indicator as jq's and a variable named `last` was a find.
+        (
+            "shell variable",
+            clean,
+            "run: |\n  last=$(gh api x <P> --jq '.[] | .state')",
+        ),
+        # `| sort` after the call is coreutils.
+        ("shell pipe", clean, "gh api x <P> --jq '.[] | .user.login' | sort -u"),
+        # A second call's aggregate must not attach to the paginated one.
+        (
+            "unrelated neighbour",
+            clean,
+            "a=$(gh api x <P> --jq '.[] | .id')\n"
+            "b=$(gh api y --jq '[.labels[]] | length')",
+        ),
+    ]
+
+    for name, expected, source in cases:
+        suffix = ".py" if source.startswith(("gh(", "def ")) else ".yml"
+        spelled = source.replace("<P>", "--" + "paginate")
+        found = [
+            int(problem.split(":")[1])
+            for problem in paginate_findings(name + suffix, spelled.splitlines())
+        ]
+        assert found == expected, f"{name}: expected lines {expected}, got {found}"
+
+    # Counted, for the reason the module docstring gives for counting its
+    # own list: `cases` outgrows a number written beside it.
+    caught = sum(1 for _, expected, _ in cases if expected)
+    print(
+        f"check_workflows: the paginate rule catches {caught} shapes "
+        f"and ignores {len(cases) - caught}"
+    )
+    return 0
+
+
 def main() -> None:
+    if "--self-test" in sys.argv[1:]:
+        sys.exit(self_test())
+
     paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted(
         (ROOT / ".github").rglob("*.yaml")
     )
@@ -276,6 +588,11 @@ def main() -> None:
         sys.exit("no workflow files found under .github/")
 
     problems = check_yaml(paths) + check_tools() + check_pins(paths)
+
+    # `tools/` too, for this one: `post_review.py` held the third instance,
+    # and a rule that only reads workflows would have left it there.
+    for path in [*paths, *sorted((ROOT / "tools").glob("*.py"))]:
+        problems += check_paginate_aggregate(path)
 
     for path in paths:
         problems += check_heredocs(path)

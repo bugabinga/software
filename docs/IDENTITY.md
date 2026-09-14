@@ -74,23 +74,45 @@ nobody can predict what the fleet will need next, so a per-feature grant means
 another trip to a settings page for every improvement.
 
 One of them has to be **Read and write**, not Read: **Administration**. It is
-what `repo_state.py` writes the repository object, the topics and the ruleset
-with, and `settings.yml` asks for it by name, so at Read the token request is
-refused with a 422 before anything is applied. The only measurement of the grant
-is run 34695708756 (2026-09-12), which read `administration` at read; if the
-first `Settings` run fails at the token step, that is what to change.
+what `repo_state.py` writes the repository object, the topics, the Actions
+permission and the ruleset with, and `settings.yml` asks for it by name, so at
+Read the token request is refused with a 422 before anything is applied. Run
+34695708756 (2026-09-12) read it at Read; run 34791533048 minted the token and
+applied all five settings, so it is Read and write now. If a `Settings` run ever
+dies at the token step, that is the first thing to look at -- the annotation
+prints what it asked for against what the installation holds.
 
 An earlier version of this file listed each permission and forbade
 Administration, Secrets, Variables and Environments, on the argument that an
 agent holding them could widen its own authority. The argument was right and the
 remedy was in the wrong place. What replaced it is `repo.toml`: the rules the
 app may change are declared in a file, changed by a pull request, applied by
-`settings.yml`, and read back by `mise run check-settings`, which is not itself
-a gate. The ceiling moved from a settings page with no history to a diff with
-one.
+`settings.yml`, and read back by `mise run check-settings`, which
+`mise run check` runs. The ceiling moved from a settings page with no history to
+a diff with one.
 
 So the app can change the rules `repo.toml` declares, through a diff and nothing
 else. That is the principle above, and it is the point.
+
+**The fleet cannot edit a workflow, and no `permissions:` block will fix it.**
+`review-responder` can fix a finding about `tools/` and can only quote the
+replacement for one about `.github/workflows/`; #82 spent a round discovering
+that. The cause is not the App's grant. Those workflows check out without a
+`token:`, so their pushes carry `GITHUB_TOKEN`, and `workflows` is not one of
+the scopes a workflow may ask for -- actionlint lists all sixteen and it is
+absent, which is GitHub's rule rather than this repository's.
+
+The route `settings.yml` uses does not transfer as it stands. Minting an
+installation token with `.github/actions/app-token` needs the App key, and that
+key is a `Bot` environment secret -- while `fleet-respond.yml` already declares
+`environment: Fleet` for the model credential. A job may name one environment
+and not two (actionlint: _"environment" section is sequence node but mapping
+node is expected_), and "Where the credentials live" below says why these two
+cannot become one: the table puts the App key in `Bot`, `main` only, and the
+paragraph under it says a `main`-only `Fleet` would block every `Fleet review`.
+So this is a restructuring of that workflow rather than a `token:` line, and the
+decision is to do it, or to accept that a workflow finding always waits for a
+human and say so in the roster.
 
 **Three grants sit outside that file's reach**, and they are the three the
 earlier version of this document forbade by name: Secrets, Variables and
@@ -134,10 +156,11 @@ Then say so. Wiring the workflows is a pull request, not your job.
 
 `repo.toml` and `tools/repo_state.py`. The file says what the repository is
 configured to be; `mise run check-settings` reads it back, wherever a credential
-is held. It is not in `mise run check` yet and CI cannot see the settings at
-all, so nothing gates this today -- `mise.toml` says why and what ends it. There
-is no separate check of the grant, because `repo.toml` is the boundary now --
-with the one exception above, which the `Settings` run reports for itself.
+is held and wherever the declaration has been applied, and `mise run check` runs
+it. How much of it was read varies by both, so the run says so section by
+section rather than this page enumerating it -- read the output. There is no
+separate check of the grant, because `repo.toml` is the boundary now -- with the
+one exception above, which the `Settings` run reports for itself.
 
 ---
 

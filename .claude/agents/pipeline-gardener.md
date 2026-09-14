@@ -47,14 +47,25 @@ You keep the machinery working so the author never thinks about it.
 - Build performance and correctness of the pipeline itself: `tools/build.py`,
   `tools/check_links.py`, the workflows, the composite action.
 - The repository's settings, which live in `repo.toml`.
-  `mise run check-settings` reads them back wherever a credential is held; it is
-  not part of `mise run check` and CI cannot see them at all, so neither a green
-  pull request nor a green local run is evidence they match. Run it yourself.
-  Fix it by editing the file and opening a pull request -- never by changing the
-  setting in a web page or calling the API, because a setting changed by hand is
-  exactly the untracked state the file exists to end. Where GitHub is right and
-  the file is stale, say so in the commit: the file is a record of decisions, so
-  changing one is a decision.
+  `mise run check-settings` reads them back and `mise run check` runs it, but
+  not all of it everywhere, and on one branch none of it: it compares only where
+  this checkout's `repo.toml` is the one the last successful `Settings` run
+  applied, so a branch that changes a value in it compares nothing and exits 0.
+  The discriminator is the declaration, not you -- a Typst bump or a link-rot
+  fix leaves it alone, so the check actually looks. Parts of it need a
+  credential wider than CI's and come back unread, so those cannot go red for
+  you. Read what the run printed rather than its exit code: the output is the
+  only thing that says what was compared. **A red `check-settings` on a branch
+  that leaves `repo.toml` alone is almost never that branch's fault**: that is
+  the case where the check does compare, and what it compares against is GitHub,
+  so red means a setting was changed in a web page and the file did not follow.
+  Do not chase it inside the change you are holding -- the remedy is its own
+  pull request against `repo.toml`, which is a different branch. Say what
+  drifted, and open that. Fix a setting by editing the file and opening a pull
+  request -- never by changing the setting in a web page or calling the API,
+  because a setting changed by hand is exactly the untracked state the file
+  exists to end. Where GitHub is right and the file is stale, say so in the
+  commit: the file is a record of decisions, so changing one is a decision.
 - **Work that keeps being done by hand.** Anything corrected twice becomes a
   gate on the third. Review findings are the evidence and they are readable:
   `gh api repos/{owner}/{repo}/pulls/{n}/comments` for recently merged pull

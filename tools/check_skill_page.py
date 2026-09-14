@@ -38,7 +38,7 @@ const api = require("./page.cjs");
 const md = api.skillMarkdown({
   endpoint: "https://notes-intake.example.workers.dev",
   token: "a-very-long-random-intake-token",
-  book: "a book about software, written in Typst",
+  book: "BOOK-FIXTURE",
 });
 
 api.zip({ "file-note/SKILL.md": md }).arrayBuffer().then((buffer) => {
@@ -49,10 +49,18 @@ api.zip({ "file-note/SKILL.md": md }).arrayBuffer().then((buffer) => {
 
 
 def extract_script(page: Path) -> str:
+    """The page's zip builder, by name rather than by position.
+
+    It used to be "the first `<script>`", which held only as long as nobody
+    added a second one. The page has decoration in it now, so the coupling is
+    an id: a block moved, or a new one added above, changes nothing here, and
+    a builder that loses its id fails loudly rather than handing node the
+    wrong program.
+    """
     html = page.read_text(encoding="utf-8")
-    match = re.search(r"<script>\n(.*?)\n</script>", html, re.S)
+    match = re.search(r'<script id="builder">\n(.*?)\n</script>', html, re.S)
     if not match:
-        sys.exit(f"{page}: no <script> block to test")
+        sys.exit(f'{page}: no <script id="builder"> block to test')
     return match.group(1)
 
 

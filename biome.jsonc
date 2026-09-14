@@ -1,11 +1,24 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.13/schema.json",
   "formatter": { "enabled": true },
-  // Every recommended rule, on. Two are switched off below, each for one file
+  // Every recommended rule, on. Three are switched off below, each for one file
   // and each with the reason -- a suppression nobody can audit is the thing
   // the zero-warnings policy exists to prevent.
   "linter": { "enabled": true, "rules": { "recommended": true } },
   "overrides": [
+    {
+      // The generator's `prefers-reduced-motion` block turns off every
+      // animation and transition on the page with one `*` rule. Without
+      // `!important` it loses to every more specific selector above it,
+      // which is all of them -- so the escape hatch would silently not
+      // work, on the one preference where silently not working is the
+      // whole failure. biome is right in general and wrong here: this is
+      // the case the declaration exists for.
+      "includes": ["site/skill/index.html"],
+      "linter": {
+        "rules": { "complexity": { "noImportantStyles": "off" } }
+      }
+    },
     {
       // The test file is a sequence of bare `{ ... }` blocks, one per group,
       // so each group's `const`s cannot leak into the next. That is what the

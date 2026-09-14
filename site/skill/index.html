@@ -20,101 +20,435 @@
   the first npm dependency into the published site.
 -->
 <style>
-  :root {
-    color-scheme: light dark;
-    --bg: #fbfaf8; --fg: #1a1a1a; --dim: #5d5b57;
-    --line: #ddd9d2; --field: #fff; --accent: #2f6f4f;
+  /* ------------------------------------------------------------------ *
+     Midnight and gold.
+
+     The rules this follows, so the next person changing it knows what
+     they are breaking:
+
+     PALETTE. One ground, four drifting colours, one accent. A deep
+     indigo ground; a violet, a paler indigo, a rose and a teal in the
+     blobs; and warm gold as the single accent -- it is the button, the
+     focus ring, the hint's spark, and the gold half of the stars. Three
+     colours sit outside the variables, on purpose: `#status.bad` is a
+     rose literal, because the failure state must not read as gold;
+     `#1c1405` is the button's ink; `#0d1128` is the card's opaque
+     stand-in, for reduced motion, where the sky is hidden and there is
+     nothing behind the glass to blur. That one is hand-picked, not
+     computed: `--glass` with the alpha dropped is #0d1028 and over the
+     ground it composites to #0b0d22. Everything else that is not a
+     variable is a structural `#fff` or `#000`, plus the vignette's own
+     near-black. Where a rule needs channels rather than a colour it
+     takes `rgba(var(--gold-rgb), ...)` or `rgba(var(--ink-rgb), ...)`,
+     so the accent and the ink each have one place to be edited and not
+     five and four. The first version of this page
+     used six rainbow stops at equal weight, which is not a palette; it
+     is every colour losing an argument. Roughly 60% ground, 30%
+     structure, 10% gold.
+
+     TYPE. Three families. An old-style serif for display and for the
+     button -- the same stack the book's own pages use, `--serif` in
+     site/assets/book.css. A mono for the two fields holding an address
+     and a secret, `#endpoint` and `#token`, and for `<code>` in the
+     folded detail. A sans for everything else, the `about` field
+     included. The contrast is the design: a storybook
+     title and button over machine-plain controls.
+
+     The fourth (1.333) in --t0..--t5 is the display ladder: the title,
+     the unicorn, the eyebrow, the labels, the button and the burst's
+     sparks stand on it.
+     The inputs do not, and forcing them to would be the scale using the
+     page rather than the page using the scale -- one at --t1 (1rem)
+     shouts next to a 3rem title and at --t0 (.75rem) is too small to
+     type a token into, so they sit at .84rem between them. The endpoint
+     goes smaller still, to .66rem, because it is the one field the
+     reader checks rather than types, and a workers.dev address ran off
+     the right edge at 412px. The prose is off the ladder as well --
+     .8rem to .88rem, sized to the controls it stands beside. --t3 is a
+     rung nothing stands on today, kept because a ladder with a gap in
+     it is not a scale.
+     Display is tracked in (-0.03em) because large type looks loose at
+     default; the uppercase labels are tracked out because small type
+     looks tight -- both sit at --t0, tracked .16em on the field labels
+     and .22em on the eyebrow.
+
+     SPACE. Multiples of 4px, held in --s1..--s7. No arbitrary values.
+
+     MOTION. Slow, and nothing that demands an answer. Six run on their
+     own clocks: the sky drifts, the stars breathe, the unicorn crosses,
+     the card's ring turns, the title's gold shifts, the button's shine
+     sweeps. Only the card's entry, the burst and the controls' own
+     transitions are events. None of it moves under
+     prefers-reduced-motion.
+
+     TECHNIQUE. @property makes --angle a real <angle>, which is what
+     lets a conic gradient animate at all. Grain sits above the
+     backdrop-filter, because below it the blur eats it. linear() is a
+     sampled spring, so things overshoot and settle.
+   * ------------------------------------------------------------------ */
+
+  @property --angle {
+    syntax: "<angle>";
+    initial-value: 0deg;
+    inherits: false;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #16151a; --fg: #e8e6e1; --dim: #9a968f;
-      --line: #33313a; --field: #1e1d24; --accent: #6fbf90;
+  @property --sweep {
+    syntax: "<percentage>";
+    initial-value: -40%;
+    inherits: false;
+  }
+
+  :root {
+    color-scheme: dark;
+
+    /* Ground and structure */
+    --night-0: #05060f;
+    --night-2: #161b3f;
+    --violet:  #4c3a8c;
+    --rose:    #c65f8e;
+    --teal:    #2f7d8a;
+
+    /* The one accent */
+    /* Both, because the glows need the channels and everything else
+       needs the colour. Five declarations spelled these channels out, so
+       a --gold edit left every one of them behind. */
+    --gold-rgb: 242, 193, 78;
+    --gold:      rgb(var(--gold-rgb));
+    --gold-lit:  #ffe9a8;
+    --gold-deep: #b8862b;
+
+    /* Ink */
+    /* Same pair as the accent, for the same reason: four declarations
+       spelled these channels out, so an --ink edit left them behind. */
+    --ink-rgb: 244, 240, 228;
+    --ink:      rgb(var(--ink-rgb));
+    --ink-soft: #b9b3c8;
+    --ink-dim:  #7d7791;
+
+    --glass: rgba(13, 16, 40, .74);
+    --line:  rgba(var(--ink-rgb), .13);
+
+    /* The same families as `--serif` in site/assets/book.css, kept in step by
+       hand -- nothing compares the two, and the line breaking already
+       differs. It has drifted once: a hand-inserted "Book Antiqua", a
+       Palatino clone standing between two Palatinos, which changed nothing
+       and made the claim above false. A third correction is a gate. */
+    --display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
+               ui-serif, serif;
+    --ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+    /* A fourth between steps. */
+    --t0: .75rem; --t1: 1rem; --t2: 1.333rem; --t3: 1.777rem;
+    --t4: 2.369rem; --t5: 3.157rem;
+
+    --s1: .25rem; --s2: .5rem; --s3: .75rem; --s4: 1rem;
+    --s5: 1.5rem; --s6: 2rem; --s7: 3rem;
+
+    --spring: linear(0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%,
+      0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161,
+      1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%,
+      0.974 53.8%, 0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; min-height: 100svh;
+    background: var(--night-0); color: var(--ink);
+    font: var(--t1)/1.6 var(--ui);
+    display: grid; place-items: center;
+    padding: var(--s7) var(--s4) var(--s7);
+    overflow-x: hidden;
+  }
+
+  /* --- night sky ------------------------------------------------------ */
+  .sky { position: fixed; inset: -25vmax; z-index: -3; pointer-events: none; }
+  .blob {
+    position: absolute; width: 70vmax; height: 70vmax; border-radius: 50%;
+    filter: blur(110px); opacity: .34; will-change: transform;
+  }
+  .blob:nth-child(1) { background: var(--violet); top: 0;    left: -6%;   animation: drift1 34s ease-in-out infinite; }
+  .blob:nth-child(2) { background: var(--night-2); top: 28%; right: -10%; opacity: .8; animation: drift2 41s ease-in-out infinite; }
+  .blob:nth-child(3) { background: var(--rose);   bottom: -8%; left: 20%; opacity: .2; animation: drift3 37s ease-in-out infinite; }
+  .blob:nth-child(4) { background: var(--teal);   top: 62%; left: 44%;    opacity: .16; animation: drift1 46s ease-in-out infinite reverse; }
+  @keyframes drift1 { 50% { transform: translate(14vmax, 10vmax) scale(1.25); } }
+  @keyframes drift2 { 50% { transform: translate(-12vmax, 11vmax) scale(1.12); } }
+  @keyframes drift3 { 50% { transform: translate(11vmax, -11vmax) scale(.82); } }
+
+  /* Stars: six tiled radial-gradient dot fields at different scales,
+     breathing together on the one clock, so the field twinkles without
+     one element per star. */
+  .stars {
+    position: fixed; inset: 0; z-index: -2; pointer-events: none;
+    background-image:
+      radial-gradient(1.4px 1.4px at 18% 22%, var(--gold-lit), transparent 60%),
+      radial-gradient(1px 1px   at 74% 12%, #fff, transparent 60%),
+      radial-gradient(1.6px 1.6px at 42% 68%, var(--gold-lit), transparent 60%),
+      radial-gradient(1px 1px   at 88% 54%, #fff, transparent 60%),
+      radial-gradient(1.2px 1.2px at 8% 76%, #fff, transparent 60%),
+      radial-gradient(1.3px 1.3px at 62% 88%, var(--gold-lit), transparent 60%);
+    background-size: 340px 340px, 210px 210px, 470px 470px,
+                     290px 290px, 380px 380px, 250px 250px;
+    animation: twinkle 7s ease-in-out infinite;
+  }
+  @keyframes twinkle { 50% { opacity: .45; } }
+
+  .vignette {
+    position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(ellipse at 50% 42%, transparent 22%, rgba(3, 4, 12, .88) 80%);
+  }
+
+  .grain {
+    position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: .045;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* One unicorn, not three. It is an ornament, and an ornament repeated is
+     wallpaper. */
+  .unicorn {
+    position: fixed; left: -4rem; top: 14%; z-index: -1;
+    font-size: var(--t4); font-style: normal; pointer-events: none;
+    filter: drop-shadow(0 8px 24px rgba(0, 0, 0, .6));
+    animation: gallop 42s linear infinite;
+  }
+  @keyframes gallop {
+    0%   { transform: translateX(0) translateY(0) rotate(-5deg); }
+    25%  { transform: translateX(32vw) translateY(-22px) rotate(6deg); }
+    50%  { transform: translateX(64vw) translateY(0) rotate(-5deg); }
+    75%  { transform: translateX(96vw) translateY(-22px) rotate(6deg); }
+    100% { transform: translateX(122vw) translateY(0) rotate(-5deg); }
+  }
+
+  /* --- the card -------------------------------------------------------- */
+  main {
+    position: relative; z-index: 2; width: min(29rem, 100%);
+    padding: var(--s7) var(--s5) var(--s6);
+    border-radius: 1.5rem; background: var(--glass);
+    backdrop-filter: blur(24px) saturate(170%);
+    -webkit-backdrop-filter: blur(24px) saturate(170%);
+    box-shadow: 0 40px 90px -40px #000, inset 0 1px 0 rgba(255, 255, 255, .06);
+    animation: land 1s var(--spring) both;
+  }
+  main::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    border-radius: inherit; padding: 1px; pointer-events: none;
+    background: conic-gradient(from var(--angle),
+      transparent 10%, var(--gold-deep) 24%, var(--gold-lit) 32%,
+      var(--gold-deep) 40%, transparent 54%, rgba(var(--ink-rgb), .18) 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    animation: spin 14s linear infinite;
+  }
+  @keyframes spin { to { --angle: 360deg; } }
+  @keyframes land {
+    from { opacity: 0; transform: translateY(26px) scale(.95); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* --- display type ---------------------------------------------------- */
+  .eyebrow {
+    margin: 0 0 var(--s2);
+    font-size: var(--t0); font-weight: 600; letter-spacing: .22em;
+    text-transform: uppercase; color: var(--gold);
+  }
+  .lede {
+    margin: 0 0 var(--s6); max-width: 34ch;
+    font-size: .88rem; line-height: 1.5; color: var(--ink-soft);
+    text-wrap: pretty;
+  }
+  h1 {
+    margin: 0 0 var(--s4); font-family: var(--display); font-weight: 400;
+    font-size: clamp(var(--t4), 15vw, var(--t5)); line-height: .92;
+    letter-spacing: -.03em; text-wrap: balance;
+    background: linear-gradient(100deg,
+      var(--gold-deep) 0%, var(--gold) 22%, var(--gold-lit) 34%,
+      var(--gold) 46%, var(--gold-deep) 70%, var(--gold) 100%);
+    background-size: 260% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 3px 26px rgba(var(--gold-rgb), .3));
+    animation: shimmer 9s ease-in-out infinite;
+  }
+  h1 em { font-style: italic; }
+  @keyframes shimmer { 50% { background-position: 100% 0; } }
+
+  label {
+    display: flex; align-items: baseline; gap: var(--s2);
+    margin: var(--s5) 0 var(--s2);
+    font-size: var(--t0); font-weight: 700; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-soft);
+  }
+  .hint {
+    font-size: var(--t0); font-weight: 600; letter-spacing: .04em;
+    text-transform: none; color: var(--gold);
+  }
+
+  input {
+    width: 100%; padding: var(--s3) var(--s4); font: inherit; font-size: .84rem;
+    color: var(--ink); background: rgba(var(--ink-rgb), .04);
+    border: 1px solid var(--line); border-radius: .75rem;
+    transition: background .3s, border-color .3s, box-shadow .3s, transform .3s;
+  }
+  input::placeholder { color: var(--ink-dim); }
+  input:focus {
+    /* Transparent rather than `none`: under `forced-colors: active` the ring
+       below is not painted at all, and the system substitutes a colour into
+       an outline that exists. Three fields here mint a credential and one of
+       them is a password, so losing the focused field is the expensive case. */
+    outline: 2px solid transparent; outline-offset: 2px;
+    transform: translateY(-1px);
+    background: rgba(var(--ink-rgb), .07); border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold), 0 0 26px -6px var(--gold),
+                0 12px 30px -18px #000;
+  }
+  #endpoint, #token { font-family: var(--mono); }
+  #endpoint { font-size: .66rem; }
+  #token { letter-spacing: .12em; }
+
+  /* --- the one hero ---------------------------------------------------- */
+  button {
+    position: relative; isolation: isolate; overflow: hidden;
+    width: 100%; margin-top: var(--s6); padding: var(--s4) var(--s5);
+    font-family: var(--display); font-size: var(--t2); font-weight: 600;
+    letter-spacing: .01em; color: #1c1405;
+    background: linear-gradient(168deg, var(--gold-lit), var(--gold) 44%, var(--gold-deep));
+    border: 0; border-radius: 999px; cursor: pointer;
+    box-shadow: 0 16px 44px -16px rgba(var(--gold-rgb), .75),
+                inset 0 1px 0 rgba(255, 255, 255, .55),
+                inset 0 -2px 0 rgba(0, 0, 0, .18);
+    transition: transform .6s var(--spring), box-shadow .3s;
+  }
+  /* The sweep of light: one band travelling left to right, on its own
+     property so it interpolates. */
+  button::after {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    background: linear-gradient(100deg,
+      transparent calc(var(--sweep) - 18%),
+      rgba(255, 255, 255, .72) var(--sweep),
+      transparent calc(var(--sweep) + 18%));
+    animation: sweep 4.5s ease-in-out infinite;
+  }
+  @keyframes sweep { 60%, 100% { --sweep: 140%; } }
+  button:hover, button:focus-visible {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 22px 60px -16px rgba(var(--gold-rgb), .95),
+                inset 0 1px 0 rgba(255, 255, 255, .7);
+  }
+  button:active { transform: translateY(0) scale(.98); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  #status {
+    margin: var(--s3) 0 0; min-height: 1.4em;
+    font-size: .85rem; font-weight: 600; letter-spacing: .01em;
+  }
+  #status.bad  { color: #ff9aab; }
+  #status.good { color: var(--gold); }
+
+  /* The one thing a reader must not be able to skip: it was two visible
+     paragraphs before the page was cut down, and cutting it into a closed
+     `details` meant somebody could download a live token having been told
+     nothing. The detail behind it can stay folded; this line cannot. */
+  .warn {
+    margin: var(--s5) 0 0; padding: var(--s3) var(--s4);
+    border-radius: .75rem; font-size: .82rem; font-weight: 600;
+    color: var(--gold-lit); background: rgba(var(--gold-rgb), .09);
+    border: 1px solid rgba(var(--gold-rgb), .28);
+  }
+
+  .small {
+    margin-top: var(--s6); color: var(--ink-dim); font-size: .8rem;
+    letter-spacing: .01em;
+  }
+  .small a { color: var(--ink-soft); text-underline-offset: 3px; text-decoration-color: var(--line); }
+  .small a:hover { color: var(--gold); }
+  summary {
+    cursor: pointer; font-weight: 600; color: var(--ink-soft);
+    list-style: none; transition: color .25s;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary:hover, details[open] summary { color: var(--gold); }
+  details[open] summary { margin-bottom: var(--s2); }
+  details p { margin: 0; max-width: 34ch; }
+  details p + p { margin-top: var(--s3); }
+  details code { font-family: var(--mono); font-size: .9em; color: var(--ink-soft); }
+
+  /* --- the burst ------------------------------------------------------- */
+  .spark {
+    position: fixed; z-index: 9; pointer-events: none; user-select: none;
+    font-size: var(--t2); left: 0; top: 0;
+    animation: fling var(--life) cubic-bezier(.15, .75, .3, 1) forwards;
+  }
+  @keyframes fling {
+    0%   { transform: translate(var(--x0), var(--y0)) scale(.2) rotate(0deg); opacity: 1; }
+    70%  { opacity: 1; }
+    100% {
+      transform: translate(calc(var(--x0) + var(--dx)), calc(var(--y0) + var(--dy)))
+                 scale(1.3) rotate(var(--spin));
+      opacity: 0;
     }
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--fg);
-    font: 16px/1.6 ui-serif, "Libertinus Serif", Georgia, serif;
-    padding: 3rem 1.25rem 6rem;
+  .flash {
+    position: fixed; inset: 0; z-index: 8; pointer-events: none;
+    background: radial-gradient(circle at 50% 58%, var(--gold-lit), transparent 62%);
+    animation: flash .6s ease-out forwards;
   }
-  main { max-width: 40rem; margin: 0 auto; }
-  h1 { font-size: 1.5rem; margin: 0 0 .3rem; }
-  p.lede { color: var(--dim); margin: 0 0 2.5rem; }
-  label { display: block; margin: 1.5rem 0 .35rem; font-weight: 600; font-size: .95rem; }
-  .hint { color: var(--dim); font-size: .85rem; font-weight: 400; display: block; margin-top: .15rem; }
-  input, textarea {
-    width: 100%; padding: .6rem .7rem; font: inherit; font-size: .95rem;
-    background: var(--field); color: var(--fg);
-    border: 1px solid var(--line); border-radius: .3rem;
+  @keyframes flash { 0% { opacity: .3; } 100% { opacity: 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    h1 { color: var(--gold); }
+    .sky, .stars, .grain, .vignette, .unicorn { display: none; }
+    main { background: #0d1128; }
   }
-  input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-  code, .mono { font-family: ui-monospace, "DejaVu Sans Mono", monospace; font-size: .9em; }
-  button {
-    margin-top: 2rem; padding: .7rem 1.4rem; font: inherit; font-weight: 600;
-    background: var(--accent); color: var(--bg); border: 0; border-radius: .3rem;
-    cursor: pointer;
-  }
-  button:disabled { opacity: .45; cursor: not-allowed; }
-  .note {
-    margin-top: 2.5rem; padding: 1rem 1.2rem; border-left: 3px solid var(--line);
-    color: var(--dim); font-size: .92rem;
-  }
-  .note strong { color: var(--fg); }
-  #status { margin-top: 1rem; min-height: 1.5em; font-size: .92rem; }
-  #status.bad { color: #c0392b; }
-  a { color: inherit; }
 </style>
 </head>
 <body>
+<div class="sky" aria-hidden="true"><i class="blob"></i><i class="blob"></i><i class="blob"></i><i class="blob"></i></div>
+<div class="stars" aria-hidden="true"></div>
+<div class="vignette" aria-hidden="true"></div>
+<i class="unicorn" aria-hidden="true">🦄</i>
 <main>
-  <h1>Notes inbox — skill generator</h1>
-  <p class="lede">
-    Makes a Claude skill that lets a note-taking session file notes to the
-    book. Fill in the two values, download the zip, add it to that session.
-  </p>
+  <p class="eyebrow">notes inbox</p>
+  <h1>Wish it <em>into</em> a skill</h1>
+  <p class="lede">A zip for your note-taking session. Drop it in, and every
+    note it takes lands in the book.</p>
 
   <form id="form">
-    <label for="endpoint">Inbox URL
-      <span class="hint">The worker's address, ending in <code>.workers.dev</code>. The
-        deploy's summary links here with it already filled in.</span>
-    </label>
-    <input id="endpoint" class="mono" type="url" required spellcheck="false"
-           placeholder="https://notes-intake.your-subdomain.workers.dev"
+    <label for="endpoint">inbox <span class="hint" id="endpoint-hint"></span></label>
+    <input id="endpoint" type="url" required spellcheck="false"
+           placeholder="https://notes-intake.you.workers.dev" autocomplete="off">
+
+    <label for="token">token</label>
+    <input id="token" type="password" required spellcheck="false"
+           placeholder="NOTES_INTAKE_TOKEN" autocomplete="off">
+
+    <label for="book">about <span class="hint">when the skill applies</span></label>
+    <input id="book" type="text" value="one programmer's thoughts about software"
            autocomplete="off">
 
-    <label for="token">Intake token
-      <span class="hint">The value of <code>NOTES_INTAKE_TOKEN</code>.</span>
-    </label>
-    <input id="token" class="mono" type="password" required spellcheck="false"
-           placeholder="the long random string" autocomplete="off">
-
-    <label for="book">What the notes are for
-      <span class="hint">One line, so the skill knows when it applies.</span>
-    </label>
-    <input id="book" type="text" value="a book about software, written in Typst"
-           autocomplete="off">
-
-    <button id="go" type="submit">Download the skill</button>
+    <button id="go" type="submit">Make it <span aria-hidden="true">✨</span></button>
     <p id="status" role="status"></p>
   </form>
 
-  <p class="note">
-    <strong>The token never leaves this page.</strong> The zip is built here,
-    in your browser, and handed straight to the download. This is a static
-    file on GitHub Pages; there is no server behind it to send anything to.
-  </p>
-  <p class="note">
-    <strong>Treat the zip as a credential.</strong> The token is written into
-    the skill, because a Claude session has no other way to hold one. Anyone
-    with the zip can file notes to the book. Rotating the token means changing
-    <code>NOTES_INTAKE_TOKEN</code> and generating a new one here.
-  </p>
-  <p class="note">
-    Not part of the book — <a href="../">that is over here</a>.
-  </p>
-</main>
+  <p class="warn">The zip holds a live token. Treat it as a credential.</p>
 
-<script>
+  <details class="small">
+    <summary>Is this safe?</summary>
+    <p>The zip is built in your browser and goes nowhere else — this page is a
+    static file with no server behind it. The token is written into the zip
+    though, so anyone holding it can file notes. Treat it as a credential.</p>
+    <p>Rotating it is three steps in order: change <code>NOTES_INTAKE_TOKEN</code>,
+    run <em>Worker deploy</em> so Cloudflare gets the new one, then come back
+    here for a new zip. Nothing runs that middle step for you.</p>
+  </details>
+
+  <p class="small"><a href="../">← the book</a></p>
+</main>
+<div class="grain" aria-hidden="true"></div>
+
+<script id="builder">
 "use strict";
 
 // --- the skill ------------------------------------------------------------
@@ -299,6 +633,21 @@ if (typeof module === "object" && module && module.exports) {
 const form = typeof document === "undefined" ? null : document.getElementById("form");
 const status = form && document.getElementById("status");
 
+// `#status` is `role="status"`, so a screen reader reads whatever lands here
+// as it changes -- and reads a leading emoji by its name, so the first error
+// announces as "no good gesture the address has to start with https://".
+// Every other emoji on this page is hidden from the accessibility tree for
+// that reason (see the sparks below); these sit in the one live region, which
+// makes them the ones that matter. `textContent` cannot carry the
+// distinction, so the node is built instead.
+function say(kind, emoji, text) {
+  const mark = document.createElement("span");
+  mark.setAttribute("aria-hidden", "true");
+  mark.textContent = emoji;
+  status.className = kind;
+  status.replaceChildren(mark, document.createTextNode(` ${text}`));
+}
+
 // The address is not in the repository: `worker-deploy.yml` reads the
 // account's subdomain from Cloudflare at deploy time, because a copy checked
 // in here would keep looking right after the account changed. So the deploy
@@ -308,6 +657,18 @@ if (form) {
   const given = new URLSearchParams(location.search).get("inbox");
   if (given && /^https:\/\//.test(given)) {
     document.getElementById("endpoint").value = given.trim().replace(/\/+$/, "");
+    // The hint beside this label is empty until now: with the box empty
+    // there is nothing to say that the placeholder does not already show.
+    // Once the address is in, the question is no longer where it comes
+    // from but who put it there.
+    // The span is inside `<label for="endpoint">`, so this lands in the
+    // field's accessible name, not beside it: `textContent` made it announce
+    // "inbox ✦ from your deploy". Same treatment as `say()` and the button.
+    const hint = document.getElementById("endpoint-hint");
+    const mark = document.createElement("span");
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = "✦";
+    hint.replaceChildren(mark, document.createTextNode(" from your deploy"));
   }
 }
 
@@ -321,13 +682,11 @@ if (form) form.addEventListener("submit", (event) => {
   const book = document.getElementById("book").value.trim() || "a book";
 
   if (!/^https:\/\//.test(endpoint)) {
-    status.className = "bad";
-    status.textContent = "The inbox URL has to be https.";
+    say("bad", "🙅", "the address has to start with https://");
     return;
   }
   if (token.length < 16) {
-    status.className = "bad";
-    status.textContent = "That token looks too short to be the real one.";
+    say("bad", "🤏", "that token is too short");
     return;
   }
 
@@ -343,8 +702,91 @@ if (form) form.addEventListener("submit", (event) => {
   // the URL keeps the token alive in the page longer than it needs to be.
   setTimeout(() => URL.revokeObjectURL(url), 0);
 
-  status.textContent = "Downloaded. Add it to the note-taking session, then try one note.";
+  say("good", "🎉", "got it — drop the zip in your session");
+  if (window.party) window.party(document.getElementById("go"));
 });
+</script>
+
+<!--
+  Decoration only. It is a second block on purpose: `check_skill_page.py` and
+  `make_skill.py` pull the builder out by its id and run it under node, where
+  there is no DOM and none of this would mean anything. Decoration goes down
+  here; page code the builder needs stays above, guarded on `document`.
+-->
+<script id="confetti">
+"use strict";
+
+// The explosion. `window.party(el)` throws a handful of emoji out of an
+// element's centre and flashes gold behind them.
+//
+// Fixed positioning and viewport coordinates rather than an absolutely
+// positioned container: the button can be anywhere down a scrolled page, and
+// `getBoundingClientRect` already answers in the space `position: fixed`
+// uses. The particles remove themselves on `animationend` so a page left open
+// through twenty downloads does not accumulate seven hundred dead spans.
+(() => {
+  const CAST = ["✨", "⭐", "🌟", "💫", "🦄", "🎉"];
+  const QUIET = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+
+  window.party = (origin, count) => {
+    if (QUIET?.matches) return;
+
+    const box = origin.getBoundingClientRect();
+    const x0 = box.left + box.width / 2;
+    const y0 = box.top + box.height / 2;
+
+    const flash = document.createElement("div");
+    flash.className = "flash";
+    flash.addEventListener("animationend", () => flash.remove());
+    document.body.appendChild(flash);
+
+    for (let i = 0; i < (count || 34); i++) {
+      const spark = document.createElement("span");
+      spark.className = "spark";
+      // Decoration, and the accessibility tree should not hear about it: a
+      // screen reader would otherwise announce a stream of loose emoji over
+      // whatever the status line is trying to say.
+      spark.setAttribute("aria-hidden", "true");
+      spark.textContent = CAST[Math.floor(Math.random() * CAST.length)];
+
+      // Fired upward more often than down, because confetti that only falls
+      // reads as a leak rather than a celebration.
+      const angle = Math.PI * (1.15 + Math.random() * 0.7) + (Math.random() < 0.25 ? Math.PI : 0);
+      const reach = 90 + Math.random() * 260;
+
+      spark.style.setProperty("--x0", `${x0}px`);
+      spark.style.setProperty("--y0", `${y0}px`);
+      spark.style.setProperty("--dx", `${Math.cos(angle) * reach}px`);
+      spark.style.setProperty("--dy", `${Math.sin(angle) * reach}px`);
+      spark.style.setProperty("--spin", `${Math.round(Math.random() * 900 - 450)}deg`);
+      spark.style.setProperty("--life", `${(0.9 + Math.random() * 0.8).toFixed(2)}s`);
+
+      spark.addEventListener("animationend", () => spark.remove());
+      document.body.appendChild(spark);
+    }
+  };
+
+  // A small hello on arrival, from the title rather than the button, so the
+  // two bursts do not look like the same event.
+  window.addEventListener("load", () => {
+    const h1 = document.querySelector("h1");
+    if (h1) setTimeout(() => window.party(h1, 12), 250);
+  });
+
+  // And a ping off each field as it stops being empty. Once per field: a
+  // spark on every keystroke of a forty-character token is a strobe.
+  document.querySelectorAll("input").forEach((field) => {
+    let fired = field.value !== "";
+    field.addEventListener("input", () => {
+      if (!fired && field.value !== "") {
+        fired = true;
+        window.party(field, 6);
+      } else if (field.value === "") {
+        fired = false;
+      }
+    });
+  });
+})();
 </script>
 </body>
 </html>
