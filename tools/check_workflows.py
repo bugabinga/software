@@ -293,6 +293,17 @@ JQ_FLAG = re.compile(r"--jq[\"']?[\s,]*")
 BETWEEN_PARTS = re.compile(r"[\s,\\]*")
 
 
+def _call_span(window: str, near: int) -> str:
+    """The part of `window` belonging to the invocation around `near`.
+
+    Bounded by the neighbouring `gh` invocations, which is as much structure
+    as a window has: a shell line and a Python call both start one.
+    """
+    before = window.rfind("gh", 0, near)
+    after = window.find("gh", near)
+    return window[max(before, 0) : after if after != -1 else len(window)]
+
+
 def _jq_filter(window: str, near: int) -> str:
     """Everything quoted after the `--jq` nearest `near` in `window`, joined.
 
@@ -333,7 +344,7 @@ def _jq_filter(window: str, near: int) -> str:
     return " ".join(parts)
 
 
-def _without_prose(path: Path, lines: list[str]) -> list[str]:
+def _without_prose(where: str, lines: list[str]) -> list[str]:
     """A copy of `lines` with comments and Python docstrings blanked.
 
     Blanked rather than removed so an index is still a line number.
@@ -347,7 +358,7 @@ def _without_prose(path: Path, lines: list[str]) -> list[str]:
     nothing else, which is the old behaviour rather than a new hole.
     """
     prose = {number for number, line in enumerate(lines, 1) if COMMENT_LINE.match(line)}
-    if path.suffix == ".py":
+    if where.endswith(".py"):
         try:
             tree = ast.parse("\n".join(lines))
         except SyntaxError:
@@ -367,7 +378,7 @@ def _without_prose(path: Path, lines: list[str]) -> list[str]:
     return ["" if number in prose else line for number, line in enumerate(lines, 1)]
 
 
-def check_paginate_aggregate(path: Path) -> list[str]:
+def paginate_findings(where: str, lines: list[str]) -> list[str]:
     """`gh api --paginate` with a jq filter that aggregates.
 
     `--paginate` runs the filter once per page and concatenates what each
@@ -392,7 +403,6 @@ def check_paginate_aggregate(path: Path) -> list[str]:
     outage.
     """
     problems: list[str] = []
-    lines = path.read_text(encoding="utf-8").splitlines()
     # Blanked, not dropped, so the line numbers still point at the call.
     # Reaching backwards means reaching over the prose that explains the fix,
     # and that prose quotes the aggregates: `fleet-respond.yml`'s comment
@@ -402,7 +412,7 @@ def check_paginate_aggregate(path: Path) -> list[str]:
     # pass and without it, no findings either way -- but a docstring naming
     # the flag and an aggregate within six lines of each other would be
     # reported, and there is no suppression to answer that with.
-    code = _without_prose(path, lines)
+    code = _without_prose(where, lines)
     for number, line in enumerate(code, 1):
         if "--paginate" not in line:
             continue
@@ -420,16 +430,115 @@ def check_paginate_aggregate(path: Path) -> list[str]:
         # `--slurp` is excluded because it is gh's own answer to this bug
         # (2.55.0; `mise.toml` pins 2.63.2): it hands the filter one array
         # spanning every page, so an aggregate over it is correct and this
-        # rule would otherwise forbid the fix it exists to ask for.
-        if "--slurp" not in window and AGGREGATE.search(_jq_filter(window, near)):
+        # rule would otherwise forbid the fix it exists to ask for. Scoped to
+        # the call and not the window, for the reason `--jq` is: a neighbour
+        # six lines away would otherwise exempt this one, and the first call
+        # in a block to adopt `--slurp` would silently exempt the rest.
+        call = _call_span(window, near)
+        if "--slurp" not in call and AGGREGATE.search(_jq_filter(window, near)):
             problems.append(
-                f"{path.relative_to(ROOT)}:{number}: `gh api --paginate` with an "
+                f"{where}:{number}: `gh api --paginate` with an "
                 "aggregating jq filter; it answers once per page"
             )
     return problems
 
 
+def check_paginate_aggregate(path: Path) -> list[str]:
+    """`paginate_findings` over a file. The split is the self-test's seam."""
+    return paginate_findings(
+        str(path.relative_to(ROOT)), path.read_text(encoding="utf-8").splitlines()
+    )
+
+
+def self_test() -> int:
+    """`paginate_findings`, against every shape it has been wrong about.
+
+    Each case is a correction this rule needed after it landed -- b08980d,
+    c3803ef, 82e566f, f96a563, 52efb4a -- and a reader found all five, because
+    a scanner that has stopped firing reads exactly like a scanner with
+    nothing to report. Half of these assert *caught* for that reason: two of
+    the five were false negatives introduced while fixing a false positive,
+    and the fixtures were the only thing that noticed.
+    """
+    # `<P>` rather than the flag itself: these cases are source in a file
+    # `main()` scans, so spelling it out would make the rule report its own
+    # fixtures -- and there is no suppression to answer that with.
+    caught, clean = True, False
+    cases: list[tuple[str, bool, str]] = [
+        # The bug itself: an aggregate over a paginated call answers per page.
+        ("first", caught, 'gh("api", "x", "<P>", "--jq", "[.[]] | length")'),
+        # gh takes the flags in either order.
+        ("reversed", caught, "gh api --jq '[.[]] | length' repos/x <P>"),
+        # Prose above a call must not shield it.
+        (
+            "under prose",
+            caught,
+            'def f():\n    """Mentions `| length` and `gh api <P>`."""\n'
+            '    gh("api", "<P>", "--jq", "[.[]] | length")',
+        ),
+        # A neighbour's filter must not be read as this call's.
+        (
+            "after a neighbour",
+            caught,
+            "b=$(gh api repos/x --jq '.head.ref')\n"
+            "s=$(gh api repos/x/reviews <P> \\\n"
+            "  --jq '[.[]] | last | .state')",
+        ),
+        # Nor a neighbour's `--slurp` exempt it.
+        (
+            "neighbour slurped",
+            caught,
+            "a=$(gh api repos/x <P> --slurp --jq '[.[][]] | length')\n"
+            "b=$(gh api repos/y <P> --jq '[.[]] | length')",
+        ),
+        # `--slurp` is gh's own answer to this bug: one array over every page,
+        # so an aggregate is correct and forbidding it forbids the fix.
+        (
+            "slurped",
+            clean,
+            'gh("api", "<P>", "--slurp", "--jq", "[.[][]] | length")',
+        ),
+        # An aggregate quoted in the comment that explains the fix.
+        (
+            "comment quotes it",
+            clean,
+            "# `wc -l`, not `| length`, and not `| last` either.\n"
+            "n=$(gh api repos/x <P> --jq '.[] | .id' | wc -l)",
+        ),
+        # YAML's `run: |` joins to the next line, so matching any pipe read
+        # the block indicator as jq's and a variable named `last` was a find.
+        (
+            "shell variable",
+            clean,
+            "run: |\n  last=$(gh api x <P> --jq '.[] | .state')",
+        ),
+        # `| sort` after the call is coreutils.
+        ("shell pipe", clean, "gh api x <P> --jq '.[] | .user.login' | sort -u"),
+        # A second call's aggregate must not attach to the paginated one.
+        (
+            "unrelated neighbour",
+            clean,
+            "a=$(gh api x <P> --jq '.[] | .id')\n"
+            "b=$(gh api y --jq '[.labels[]] | length')",
+        ),
+    ]
+
+    for name, expected, source in cases:
+        suffix = ".py" if source.startswith(("gh(", "def ")) else ".yml"
+        spelled = source.replace("<P>", "--" + "paginate")
+        found = bool(paginate_findings(name + suffix, spelled.splitlines()))
+        assert found == expected, (
+            f"{name}: expected {'a finding' if expected else 'none'}, got the other"
+        )
+
+    print("check_workflows: the paginate rule catches five shapes and ignores five")
+    return 0
+
+
 def main() -> None:
+    if "--self-test" in sys.argv[1:]:
+        sys.exit(self_test())
+
     paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted(
         (ROOT / ".github").rglob("*.yaml")
     )

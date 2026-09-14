@@ -173,7 +173,11 @@ description = "The Actions definitions, and that every tool compiles"
 # backticks and sed syntax inside single quotes, all correct; each now
 # carries a `# shellcheck disable=SC2016` and a reason at the line it is
 # about. A blanket filter hides the next finding too.
-run = ["actionlint", "python3 tools/check_workflows.py"]
+run = [
+  "actionlint",
+  "python3 tools/check_workflows.py --self-test",
+  "python3 tools/check_workflows.py",
+]
 
 [tasks.check-lint]
 description = "Lint the Python and the JavaScript, strictly"
