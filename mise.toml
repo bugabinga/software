@@ -253,8 +253,11 @@ description = "The repository's settings, against what repo.toml declares"
 # is reported as unread rather than as agreement, so a run behind a proxy
 # that refuses whole API paths says what it managed to look at rather than
 # calling silence agreement. `ci.yml`'s Check step passes `github.token`, so
-# the repository and the rulesets are compared there; `actions` needs
-# administration and stays unread everywhere but the apply.
+# the rulesets and most of the repository are compared there. Not all of it:
+# the repository object a `contents: read` token receives has no merge
+# settings in it at all, so those eight read unread in CI and are compared
+# only where somebody holds a wider credential. `actions` needs
+# administration and is unread everywhere but the apply.
 #
 # It could not be wired until #81 merged: it was red on four declared and
 # unapplied settings, and a gate red on the merge that would satisfy it is a

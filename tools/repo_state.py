@@ -104,18 +104,32 @@ def fetch(path: str) -> Any | None:
         return None
 
 
-def compare(declared: dict[str, Any], actual: dict[str, Any], where: str) -> list[str]:
-    """Every declared key that the API answers differently.
+def compare(
+    declared: dict[str, Any], actual: dict[str, Any], where: str
+) -> tuple[list[str], list[str]]:
+    """Declared keys the API answers differently, and ones it does not answer.
 
     Only declared keys are looked at. `repo.toml` is a set of assertions, not
     a mirror of the API, so a key GitHub adds next year is not this file's
     business until somebody decides it is.
+
+    **A key absent from the document is unread, not a difference.** The two
+    look identical through `.get()` and they are not the same fact: the
+    repository object GitHub hands a `contents: read` workflow token omits
+    every merge setting rather than reporting it, so arming this in CI turned
+    eight settings that match into eight that disagree. GitHub declining to
+    say is the third outcome this file is built around; `.get()` was quietly
+    collapsing it into the second.
     """
-    findings = []
+    findings: list[str] = []
+    unread: list[str] = []
     for key, want in sorted(declared.items()):
         if isinstance(want, dict):
             continue  # a nested table; its own section handles it
-        have = actual.get(key)
+        if key not in actual:
+            unread.append(f"{where}.{key}: the token cannot see this field")
+            continue
+        have = actual[key]
         # Lists are compared as sets where order is GitHub's to choose.
         same = (
             sorted(want) == sorted(have)
@@ -124,7 +138,7 @@ def compare(declared: dict[str, Any], actual: dict[str, Any], where: str) -> lis
         )
         if not same:
             findings.append(f"{where}.{key}: declared {want!r}, found {have!r}")
-    return findings
+    return findings, unread
 
 
 def check_repository(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]:
@@ -132,8 +146,7 @@ def check_repository(declared: dict[str, Any], repo: str) -> tuple[str, list[str
     if actual is None:
         return UNREAD, ["repository: could not be read"]
     fields = {k: v for k, v in declared.items() if k != "topics"}
-    findings = compare(fields, actual, "repository")
-    unread: list[str] = []
+    findings, unread = compare(fields, actual, "repository")
 
     if "topics" in declared:
         topics = fetch(f"repos/{repo}/topics")
@@ -143,11 +156,13 @@ def check_repository(declared: dict[str, Any], repo: str) -> tuple[str, list[str
             # nobody could read is not a setting that disagrees.
             unread.append("repository.topics: could not be read")
         else:
-            findings += compare(
+            more, more_unread = compare(
                 {"topics": declared["topics"]},
                 {"topics": topics.get("names")},
                 "repository",
             )
+            findings += more
+            unread += more_unread
     return _verdict(findings, unread)
 
 
@@ -163,7 +178,7 @@ def check_actions(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]:
         return UNREAD, [
             "actions: could not be read (the token or the proxy refuses this path)"
         ]
-    return _verdict(compare(declared, actual, "actions"))
+    return _verdict(*compare(declared, actual, "actions"))
 
 
 def check_rulesets(declared: dict[str, Any], repo: str) -> tuple[str, list[str]]:
@@ -292,7 +307,11 @@ def _compare_rule_parameters(
             "contexts": contexts,
             "strict": have.get("strict_required_status_checks_policy"),
         }
-    return compare(want, have, where)
+    # A ruleset's own document is not trimmed by permission the way the
+    # repository object is, so a parameter missing here is a real difference
+    # and belongs with the findings.
+    findings, unread = compare(want, have, where)
+    return findings + unread
 
 
 def _actors(actors: list[Any]) -> list[str]:
@@ -516,17 +535,27 @@ def self_test() -> int:
     value: a declared key that GitHub answers differently is a finding, an
     undeclared key is not, and an unreadable section is neither.
     """
-    assert compare({"a": 1}, {"a": 1}, "x") == []
-    assert compare({"a": 1}, {"a": 2}, "x") == ["x.a: declared 1, found 2"]
+    assert compare({"a": 1}, {"a": 1}, "x") == ([], [])
+    assert compare({"a": 1}, {"a": 2}, "x") == (["x.a: declared 1, found 2"], [])
     # Undeclared keys are not this file's business.
-    assert compare({"a": 1}, {"a": 1, "b": 9}, "x") == []
-    # A key the API does not return at all reads as a difference, not a crash.
-    assert compare({"a": 1}, {}, "x") == ["x.a: declared 1, found None"]
+    assert compare({"a": 1}, {"a": 1, "b": 9}, "x") == ([], [])
+    # A key the API does not return at all is unread, not a difference. This
+    # is the whole point: the repository object a `contents: read` workflow
+    # token receives has no merge settings in it, and calling that eight
+    # disagreements turned the gate red on a repository that matched.
+    findings, unread = compare({"a": 1}, {}, "x")
+    assert findings == []
+    assert unread == ["x.a: the token cannot see this field"]
+    # A key present and null is an answer, and answers are compared.
+    assert compare({"a": 1}, {"a": None}, "x") == (
+        ["x.a: declared 1, found None"],
+        [],
+    )
     # Order is GitHub's to choose for lists.
-    assert compare({"t": ["b", "a"]}, {"t": ["a", "b"]}, "x") == []
-    assert compare({"t": ["a"]}, {"t": ["a", "b"]}, "x") != []
+    assert compare({"t": ["b", "a"]}, {"t": ["a", "b"]}, "x") == ([], [])
+    assert compare({"t": ["a"]}, {"t": ["a", "b"]}, "x")[0] != []
     # Nested tables belong to their own section.
-    assert compare({"n": {"deep": 1}}, {}, "x") == []
+    assert compare({"n": {"deep": 1}}, {}, "x") == ([], [])
 
     checks = {
         "required_status_checks": [{"context": "CI", "integration_id": 15368}],

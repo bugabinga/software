@@ -93,9 +93,11 @@ jobs:
           # and without a token every `gh api` call fails, every section reads
           # `unread`, and the task passes having compared nothing. The
           # workflow token reads the repository object, its topics and the
-          # rulesets -- all public-repo reads. `actions/permissions/workflow`
-          # stays honestly unread: it needs administration, which this token
-          # does not have and should not.
+          # rulesets. It does not see everything in them -- the repository it
+          # is handed omits the merge settings rather than reporting them, and
+          # `actions/permissions/workflow` needs administration -- and those
+          # read as unread rather than as disagreement, which is the whole of
+          # why `repo_state.py` has three outcomes and not two.
           GH_TOKEN: ${{ github.token }}
         run: mise run check
 
