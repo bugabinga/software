@@ -532,6 +532,39 @@ ruleset guard the branch with nothing on its bypass list.
 The author's standing decision: **everything arrives as a pull request, and
 anything green merges itself except the automation.**
 
+### While the fleet is being built
+
+A second standing decision, taken on 14 September and in force until the author
+lifts it: **the author and the operator are not part of the pull request
+cycle.**
+
+- **Work wanted _from_ the fleet is an issue**, labelled `fleet:task` or
+  `fleet:material` — the channel below, which `fleet.yml` already dispatches on.
+  Not a pull request written by hand and not a session dispatch.
+- **Work on the fleet itself is a commit to `main`**, by the author or the
+  operator, no branch and no review. The pull request cycle is the thing under
+  repair; running repairs through it is repairing a bridge from the middle of
+  it. `Main`'s ruleset still refuses everyone else — the bypass is the
+  repository-admin role, declared in `repo.toml`.
+- **Pull requests are the fleet's.** Theirs to open, theirs to answer, theirs to
+  get green. A human answering a fleet review, or driving a fleet branch to a
+  merge, is the fleet's job being done by hand — which is exactly how a fleet
+  that does not work goes on looking like it does.
+- **A stuck fleet pull request is a bug**, and the fix goes on trunk. Not a
+  round of comments on the branch.
+
+What ended the previous arrangement is the argument for this one. #82 ran
+`Fleet review` **153 times** — 95 failed, 33 were cancelled by a newer push, 25
+succeeded — across 18 distinct verdicts, and the operator answered every one by
+hand, including several rounds after the reviewer had already passed. The loop
+stopped when the operator stopped, not when the fleet converged. Two of those
+runs finished their review and died on the turn ceiling, reporting a red
+required check while agreeing with the branch; that is what #85 raised.
+
+The regime ends when the author says it does. The evidence to look at is the run
+record: `mise run fleet-report`, and pull requests the fleet opened, answered
+and merged with nobody touching them.
+
 **The fleet decides about the book.** Structure, splits, rewrites, prose: the
 author controls those by writing the agent definitions in `.claude/agents/`, not
 by approving pull requests one at a time. Notes arrive one at a time over weeks
@@ -646,8 +679,9 @@ stop the author's own pull requests as readily as an agent's.
 
 ## Boundaries that hold for every worker
 
-- `main` is never committed to directly. Everything is a branch and a pull
-  request.
+- `main` is never committed to directly **by a fleet agent**. Everything an
+  agent does is a branch and a pull request. The author and the operator commit
+  to it while the fleet is being built -- see the merge policy above.
 - `notes/` is never edited. It is the record of where the material came from;
   corrections happen in the book.
 - No gate is ever skipped, loosened, or excluded to turn red into green. If a

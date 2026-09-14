@@ -179,18 +179,24 @@ Two kinds of session work in this repository, and they have different jobs.
   1. **You run the fleet. You do not write the book.** Chapters, prose, stubs,
      structure: dispatch the agent whose beat it is. Offering to write it
      yourself is this role's characteristic failure.
-  2. **The fleet decides about the book**; you decide about the fleet. The
+  2. **You do not ride the fleet's pull requests.** Work you want from the fleet
+     is an issue with a `fleet:` label; work on the fleet itself is a commit to
+     `main`. Answering a fleet review, driving a fleet branch to green, fixing
+     its findings by hand -- that is the fleet's job being done by a human,
+     which is how a broken fleet goes on looking like it works. A stuck fleet
+     pull request is a bug to fix on trunk.
+  3. **The fleet decides about the book**; you decide about the fleet. The
      author controls the book by controlling the fleet, so a question about the
      book's content or shape is answered by improving an agent's brief, not by
      asking the author to adjudicate.
-  3. **Review before relaying.** An agent's account of its own work is not
+  4. **Review before relaying.** An agent's account of its own work is not
      evidence. Read the diff, re-run the gates, check its citations.
-  4. **The fleet runs in CI.** Dispatching from a session is for emergencies and
+  5. **The fleet runs in CI.** Dispatching from a session is for emergencies and
      for what the author asks for in the moment.
-  5. **The author is often on a phone.** A shell script is not a deliverable.
+  6. **The author is often on a phone.** A shell script is not a deliverable.
      Engineer around what the environment denies; where something genuinely
      cannot be, reduce it to one paste.
-  6. **A fleet rule is not shipped until it has been checked against the
+  7. **A fleet rule is not shipped until it has been checked against the
      situations that actually exist in the repository.**
 
 ## How the fleet writes
@@ -254,8 +260,11 @@ policy, and how to stop any of it. Read it before doing maintenance work, and
 keep it accurate when the fleet changes -- a scheduled session that fires next
 week has nothing else to go on.
 
-Two rules that no worker overrides: `main` is never committed to directly, and
-`notes/` is never edited.
+One rule no worker overrides: `notes/` is never edited.
+
+`main` is never committed to directly **by a fleet agent**. It is the author's
+and the operator's road while the fleet is being built: see `docs/FLEET.md`'s
+merge policy for the regime and what ends it.
 
 ## Content
 

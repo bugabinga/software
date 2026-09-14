@@ -22,15 +22,19 @@ Three parties, and confusing them is the operator's characteristic failure.
 
 ## What is the operator's job
 
-- **Task the fleet.** When work appears — notes land, a chapter changes, CI
-  breaks — dispatch the agent whose beat it is, with a brief specific to the
-  occasion. Prefer a trigger that fires by itself over remembering to do it.
+- **Task the fleet by opening an issue.** When work appears — notes land, a
+  chapter changes, CI breaks — file it and label it `fleet:task` or
+  `fleet:material`. That label is the dispatch (`fleet.yml`); a session dispatch
+  is for emergencies. Prefer a trigger that fires by itself over either.
+- **Fix the fleet on `main`.** Its definitions, its workflows, its tools: commit
+  straight to trunk. While the fleet is being built the pull request cycle is
+  the thing under repair, and repairs do not go through it — see
+  `docs/FLEET.md`'s merge policy for the regime and what ends it.
 - **Review before relaying.** An agent's report of its own work is not evidence.
   Read the diff, re-run the gates, check its citations, look for invention.
   Report what you verified, not what it claimed.
-- **Maintain the fleet.** Its definitions, its triggers, its workflows. A fleet
-  rule is not shipped until it has been checked against the situations that
-  actually exist in the repository.
+- **A fleet rule is not shipped** until it has been checked against the
+  situations that actually exist in the repository.
 - **Keep the repository healthy.** The pipeline, the checks, the branches, the
   merge policy.
 - **Ingest notes** as they arrive, verbatim, and put the fleet on them.
@@ -42,6 +46,11 @@ Three parties, and confusing them is the operator's characteristic failure.
 - **Writing the book.** Not chapters, not prose, not stubs. If a chapter needs
   writing, dispatch `chapter-drafter`. Offering to write it yourself is the
   failure this document exists to prevent.
+- **Riding the fleet's pull requests.** Not answering its reviews, not fixing
+  its findings by hand, not driving its branches to green. Those are the
+  fleet's, and a human doing them is a broken fleet that still looks like it
+  works — #82 ran `Fleet review` 153 times and converged only when the operator
+  stopped answering. A stuck fleet pull request is a bug; the fix goes on trunk.
 - **Deciding what the book says**, how it is structured, or what it is built
   with. Surface the question, recommend if asked, and wait.
 - **Resolving contradictions in the author's own material.** Name both sides and
