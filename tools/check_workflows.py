@@ -372,6 +372,26 @@ def _without_prose(where: str, lines: list[str]) -> list[str]:
     return ["" if number in prose else line for number, line in enumerate(lines, 1)]
 
 
+def _same_call(code: list[str], index: int) -> str:
+    """The one command the line at `index` belongs to.
+
+    Backslash continuation only, which is how every wrapped `gh` call in
+    this tree is written. A Python call wrapped inside its parentheses is
+    not joined, and does not need to be: what this is for is `--slurp`,
+    and `--slurp` beside `--paginate` is one flag list on one line unless
+    the shell wrapped it. Deliberately narrower than the window the
+    aggregate is looked for in -- a neighbour's flags are not this call's,
+    which is the whole point.
+    """
+    start = index
+    while start > 0 and code[start - 1].rstrip().endswith("\\"):
+        start -= 1
+    end = index
+    while end < len(code) - 1 and code[end].rstrip().endswith("\\"):
+        end += 1
+    return "\n".join(code[start : end + 1])
+
+
 def paginate_findings(where: str, lines: list[str]) -> list[str]:
     """`gh api --paginate` with a jq filter that aggregates.
 
@@ -419,16 +439,22 @@ def paginate_findings(where: str, lines: list[str]) -> list[str]:
         # the false negative in the shape this rule was written for.
         near = sum(len(text) + 1 for text in code[start : number - 1])
         near += line.index("--paginate")
-        # Only what `--jq` was actually given, which is also what keeps this
-        # file's own prose about the flag from being its first finding.
-        # No carve-out for `--slurp`, which is gh's own answer to this bug
-        # and might look like it needs one. It does not: gh 2.63.2 refuses
+        # `--slurp` is gh's own answer to this bug -- one array over every
+        # page, so an aggregate over it is correct -- and it does need the
+        # carve-out. Not for the reason it looks like: gh 2.63.2 refuses
         # `--slurp` together with `--jq` ("the `--slurp` option is not
         # supported with `--jq` or `--template`", measured with the pinned
-        # binary), so the working shape is `--paginate --slurp | jq '...'`
-        # -- no `--jq` for `_jq_filter` to read, and nothing to exempt. An
-        # earlier version excluded the combination gh rejects, which is to
-        # say it exempted a call nobody can run.
+        # binary), so a slurped call has no `--jq` of its own for
+        # `_jq_filter` to read. It reads the nearest one in the window
+        # instead, and beside an unpaginated neighbour that passes `--jq`
+        # the nearest is the neighbour's -- so the rule reported the fix it
+        # asks for, with no suppression to answer that with. The exemption
+        # is the call's own flags, not the window's: `--slurp` next to this
+        # `--paginate` in one flag list.
+        if "--slurp" in _same_call(code, number - 1):
+            continue
+        # Only what `--jq` was actually given, which is also what keeps this
+        # file's own prose about the flag from being its first finding.
         if AGGREGATE.search(_jq_filter(window, near)):
             problems.append(
                 f"{where}:{number}: `gh api --paginate` with an "
@@ -459,40 +485,49 @@ def self_test() -> int:
     # `<P>` rather than the flag itself: these cases are source in a file
     # `main()` scans, so spelling it out would make the rule report its own
     # fixtures -- and there is no suppression to answer that with.
-    caught, clean = True, False
-    cases: list[tuple[str, bool, str]] = [
+    # Which lines, not whether any: `beside a slurp` passed as a boolean
+    # while reporting the slurped call as well as the bug beneath it, and
+    # a table that cannot tell a right catch from a wrong one is the shape
+    # of test that let the two false negatives through.
+    clean: list[int] = []
+    cases: list[tuple[str, list[int], str]] = [
         # The bug itself: an aggregate over a paginated call answers per page.
-        ("first", caught, 'gh("api", "x", "<P>", "--jq", "[.[]] | length")'),
+        ("first", [1], 'gh("api", "x", "<P>", "--jq", "[.[]] | length")'),
         # gh takes the flags in either order.
-        ("reversed", caught, "gh api --jq '[.[]] | length' repos/x <P>"),
+        ("reversed", [1], "gh api --jq '[.[]] | length' repos/x <P>"),
         # Prose above a call must not shield it.
         (
             "under prose",
-            caught,
+            [3],
             'def f():\n    """Mentions `| length` and `gh api <P>`."""\n'
             '    gh("api", "<P>", "--jq", "[.[]] | length")',
         ),
         # A neighbour's filter must not be read as this call's.
         (
             "after a neighbour",
-            caught,
+            [2],
             "b=$(gh api repos/x --jq '.head.ref')\n"
             "s=$(gh api repos/x/reviews <P> \\\n"
             "  --jq '[.[]] | last | .state')",
         ),
-        # A slurped neighbour must not shield the call beside it.
+        # Line 2 only. A slurped neighbour must not shield the call beside
+        # it, and the slurped call must not be reported on the neighbour's
+        # filter -- the pair that a boolean read as one pass.
         (
             "beside a slurp",
-            caught,
+            [2],
             "a=$(gh api repos/x <P> --slurp | jq '[.[][]] | length')\n"
             "b=$(gh api repos/y <P> --jq '[.[]] | length')",
         ),
         # `--slurp` is gh's own answer to this bug: one array over every page,
         # so an aggregate is correct and forbidding it forbids the fix.
-        # `--slurp` is the fix this rule asks for, and the shape gh accepts
-        # pipes to jq rather than passing `--jq`, so there is no filter here
-        # to read as this call's.
         ("slurped", clean, "gh api x <P> --slurp | jq '[.[][]] | length'"),
+        # The exemption is the call's own flags, so a wrapped one keeps it.
+        (
+            "slurped across a wrap",
+            clean,
+            "gh api x <P> \\\n  --slurp | jq '[.[][]] | length'",
+        ),
         # An aggregate quoted in the comment that explains the fix.
         (
             "comment quotes it",
@@ -521,12 +556,13 @@ def self_test() -> int:
     for name, expected, source in cases:
         suffix = ".py" if source.startswith(("gh(", "def ")) else ".yml"
         spelled = source.replace("<P>", "--" + "paginate")
-        found = bool(paginate_findings(name + suffix, spelled.splitlines()))
-        assert found == expected, (
-            f"{name}: expected {'a finding' if expected else 'none'}, got the other"
-        )
+        found = [
+            int(problem.split(":")[1])
+            for problem in paginate_findings(name + suffix, spelled.splitlines())
+        ]
+        assert found == expected, f"{name}: expected lines {expected}, got {found}"
 
-    print("check_workflows: the paginate rule catches five shapes and ignores five")
+    print("check_workflows: the paginate rule catches five shapes and ignores six")
     return 0
 
 
