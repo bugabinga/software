@@ -94,14 +94,20 @@ a diff with one.
 So the app can change the rules `repo.toml` declares, through a diff and nothing
 else. That is the principle above, and it is the point.
 
-**Workflows is the grant the fleet keeps hitting.** Without it an installation
-token is refused any write under `.github/workflows/` -- "refusing to allow a
-GitHub App to create or update workflow ... without `workflows` permission" --
-which is why `review-responder` can fix a finding about `tools/` and can only
-quote the replacement for a finding about a workflow. #82 spent a round on
-exactly that. Read and write if the fleet is to answer its own reviews about the
-machinery; leaving it read is a defensible choice, and then the roster should
-say a workflow finding always waits for a human.
+**The fleet cannot edit a workflow, and no `permissions:` block will fix it.**
+`review-responder` can fix a finding about `tools/` and can only quote the
+replacement for one about `.github/workflows/`; #82 spent a round discovering
+that. The cause is not the App's grant. Those workflows check out without a
+`token:`, so their pushes carry `GITHUB_TOKEN`, and `workflows` is not one of
+the scopes a workflow may ask for -- actionlint lists all sixteen and it is
+absent, which is GitHub's rule rather than this repository's.
+
+The route that exists is the one `settings.yml` already uses: mint an
+installation token with `.github/actions/app-token`, asking for
+`{"contents": "write", "workflows": "write"}`, and hand it to the checkout's
+`token:`. That is a change to the machinery and so waits for a human, which is
+the decision -- make it, or accept that a workflow finding always does, and say
+so in the roster.
 
 **Three grants sit outside that file's reach**, and they are the three the
 earlier version of this document forbade by name: Secrets, Variables and
