@@ -254,6 +254,7 @@ run = [
   "python3 tools/fleetlib.py --self-test",
   "python3 tools/credential.py --self-test",
   "python3 tools/occasion.py --self-test",
+  "python3 tools/pin_report.py --self-test",
   "python3 tools/triage.py --self-test",
   "python3 tools/agent_branch.py --self-test",
 ]

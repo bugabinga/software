@@ -39,81 +39,15 @@ jobs:
         with:
           install: false
 
+      # Every pin in `mise.toml`, against what mise says is newest. The
+      # arithmetic is in a program because the shell version silently was
+      # not doing half of what it looked like: it read `${tool}_pinned` for
+      # two tools whose variables nothing ever assigned.
       - name: Compare every pin against its latest release
         id: versions
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-
-          latest_of() { gh api "repos/$1/releases/latest" --jq .tag_name | sed 's/^v//'; }
-
-          # Every pin in mise.toml, against its upstream. Dependabot has no
-          # mise ecosystem -- nor asdf, nor .tool-versions -- so this is the
-          # only thing watching these, and adding a tool to the manifest is
-          # enough to get it watched.
-          # `mise latest` rather than a table of upstreams kept here.
-          #
-          # The table lasted one dry run. wrangler ships from the
-          # `workers-sdk` monorepo, whose tags belong to whichever package was
-          # cut, so asking that repo returned 2.0.8 for a tool pinned at
-          # 4.131.1. mise's registry already knows each tool's real source --
-          # aqua, npm, ubi -- and writing it down a second time here is what
-          # produced the wrong answer.
-          #
-          # `mise outdated` is the obvious command and it is the wrong one:
-          # it compares against the newest version matching your specifier,
-          # so an exact pin is never outdated. `mise latest` ignores the pin.
-
-          behind=0
-          rows=""
-          while IFS=$'\t' read -r tool pinned; do
-            latest=$(mise latest "$tool" 2>/dev/null || echo "?")
-            if [ -z "$latest" ] || [ "$latest" = "?" ]; then
-              rows+="| \`$tool\` | $pinned | ? | mise could not resolve it |"$'\n'
-            elif [ "$pinned" = "$latest" ]; then
-              rows+="| \`$tool\` | $pinned | $latest | current |"$'\n'
-            else
-              rows+="| \`$tool\` | $pinned | $latest | **behind** |"$'\n'
-              behind=$((behind + 1))
-            fi
-          done < <(python3 tools/pinned.py --all)
-
-          typst_pinned=$(python3 tools/pinned.py typst)
-          typst_latest=$(latest_of typst/typst)
-
-          {
-            echo "### Pinned tools"
-            echo
-            echo "| Tool | Pinned | Latest | |"
-            echo "| --- | --- | --- | --- |"
-            printf '%s' "$rows"
-            echo
-            echo "$behind behind. Only Typst is bumped automatically, and only"
-            echo "when the book still builds on it; the rest are reported."
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "::notice::$behind pinned tool(s) behind upstream"
-
-          # gh and typos are checked but not bumped here: nothing the book
-          # renders depends on them, so they are reported and left. Typst is
-          # different -- it decides what the book looks like -- so a bump gets
-          # built and gated before anyone sees it.
-          for tool in gh typos; do
-            eval "pinned=\$${tool}_pinned latest=\$${tool}_latest"
-            if [ "$pinned" != "$latest" ]; then
-              echo "::notice::$tool $pinned is behind $latest"
-            fi
-          done
-
-          echo "pinned=$typst_pinned" >> "$GITHUB_OUTPUT"
-          echo "latest=$typst_latest" >> "$GITHUB_OUTPUT"
-          if [ "$typst_pinned" = "$typst_latest" ]; then
-            echo "behind=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Typst $typst_pinned is current"
-          else
-            echo "behind=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Typst $typst_pinned is behind $typst_latest"
-          fi
+        run: python3 tools/pin_report.py
 
       - name: Bump the pin
         if: steps.versions.outputs.behind == 'true'
