@@ -38,9 +38,10 @@
      computed: `--glass` with the alpha dropped is #0d1028 and over the
      ground it composites to #0b0d22. Everything else that is not a
      variable is a structural `#fff` or `#000`, plus the vignette's own
-     near-black. The gold glows are `rgba(var(--gold-rgb), ...)`, so
-     there is one accent to edit and not six. The first version of this
-     page
+     near-black. Where a rule needs channels rather than a colour it
+     takes `rgba(var(--gold-rgb), ...)` or `rgba(var(--ink-rgb), ...)`,
+     so the accent and the ink each have one place to be edited and not
+     six and four. The first version of this page
      used six rainbow stops at equal weight, which is not a palette; it
      is every colour losing an argument. Roughly 60% ground, 30%
      structure, 10% gold.
@@ -113,12 +114,15 @@
     --gold-deep: #b8862b;
 
     /* Ink */
-    --ink:      #f4f0e4;
+    /* Same pair as the accent, for the same reason: four declarations
+       spelled these channels out, so an --ink edit left them behind. */
+    --ink-rgb: 244, 240, 228;
+    --ink:      rgb(var(--ink-rgb));
     --ink-soft: #b9b3c8;
     --ink-dim:  #7d7791;
 
     --glass: rgba(13, 16, 40, .74);
-    --line:  rgba(244, 240, 228, .13);
+    --line:  rgba(var(--ink-rgb), .13);
 
     /* Byte-for-byte `--serif` from site/assets/book.css. It had acquired a
        hand-inserted "Book Antiqua" -- a Palatino clone standing between two
@@ -225,7 +229,7 @@
     border-radius: inherit; padding: 1px; pointer-events: none;
     background: conic-gradient(from var(--angle),
       transparent 10%, var(--gold-deep) 24%, var(--gold-lit) 32%,
-      var(--gold-deep) 40%, transparent 54%, rgba(244, 240, 228, .18) 100%);
+      var(--gold-deep) 40%, transparent 54%, rgba(var(--ink-rgb), .18) 100%);
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -277,7 +281,7 @@
 
   input {
     width: 100%; padding: var(--s3) var(--s4); font: inherit; font-size: .84rem;
-    color: var(--ink); background: rgba(244, 240, 228, .04);
+    color: var(--ink); background: rgba(var(--ink-rgb), .04);
     border: 1px solid var(--line); border-radius: .75rem;
     transition: background .3s, border-color .3s, box-shadow .3s, transform .3s;
   }
@@ -289,7 +293,7 @@
        them is a password, so losing the focused field is the expensive case. */
     outline: 2px solid transparent; outline-offset: 2px;
     transform: translateY(-1px);
-    background: rgba(244, 240, 228, .07); border-color: var(--gold);
+    background: rgba(var(--ink-rgb), .07); border-color: var(--gold);
     box-shadow: 0 0 0 1px var(--gold), 0 0 26px -6px var(--gold),
                 0 12px 30px -18px #000;
   }

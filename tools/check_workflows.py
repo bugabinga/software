@@ -368,8 +368,9 @@ def check_paginate_aggregate(path: Path) -> list[str]:
     count crossed 100: one killed `fleet-respond` outright (run 34809724830,
     a multi-line value into `$GITHUB_OUTPUT`), and two failed silently --
     a `| last | .state` comparison that quietly went false, and a
-    `raw.isdigit()` fallback that reset the round counter to zero, disarming
-    the three-round guard. The shape that works was already in the same file:
+    `raw.isdigit()` fallback that reset the round counter to zero, which
+    mislabels a review header -- the three-round guard is a separate count in
+    `fleet-respond.yml`. The shape that works was already in the same file:
     emit one line per match and count the lines in the caller.
 
     A window rather than a parse, because the call spans lines in YAML and in
