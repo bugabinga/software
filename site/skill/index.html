@@ -611,6 +611,20 @@ if (typeof module === "object" && module && module.exports) {
 const form = typeof document === "undefined" ? null : document.getElementById("form");
 const status = form && document.getElementById("status");
 
+// `#status` is `role="status"`, so a screen reader reads whatever lands here
+// as it changes -- and reads a leading emoji by its name: "no good gesture
+// https only". Every other emoji on this page is hidden from the
+// accessibility tree for that reason (see the sparks below); these sit in the
+// one live region, which makes them the ones that matter. `textContent`
+// cannot carry the distinction, so the node is built instead.
+function say(kind, emoji, text) {
+  const mark = document.createElement("span");
+  mark.setAttribute("aria-hidden", "true");
+  mark.textContent = emoji;
+  status.className = kind;
+  status.replaceChildren(mark, document.createTextNode(` ${text}`));
+}
+
 // The address is not in the repository: `worker-deploy.yml` reads the
 // account's subdomain from Cloudflare at deploy time, because a copy checked
 // in here would keep looking right after the account changed. So the deploy
@@ -638,13 +652,11 @@ if (form) form.addEventListener("submit", (event) => {
   const book = document.getElementById("book").value.trim() || "a book";
 
   if (!/^https:\/\//.test(endpoint)) {
-    status.className = "bad";
-    status.textContent = "🙅 https only";
+    say("bad", "🙅", "the address has to start with https://");
     return;
   }
   if (token.length < 16) {
-    status.className = "bad";
-    status.textContent = "🤏 that token is too short";
+    say("bad", "🤏", "that token is too short");
     return;
   }
 
@@ -660,8 +672,7 @@ if (form) form.addEventListener("submit", (event) => {
   // the URL keeps the token alive in the page longer than it needs to be.
   setTimeout(() => URL.revokeObjectURL(url), 0);
 
-  status.className = "good";
-  status.textContent = "🎉 got it — drop the zip in your session";
+  say("good", "🎉", "got it — drop the zip in your session");
   if (window.party) window.party(document.getElementById("go"));
 });
 </script>

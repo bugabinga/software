@@ -169,8 +169,10 @@ jobs:
       # on every no-op to run a step whose output that same run throws away:
       # `Keep the run's record` needs `steps.key.outputs.present`, which a
       # run that did not proceed never sets. The record step carries the
-      # condition instead, so nothing is skipped that had a tree and nothing
-      # is cloned that has nothing to do. `docs/FLEET.md:41`.
+      # condition instead: nothing is cloned that has nothing to do, and
+      # every run it now skips -- held at three rounds, credential-less, or
+      # dead before the key step -- had a tree but nothing `Keep the run's
+      # record` would have kept. `docs/FLEET.md:41`.
       #
       # None of it was ever the row's keeper: `append_runs` in
       # `tools/fleet_report.py` writes a line for every agent run from the
@@ -414,10 +416,10 @@ jobs:
       # agent, which trigger, or what it was pointed at -- `fleet.yml`
       # dispatches six agents and the workflow name tells them apart not at
       # all. `always()` because a run that died mid-answer is the one worth
-      # tracing; `key.present` because a run that never got that far has no
-      # tree to run this from and nothing that would survive it anyway --
-      # `Keep the run's record` below is gated the same way and would drop
-      # the file. Same pair of conditions, so the two cannot disagree.
+      # tracing; `key.present` because a run without it has nothing that
+      # would survive anyway -- `Keep the run's record` below is gated the
+      # same way and would drop the file. Same pair of conditions, so the
+      # two cannot disagree.
       - name: Record what this run was
         if: always() && steps.key.outputs.present == 'true'
         env:
