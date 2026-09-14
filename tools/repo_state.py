@@ -157,9 +157,17 @@ def unapplied_reason(
 
 def applied_declaration(repo: str, declared_path: Path) -> str | None:
     """`unapplied_reason`, with the two fetches it needs."""
+    # `branch=main` because a push is not the only way `settings.yml` runs:
+    # it carries a `workflow_dispatch` too, which accepts any ref. Without
+    # this, one dispatch on a branch makes that branch's head the reference
+    # every check anywhere is measured against -- so `main`'s own file would
+    # differ from it, decline, and exit 0 with the gate silently off until
+    # the next push to `main` touching one of the four paths. The literal
+    # mirrors `settings.yml`'s own `branches: [main]`, which is the trigger
+    # that makes an apply an apply.
     runs = fetch(
         f"repos/{repo}/actions/workflows/{APPLIER}/runs"
-        "?status=success&per_page=1&exclude_pull_requests=true"
+        "?status=success&per_page=1&exclude_pull_requests=true&branch=main"
     )
     found = (runs or {}).get("workflow_runs") or []
     sha = found[0].get("head_sha") if found else None

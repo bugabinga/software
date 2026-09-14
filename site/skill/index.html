@@ -210,8 +210,13 @@
     font-size: var(--t0); font-weight: 600; letter-spacing: .22em;
     text-transform: uppercase; color: var(--gold);
   }
+  .lede {
+    margin: 0 0 var(--s6); max-width: 34ch;
+    font-size: .88rem; line-height: 1.5; color: var(--ink-soft);
+    text-wrap: pretty;
+  }
   h1 {
-    margin: 0 0 var(--s6); font-family: var(--display); font-weight: 400;
+    margin: 0 0 var(--s4); font-family: var(--display); font-weight: 400;
     font-size: clamp(var(--t4), 15vw, var(--t5)); line-height: .92;
     letter-spacing: -.03em; text-wrap: balance;
     background: linear-gradient(100deg,
@@ -358,6 +363,8 @@
 <main>
   <p class="eyebrow">notes inbox</p>
   <h1>Wish it <em>into</em> a skill</h1>
+  <p class="lede">A zip for your note-taking session. Drop it in, and every
+    note it takes lands in the book.</p>
 
   <form id="form">
     <label for="endpoint">inbox <span class="hint" id="endpoint-hint"></span></label>
