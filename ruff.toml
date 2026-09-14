@@ -8,6 +8,11 @@
 line-length = 88
 
 [format]
+# Armed rather than in use: nothing in `tools/` has a `>>>` or a fenced
+# Python block in a docstring today, so this formats nothing. It is here so
+# that the first doctest somebody writes is formatted like the rest of the
+# tree instead of starting a second style. The `$`-prefixed shell in every
+# `Usage:` section is not Python and is not touched.
 docstring-code-format = true
 
 [lint]
@@ -31,12 +36,19 @@ select = [
 
 ignore = [
   # Complexity and magic values, and this is the whole of what is switched
-  # off here: 8 PLR0912, 4 PLR0915, 2 PLR0913, 1 PLR0911, 11 PLR2004. None of
-  # them is a defect -- they are thresholds, and `tools/build.py` is a
-  # pipeline whose honest shape is one long function doing the steps in
-  # order. Splitting it to satisfy a counter would make it harder to read.
-  # Recount before adding to this list; a growing number here is the signal
-  # that the exception has stopped being an exception.
+  # off here. Recounted 2026-09-15: 9 PLR0912, 4 PLR0915, 2 PLR0913,
+  # 3 PLR0911, 18 PLR2004 -- 36, against the 26 recorded before. The line
+  # asking for a recount is the reason this is right rather than assumed.
+  #
+  # The growth is not decay. PLR2004 went 11 -> 18 and every new one is a
+  # literal in a `--self-test`, where `assert round_of(...) == 2` is the
+  # assertion and naming the 2 would hide it. The complexity counters sit on
+  # `tools/build.py`, a pipeline whose honest shape is one long function
+  # doing the steps in order; splitting it to satisfy a counter would make it
+  # harder to read.
+  #
+  # Recount before adding to this list. A count that grows outside a
+  # self-test is the signal that the exception has stopped being one.
   "PLR0911",
   "PLR0912",
   "PLR0913",
