@@ -58,8 +58,10 @@
      The inputs do not, and forcing them to would be the scale using the
      page rather than the page using the scale -- one at --t1 (1rem)
      shouts next to a 3rem title and at --t0 (.75rem) is too small to
-     type a token into, so they sit at .84rem between them, and the
-     endpoint smaller again. The prose is off the ladder as well --
+     type a token into, so they sit at .84rem between them. The endpoint
+     goes smaller still, to .66rem, because it is the one field the
+     reader checks rather than types, and a workers.dev address ran off
+     the right edge at 412px. The prose is off the ladder as well --
      .8rem to .88rem, sized to the controls it stands beside. --t3 is a
      rung nothing stands on today, kept because a ladder with a gap in
      it is not a scale.
@@ -124,9 +126,11 @@
     --glass: rgba(13, 16, 40, .74);
     --line:  rgba(var(--ink-rgb), .13);
 
-    /* Byte-for-byte `--serif` from site/assets/book.css. It had acquired a
-       hand-inserted "Book Antiqua" -- a Palatino clone standing between two
-       Palatinos, so it changed nothing and made the claim above false. */
+    /* The same families as `--serif` in site/assets/book.css, kept in step by
+       hand -- nothing compares the two, and the line breaking already
+       differs. It has drifted once: a hand-inserted "Book Antiqua", a
+       Palatino clone standing between two Palatinos, which changed nothing
+       and made the claim above false. A third correction is a gate. */
     --display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia,
                ui-serif, serif;
     --ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
