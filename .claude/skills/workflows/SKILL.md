@@ -183,10 +183,7 @@ absent on a free plan, so check before building a merge rule around it.
       proceed at a time.
 - [ ] Logic worth being wrong about lives in a program with a self-test.
 - [ ] `actionlint` passes -- and `mise run check-workflows` with it, which adds
-      the rules in `tools/check_workflows.py`'s docstring rather than a list
-      here that goes stale: the pin rule above, a heredoc terminator indented
-      past its `run:` block, and `gh api --paginate` with a jq filter that
-      aggregates, which answers once per page and killed this workflow on #82.
+      the rules listed in `tools/check_workflows.py`'s docstring.
 - [ ] The check name matches what the ruleset requires, exactly.
 - [ ] You can name who can trigger this and what they reach.
 - [ ] If two workflows talk to each other, you have checked the `GITHUB_TOKEN`

@@ -281,7 +281,7 @@ COMMENT_LINE = re.compile(r"^\s*#")
 # jq filters that answer once for the whole input. Harmless alone; wrong under
 # `--paginate`, which is the point of the check below.
 AGGREGATE = re.compile(
-    r"\|\s*(length|last|first|add|min|max|any|all|unique|sort|group_by)\b"
+    r"(\||^)\s*(length|last|first|add|min|max|any|all|unique|sort|group_by)\b"
 )
 
 # The quoted arguments after `--jq`, which is where a jq filter lives. Matching
@@ -495,6 +495,11 @@ def self_test() -> int:
         ("first", [1], 'gh("api", "x", "<P>", "--jq", "[.[]] | length")'),
         # gh takes the flags in either order.
         ("reversed", [1], "gh api --jq '[.[]] | length' repos/x <P>"),
+        # A filter that *is* the aggregate: `AGGREGATE` wanted a `|` before
+        # it, so the terse way to count a listing was the one shape invisible
+        # to the rule. All three real instances were bracketed, which is
+        # history and not a constraint.
+        ("bare aggregate", [1], "gh api repos/x <P> --jq 'length'"),
         # Prose above a call must not shield it.
         (
             "under prose",
@@ -562,7 +567,13 @@ def self_test() -> int:
         ]
         assert found == expected, f"{name}: expected lines {expected}, got {found}"
 
-    print("check_workflows: the paginate rule catches five shapes and ignores six")
+    # Counted, for the reason the module docstring gives for counting its
+    # own list: `cases` outgrows a number written beside it.
+    caught = sum(1 for _, expected, _ in cases if expected)
+    print(
+        f"check_workflows: the paginate rule catches {caught} shapes "
+        f"and ignores {len(cases) - caught}"
+    )
     return 0
 
 
