@@ -32,8 +32,11 @@
      focus ring, the hint's spark, and the gold half of the stars. Three
      colours sit outside the variables, on purpose: `#status.bad` is a
      rose literal, because the failure state must not read as gold;
-     `#1c1405` is the button's ink; `#0d1128` is `--glass` flattened,
-     for the card under reduced motion. The first version of this page
+     `#1c1405` is the button's ink; `#0d1128` is the card's opaque
+     stand-in, for reduced motion, where the sky is hidden and there is
+     nothing behind the glass to blur. That one is hand-picked, not
+     computed: `--glass` with the alpha dropped is #0d1028 and over the
+     ground it composites to #0b0d22. The first version of this page
      used six rainbow stops at equal weight, which is not a palette; it
      is every colour losing an argument. Roughly 60% ground, 30%
      structure, 10% gold.
@@ -336,7 +339,7 @@
     border: 1px solid rgba(242, 193, 78, .28);
   }
 
-  footer, .small {
+  .small {
     margin-top: var(--s6); color: var(--ink-dim); font-size: .8rem;
     letter-spacing: .01em;
   }
@@ -613,11 +616,12 @@ const form = typeof document === "undefined" ? null : document.getElementById("f
 const status = form && document.getElementById("status");
 
 // `#status` is `role="status"`, so a screen reader reads whatever lands here
-// as it changes -- and reads a leading emoji by its name: "no good gesture
-// https only". Every other emoji on this page is hidden from the
-// accessibility tree for that reason (see the sparks below); these sit in the
-// one live region, which makes them the ones that matter. `textContent`
-// cannot carry the distinction, so the node is built instead.
+// as it changes -- and reads a leading emoji by its name, so the first error
+// announces as "no good gesture the address has to start with https://".
+// Every other emoji on this page is hidden from the accessibility tree for
+// that reason (see the sparks below); these sit in the one live region, which
+// makes them the ones that matter. `textContent` cannot carry the
+// distinction, so the node is built instead.
 function say(kind, emoji, text) {
   const mark = document.createElement("span");
   mark.setAttribute("aria-hidden", "true");
