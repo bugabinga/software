@@ -1,0 +1,106 @@
+name: Triage
+
+# Every issue gets an answer.
+#
+# `fleet.yml` dispatches on `issues: [labeled]`, and only for `fleet:material`
+# and `fleet:task`. An issue opened without one of those did nothing at all --
+# no run, no comment, no notice. It sat there looking filed, which is worse
+# than being refused.
+#
+# What is mechanical is in `tools/triage.py`: whether anything routes this
+# issue, and what to do with the answer. What is judgement -- what the issue
+# actually is -- is the agent's, and it arrives as `/tmp/triage.json`.
+
+on:
+  issues:
+    types: [opened, reopened]
+
+permissions: {}
+
+concurrency:
+  # Per issue. Not cancel-in-progress: a triage half-done leaves an issue
+  # labelled and undispatched, which is the state this workflow exists to
+  # prevent.
+  group: triage-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    name: Triage
+    runs-on: ubuntu-latest
+    # Longer than the work needs, shorter than the hours a hung job bills.
+    timeout-minutes: 15
+    environment: Fleet
+    permissions:
+      contents: read
+      # Labelling, commenting and closing.
+      issues: write
+      # `gh workflow run fleet.yml` -- the label alone cannot dispatch,
+      # because events made with `GITHUB_TOKEN` start no runs.
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Does anything route this issue
+        id: gap
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: python3 tools/triage.py --check --issue "$ISSUE"
+
+      - name: Is there a credential to run with
+        id: key
+        if: steps.gap.outputs.triage == 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 tools/credential.py
+
+      - name: Build the brief
+        id: brief
+        if: steps.key.outputs.present == 'true'
+        env:
+          ISSUE: ${{ github.event.issue.number }}
+          BODY: ${{ github.event.issue.body }}
+          TITLE: ${{ github.event.issue.title }}
+        run: |
+          set -euo pipefail
+          # Through `env:` and a file, never interpolated into this body:
+          # an issue title is a stranger's text, and an expression expanded
+          # into a shell body is a statement rather than a string.
+          printf '%s\n\n%s\n' "$TITLE" "$BODY" > /tmp/issue.md
+          python3 tools/fleet_brief.py --trigger issue-triage \
+            --issue "$ISSUE" --issue-body-file /tmp/issue.md > /tmp/brief.md
+          {
+            echo "BRIEF<<BRIEF_EOF"
+            cat /tmp/brief.md
+            echo "BRIEF_EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Decide what it is
+        if: steps.key.outputs.present == 'true'
+        uses: anthropics/claude-code-action@56cf60fde42f7b19c3abfd5c9c48b69a1288461f # v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          claude_code_oauth_token: ${{ env.CLAUDE_OAUTH }}
+          anthropic_api_key: ${{ env.CLAUDE_API_KEY }}
+          prompt: ${{ env.BRIEF }}
+          display_report: true
+          allowed_bots: "*"
+          claude_args: >-
+            --model claude-haiku-4-5-20251001
+            --max-turns 12
+            --allowedTools "Read,Grep,Glob,Write"
+
+      # `always()`: a triage that crashed must still say something on the
+      # issue. With no verdict file `--apply` routes to `human`, which is the
+      # outcome this whole workflow exists to guarantee -- never silence.
+      - name: Apply it
+        if: always() && steps.gap.outputs.triage == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: python3 tools/triage.py --apply --issue "$ISSUE" --verdict /tmp/triage.json
