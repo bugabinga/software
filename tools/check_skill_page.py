@@ -38,7 +38,7 @@ const api = require("./page.cjs");
 const md = api.skillMarkdown({
   endpoint: "https://notes-intake.example.workers.dev",
   token: "a-very-long-random-intake-token",
-  book: "a book about software, written in Typst",
+  book: "BOOK-FIXTURE",
 });
 
 api.zip({ "file-note/SKILL.md": md }).arrayBuffer().then((buffer) => {

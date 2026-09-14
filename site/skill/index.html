@@ -29,17 +29,20 @@
      PALETTE. One ground, four drifting colours, one accent. A deep
      indigo ground; a violet, a paler indigo, a rose and a teal in the
      blobs; and warm gold as the single accent -- it is the button, the
-     focus ring, the hint's spark, the stars, and nothing competes with
-     it. The first version of this page
+     focus ring, the hint's spark, and the gold half of the stars. One
+     colour sits outside all of it on purpose: `#status.bad` is a rose
+     literal, because the failure state is the one thing that must not
+     read as gold. The first version of this page
      used six rainbow stops at equal weight, which is not a palette; it
      is every colour losing an argument. Roughly 60% ground, 30%
      structure, 10% gold.
 
-     TYPE. Two families. An old-style serif for display -- the same
-     stack the book's own pages use, `--serif` in site/assets/book.css --
-     and a sans for anything the reader has to operate. The contrast
-     between them is the design: a storybook title over machine-plain
-     controls.
+     TYPE. Three families. An old-style serif for display and for the
+     button -- the same stack the book's own pages use, `--serif` in
+     site/assets/book.css. A mono for the two fields holding an address
+     and a secret, `#endpoint` and `#token`. A sans for everything else,
+     the `about` field included. The contrast is the design: a storybook
+     title and button over machine-plain controls.
 
      The fourth (1.333) in --t0..--t5 is the display ladder: the title,
      the unicorn, the eyebrow, the labels and the button stand on it.
@@ -52,8 +55,9 @@
      rung nothing stands on today, kept because a ladder with a gap in
      it is not a scale.
      Display is tracked in (-0.03em) because large type looks loose at
-     default; small caps labels are tracked out (+0.16em) because small
-     type looks tight.
+     default; the uppercase labels are tracked out because small type
+     looks tight -- .16em on the field labels, .22em on the eyebrow,
+     which is smaller still.
 
      SPACE. Multiples of 4px, held in --s1..--s7. No arbitrary values.
 

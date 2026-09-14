@@ -112,6 +112,22 @@ def fetch(path: str) -> Any | None:
 APPLIER = "settings.yml"
 
 
+def _at(path: Path) -> str:
+    """`path` as the contents API wants it: relative to the repository root.
+
+    `path.name` alone was right only while `repo.toml` sat at the top of the
+    tree. Moved or renamed into a directory it would 404, `applied` would
+    stay `None`, and every run everywhere would decline and exit 0 -- the
+    gate off, silently and permanently, which is the shape the missing
+    `branch=main` filter had. The fallback is for a file outside the tree,
+    which only a caller passing its own path can produce.
+    """
+    try:
+        return path.resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return path.name
+
+
 def unapplied_reason(
     here: bytes, applied: bytes | None, sha: str | None, run: str | None
 ) -> str | None:
@@ -178,7 +194,7 @@ def applied_declaration(repo: str, declared_path: Path) -> str | None:
         # The contents API rather than git: the checkout CI works in is
         # shallow and the agents' is a branch, so the applied commit is not
         # reliably in either tree.
-        blob = fetch(f"repos/{repo}/contents/{declared_path.name}?ref={sha}")
+        blob = fetch(f"repos/{repo}/contents/{_at(declared_path)}?ref={sha}")
         if isinstance(blob, dict) and blob.get("encoding") == "base64":
             try:
                 applied = base64.b64decode(blob.get("content", ""))
@@ -614,9 +630,16 @@ def check(repo: str, declared_path: Path = DECLARED) -> int:
     pending = applied_declaration(repo, declared_path)
     if pending is not None:
         print(f"  unread  {declared_path.name}\n            {pending}")
+        # An annotation as well as the line. Six documents tell the reader
+        # not to infer coverage from the exit code and to read what the run
+        # printed -- and in CI what it printed is a line inside `mise run
+        # check`'s log, on the one branch where the whole check is a no-op.
+        # `check_epub.py:154` reaches for the same key for the same reason.
+        lead = "::warning::" if "GITHUB_ACTIONS" in __import__("os").environ else ""
+        print()
         print(
-            "\nNothing was compared. That is not agreement: this run cannot "
-            "tell you whether the repository matches the file."
+            f"{lead}Nothing was compared. That is not agreement: this run "
+            "cannot tell you whether the repository matches the file."
         )
         return 0
 
