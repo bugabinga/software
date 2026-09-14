@@ -279,6 +279,38 @@ AGGREGATE = re.compile(
     r"\|\s*(length|last|first|add|min|max|any|all|unique|sort|group_by)\b"
 )
 
+# The quoted arguments after `--jq`, which is where a jq filter lives. Matching
+# the window instead read every pipe in it as jq's: YAML's `run: |` joins to
+# the next line, so a shell variable named `last` was a finding, and `| sort -u`
+# after the call was coreutils reported as jq. Both were correct code the rule
+# has no suppression for, and the first was the very idiom it exists to
+# require -- `fleet-respond.yml`'s fixed call escaped only because its variable
+# happens to be named `state`.
+QUOTED = re.compile(r"'([^']*)'|\"([^\"]*)\"")
+
+JQ_FLAG = re.compile(r"--jq[\"']?[\s,]*")
+
+
+def _jq_filter(window: str) -> str:
+    """Everything quoted after the first `--jq` in `window`, joined.
+
+    Joined rather than tested one at a time because Python splits a long
+    filter across adjacent string literals, and the aggregate can land on
+    either side of the seam -- `rounds_so_far` had `| length` in the second
+    of two.
+    """
+    # Past the flag *and* its own closing quote: in Python the argument is
+    # `"--jq",` and starting at the `-` leaves that quote to be read as the
+    # filter's opening one, which swallows the filter and misses the bug.
+    flag = JQ_FLAG.search(window)
+    if flag is None:
+        return ""
+    rest = window[flag.end() :]
+    return " ".join(
+        found.group(1) if found.group(1) is not None else found.group(2)
+        for found in QUOTED.finditer(rest)
+    )
+
 
 def _without_prose(path: Path, lines: list[str]) -> list[str]:
     """`lines` with comments and Python docstrings blanked, in place.
@@ -353,14 +385,13 @@ def check_paginate_aggregate(path: Path) -> list[str]:
         if "--paginate" not in line:
             continue
         window = "\n".join(code[max(0, number - 7) : number + 6])
-        # `--jq` as well, which is what separates a call from prose about
-        # one -- this file's own docstring names the flag several times and
-        # would otherwise be its own first finding.
+        # Only what `--jq` was actually given, which is also what keeps this
+        # file's own prose about the flag from being its first finding.
         # `--slurp` is excluded because it is gh's own answer to this bug
         # (2.55.0; `mise.toml` pins 2.63.2): it hands the filter one array
         # spanning every page, so an aggregate over it is correct and this
         # rule would otherwise forbid the fix it exists to ask for.
-        if "--jq" in window and "--slurp" not in window and AGGREGATE.search(window):
+        if "--slurp" not in window and AGGREGATE.search(_jq_filter(window)):
             problems.append(
                 f"{path.relative_to(ROOT)}:{number}: `gh api --paginate` with an "
                 "aggregating jq filter; it answers once per page"

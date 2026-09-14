@@ -5,9 +5,10 @@
 # `mise run check` runs it -- but only where this checkout declares the
 # settings the last successful `Settings` run applied. On a branch that
 # changes a value nothing is read back at all -- not one section -- because
-# there is nothing to read back yet; editing the prose around a value changes
-# nothing and is still compared. See `unapplied_reason` in
-# `tools/repo_state.py`. Where it does compare, two narrower parts still read
+# the comparison is of the whole file, so a change to any value declines every
+# section, including the ones the last apply did apply. Editing the prose
+# around a value changes nothing and is still compared. See `unapplied_reason`
+# in `tools/repo_state.py`. Where it does compare, two narrower parts still read
 # unread short of a wide credential: `actions/permissions/workflow`, which
 # needs administration, and the eight merge settings below, which GitHub
 # omits from the repository object it hands a CI token. Read what the run
