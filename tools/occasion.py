@@ -17,13 +17,17 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
+import os
 import subprocess
 import sys
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
 
-from fleetlib import notice, output
+from fleetlib import gh, notice, output
+
+ROOT = Path(__file__).resolve().parent.parent
 
 # Label -> trigger. `tools/triage.py` routes unlabelled issues to one of
 # these, so the two must agree; `AgreesWithTheTree` checks that.
@@ -57,9 +61,27 @@ def decide(
     cron: str = "",
     issue: str = "",
     changed: tuple[str, ...] = (),
+    relayed: str = "",
+    relayed_changed: str = "",
 ) -> Occasion:
     if event == "workflow_dispatch":
         return Occasion(trigger="on-demand", why="dispatched by hand")
+
+    if event == "repository_dispatch":
+        # A push relayed. `claude-code-action` refuses to run on `push` --
+        # `src/github/context.ts` throws "Unsupported event type" for
+        # anything outside issues, pull requests, the two dispatches,
+        # `schedule` and `workflow_run` -- so every push that touched
+        # `notes/` or `book/chapters/` fired this workflow and died after
+        # resolving its credential. The whole "a note arrives, the fleet
+        # reacts" path had never worked. `repository_dispatch` is the
+        # carrier because the action accepts it, because `GITHUB_TOKEN` can
+        # raise it (it is one of the two documented exceptions to the rule
+        # that a token's events start no runs), and because its
+        # `client_payload` carries the occasion the push already decided.
+        if not relayed:
+            return Occasion(problem="a relayed push carried no trigger")
+        return Occasion(trigger=relayed, changed=relayed_changed, why="a push, relayed")
 
     if event == "issues":
         trigger = BY_LABEL.get(label)
@@ -178,6 +200,85 @@ class AgreesWithTheTree(unittest.TestCase):
         self.assertEqual(set(triage.ROUTING), set(BY_LABEL))
 
 
+# `client_payload` is capped at 64KB and this is the only field that can grow.
+# A push that rewrote three hundred notes is a push whose brief should say
+# "a lot of notes" rather than list them; the cap is where that becomes true
+# rather than where the API starts refusing.
+RELAY_PATHS = 50
+
+
+def relay(repo: str, occasion: Occasion) -> int:
+    """Raise the `repository_dispatch` that carries this push's occasion.
+
+    The dispatch runs the default branch's copy of the workflow, which is
+    where this push just landed, so there is no version skew to reason about.
+    """
+    if not occasion.trigger:
+        notice(f"nothing to relay: {occasion.why}")
+        return 0
+    paths = occasion.changed.splitlines()
+    kept = paths[:RELAY_PATHS]
+    payload = {
+        "trigger": occasion.trigger,
+        "changed": "\n".join(kept),
+        "truncated": len(paths) - len(kept),
+    }
+    gh(
+        "api",
+        "-X",
+        "POST",
+        f"repos/{repo}/dispatches",
+        "-f",
+        "event_type=fleet",
+        "--raw-field",
+        f"client_payload={json.dumps(payload)}",
+        check=False,
+    )
+    notice(f"relayed {occasion.trigger} with {len(kept)} path(s)")
+    return 0
+
+
+class Relayed(unittest.TestCase):
+    """A push, carried on the one event the action will run on."""
+
+    def test_the_trigger_survives_the_trip(self) -> None:
+        got = decide(
+            "repository_dispatch",
+            relayed="notes-arrived",
+            relayed_changed="notes/a.md\nnotes/b.md",
+        )
+        self.assertEqual(got.trigger, "notes-arrived")
+        self.assertEqual(got.changed, "notes/a.md\nnotes/b.md")
+
+    def test_an_empty_payload_is_an_error_not_a_silent_pass(self) -> None:
+        # A relay that lost its payload must be a red run. Returning "no
+        # occasion" would look exactly like a push that touched nothing, and
+        # this workflow's whole failure mode was looking like something else.
+        self.assertTrue(decide("repository_dispatch").problem)
+
+    def test_a_push_still_decides_the_occasion(self) -> None:
+        # The relay does not move the decision; it only carries it. A push
+        # event reaching `decide` answers the same as it always did.
+        self.assertEqual(
+            decide("push", changed=("notes/a.md",)).trigger, "notes-arrived"
+        )
+
+    def test_a_push_decides_and_the_relay_carries_the_same_answer(self) -> None:
+        # The relay must not become a second router. What `push` decides is
+        # what `repository_dispatch` reports; `AgreesWithTheTree` is what
+        # checks that each of those has a brief.
+        for paths in (("notes/a.md",), ("book/chapters/01-x.typ",)):
+            with self.subTest(paths=paths):
+                pushed = decide("push", changed=paths)
+                carried = decide(
+                    "repository_dispatch",
+                    relayed=pushed.trigger,
+                    relayed_changed=pushed.changed,
+                )
+                self.assertEqual(carried.trigger, pushed.trigger)
+                self.assertEqual(carried.changed, pushed.changed)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--event", default="")
@@ -187,6 +288,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--changed", default="", help="newline separated paths")
     parser.add_argument("--before", default="", help="a push's previous sha")
     parser.add_argument("--sha", default="", help="a push's new sha")
+    parser.add_argument(
+        "--trigger", default="", help="a relayed push's trigger, from client_payload"
+    )
+    parser.add_argument(
+        "--relay",
+        action="store_true",
+        help="decide, then raise a repository_dispatch carrying the answer",
+    )
+    parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
     arguments = parser.parse_args(argv)
 
     changed = tuple(p for p in arguments.changed.splitlines() if p.strip())
@@ -208,10 +318,16 @@ def main(argv: list[str] | None = None) -> int:
         cron=arguments.cron,
         issue=arguments.issue,
         changed=changed,
+        relayed=arguments.trigger,
+        relayed_changed=arguments.changed,
     )
     if got.problem:
         print(f"::error::{got.problem}")
         return 1
+
+    if arguments.relay:
+        return relay(arguments.repo, got)
+
     output("trigger", got.trigger)
     output("changed", got.changed)
     output("issue", got.issue)

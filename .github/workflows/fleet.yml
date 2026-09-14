@@ -32,6 +32,9 @@ on:
     # Applying a `fleet:` label is how work is asked for from a phone: open an
     # issue from a form, label it, and the agent runs here.
     types: [labeled]
+  # A push, relayed. See the `relay` job.
+  repository_dispatch:
+    types: [fleet]
   workflow_dispatch:
     inputs:
       agent:
@@ -67,8 +70,46 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # `claude-code-action` refuses to run on `push`: its
+  # `src/github/context.ts` throws "Unsupported event type" for anything
+  # outside issues, pull requests, the two dispatches, `schedule` and
+  # `workflow_run`. So every push touching `notes/` or `book/chapters/`
+  # started this workflow, resolved its credential, and died -- the whole
+  # "a note arrives, the fleet reacts" path had never once worked, and the
+  # failure read as an agent problem rather than an event one.
+  #
+  # This job is the push, converted into an event the action accepts. It
+  # decides the occasion from the diff, exactly as before, and raises a
+  # `repository_dispatch` carrying the answer. `GITHUB_TOKEN` can raise one:
+  # it is one of the two documented exceptions to the rule that a token's
+  # events start no runs.
+  relay:
+    name: Relay
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: fleet-relay
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          python3 tools/occasion.py --event push --relay \
+            --before "$BEFORE" --sha "$SHA"
+
   dispatch:
     name: Dispatch
+    # Never on the push itself; `relay` turns that into the dispatch below.
+    if: github.event_name != 'push'
     # The credential is an environment secret, so the job has to name the
     # environment to see it at all. If this name is wrong the secret is
     # simply absent and the run says so rather than failing obscurely.
@@ -95,11 +136,12 @@ jobs:
           CRON: ${{ github.event.schedule }}
           LABEL: ${{ github.event.label.name }}
           ISSUE: ${{ github.event.issue.number }}
-          BEFORE: ${{ github.event.before }}
-          SHA: ${{ github.sha }}
+          TRIGGER: ${{ github.event.client_payload.trigger }}
+          CHANGED: ${{ github.event.client_payload.changed }}
         run: |
           python3 tools/occasion.py --event "$EVENT" --cron "$CRON" \
-            --label "$LABEL" --issue "$ISSUE" --before "$BEFORE" --sha "$SHA"
+            --label "$LABEL" --issue "$ISSUE" \
+            --trigger "$TRIGGER" --changed "$CHANGED"
 
       # `--export` writes the brief into `$GITHUB_ENV` and the job
       # summary. The three fleet workflows each wrote that heredoc by hand,
