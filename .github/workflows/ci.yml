@@ -62,7 +62,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
+      # No `pull-requests: write`: this job stopped commenting when the
+      # preview table moved to the job summary. `preview.yml` posts the one
+      # comment a pull request gets, and holds the write itself.
       # `check-settings` asks which commit the last successful `Settings` run
       # applied, to know whether comparing `repo.toml` to the live repository
       # would prove anything. Without this the question is unreadable and the
@@ -153,7 +155,7 @@ jobs:
         # above just failed -- which is exactly when they are worth reading.
         if: always()
         # Forks get a read-only token no matter what `permissions:` grants
-        # (see the preview-comment step below) -- this 403s there.
+        # -- this 403s there.
         continue-on-error: true
         uses: github/codeql-action/upload-sarif@b96794f015dfd88f77b49b1c93e0fa7110f94c63 # v4
         with:
@@ -176,53 +178,20 @@ jobs:
           path: dist
           retention-days: 14
 
-      # The built site, attached to the run and summarised here. This is the
-      # fallback and the record; the readable preview is a URL, posted by
-      # `preview.yml` after this run finishes. Forks get a read-only token,
-      # so a failure to comment must not fail the build -- the job summary
-      # carries the same information.
-      - name: Comment the preview on the pull request
-        if: github.event_name == 'pull_request'
-        continue-on-error: true
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
-        with:
-          script: |
-            const { execSync } = require("child_process");
-            const summary = execSync("python3 tools/summary.py dist").toString();
-            const marker = "<!-- book-preview -->";
-            const body = [
-              marker,
-              "## 📖 What this build contains",
-              "",
-              `Built from ${context.sha.slice(0, 7)}. This is the record; where`,
-              "`preview.yml` can deploy one, a readable link follows in its own",
-              "comment.",
-              "",
-              summary,
-              "",
-              `<sub>[Download the built site](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}#artifacts) — unzip and open \`index.html\`, or run \`mise run serve\` locally.</sub>`,
-            ].join("\n");
-
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              per_page: 100,
-            });
-            const existing = comments.find((comment) => comment.body.includes(marker));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+      # What the build contains, in the job summary rather than a comment.
+      # It used to be a pull request comment on every run, which meant two
+      # comments on every pull request -- this one and `preview.yml`'s link
+      # -- on changes that could not alter a single page of the book. The
+      # summary is free, is attached to the run that produced it, and nobody
+      # has to scroll past it. The one comment a pull request gets is the
+      # link, and only when the built site actually changed; `preview.yml`
+      # owns it now and carries this same table inside it.
+      - name: Say what the build contains
+        if: always() && steps.upload.outcome == 'success'
+        run: |
+          set -euo pipefail
+          {
+            echo "## 📖 What this build contains"
+            echo
+            python3 tools/summary.py dist
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -103,8 +103,50 @@ jobs:
             echo "worker=$(python3 tools/preview.py --name "$number")"
           } >> "$GITHUB_OUTPUT"
 
+      # Nothing else in the tree can change a page of the built site.
+      # `tools/build.py` reads `book/` and `site/`, and imports `pinned`,
+      # which reads the Typst pin out of `mise.toml`; it has no other local
+      # import and opens no other path. So this list is derived from the
+      # program rather than guessed at, and a build input added later that
+      # is not here is a preview that silently stops appearing -- which is
+      # the failure to watch for.
+      #
+      # Why gate at all: every pull request was getting a deploy and a
+      # comment, including the ones that only touch a workflow or a brief.
+      # A preview of a site the pull request cannot alter is a link to
+      # production with extra steps, and it cost a Cloudflare deploy each
+      # time.
+      - name: Does this pull request change the built site
+        id: touches
+        if: steps.pr.outputs.found == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          set -uo pipefail
+          # One line per file and counted here, never `| length` in the jq:
+          # `--paginate` runs the filter once per page and concatenates, so
+          # an aggregate answers per page (`tools/check_workflows.py` has the
+          # rule and the story).
+          hits=$(gh api "repos/$REPO/pulls/$NUMBER/files?per_page=100" --paginate \
+            --jq '.[] | .filename' \
+            | grep -cE '^(book/|site/|tools/build\.py$|tools/pinned\.py$|mise\.toml$)')
+          if [ "${hits:-0}" -gt 0 ]; then
+            echo "site=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::$hits changed file(s) feed the built site; previewing"
+          else
+            echo "site=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::nothing this pull request touches can change the built site, so there is no preview and no comment"
+          fi
+
       - name: Is there a credential to deploy with
         id: key
+        # Not gated on `touches`: `Delete the previews whose pull requests
+        # have closed` hangs off this step, and that sweep has to run on
+        # every pull request, including the ones with nothing to deploy.
+        # Gating it here is how a pull request that changes no page of the
+        # book stops cleaning up after the ones that did.
         if: steps.pr.outputs.found == 'true'
         env:
           TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -125,7 +167,9 @@ jobs:
       # missing subdomain is a notice naming the page to visit.
       - name: Does the account have a workers.dev subdomain
         id: subdomain
-        if: steps.pr.outputs.found == 'true' && steps.key.outputs.present == 'true'
+        if: >-
+          steps.touches.outputs.site == 'true' &&
+          steps.key.outputs.present == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -194,13 +238,22 @@ jobs:
           SHA: ${{ github.event.workflow_run.head_sha }}
         with:
           script: |
-            const marker = "<!-- book-preview-url -->";
+            const { execSync } = require("child_process");
+            // The table `ci.yml` used to comment separately. One comment, not
+            // two: the link is the thing worth a notification, and what the
+            // build contains is what you want next to it rather than above
+            // it. `dist/` is the artifact this job already downloaded.
+            const summary = execSync("python3 tools/summary.py dist").toString();
+            const marker = "<!-- book-preview -->";
+            const stale = "<!-- book-preview-url -->";
             const body = [
               marker,
               `## 🌐 [Read this pull request](${process.env.URL})`,
               "",
               `Built from ${process.env.SHA.slice(0, 7)}. Replaced on every push,`,
               "and deleted the next time a preview runs after this one closes.",
+              "",
+              summary,
             ].join("\n");
             const number = Number(process.env.NUMBER);
             const { data: comments } = await github.rest.issues.listComments({
@@ -214,6 +267,15 @@ jobs:
             } else {
               await github.rest.issues.createComment({
                 ...context.repo, issue_number: number, body,
+              });
+            }
+            // The second comment this replaces. Pull requests opened before
+            // this change carry one of each; leaving the old one is the two
+            // comments all over again, on exactly the pull requests that
+            // prompted the change.
+            for (const old of comments.filter((c) => c.body.startsWith(stale))) {
+              await github.rest.issues.deleteComment({
+                ...context.repo, comment_id: old.id,
               });
             }
 
