@@ -163,56 +163,36 @@ watched.
 
 ## How the fleet writes
 
-Every worker here, the operator included. This is a house style, not a
-preference, because the author reads all of it on a phone.
+Every worker, the operator included. Not a preference: the author reads all of
+it on a phone.
 
-**Terse.** The diff is the record. A commit body that narrates the diff makes
-the reader read the change twice. Say what the diff cannot: why, what you
-verified, what you left alone. Three lines is usually enough and five is usually
-too many.
+**Communication is not the book.** Prose belongs in `book/`, and only there.
+Everything else -- commits, pull requests, comments, issues, reports -- is
+signal for somebody who wants to stop reading and go and do something.
 
-**Link, do not restate.** `docs/FLEET.md`, `notes/2026-09-11-session-01.md:140`,
-a run URL, a pull request number. A pointer to the source of truth outlives a
-paraphrase of it and cannot drift from it. If you find yourself explaining what
-a file says, link the file.
+- **Show, do not narrate.** A table, a diff, a mermaid diagram, a list of
+  numbers. GitHub renders `` ```mermaid `` in comments, issues, pull requests
+  and Markdown; anything with more than two moving parts is a diagram, not a
+  paragraph.
+- **Link, do not restate.** A path with a line number, a run URL, a pull request
+  number. A paraphrase drifts from its source; a pointer cannot.
+- **No adjectives you cannot defend.** "Comprehensive", "robust", "carefully":
+  that is what a report sounds like with nothing to say.
+- **No preamble, no summary of your summary, no "I have now".**
 
-**The exception is code comments.** A comment explaining why something is the
-way it is earns its length, because the next reader has no other way to recover
-the reasoning and the alternative is rediscovering it. That is the opposite case
-from a report, which the reader is holding the artefact for already. Long
-comments, short reports.
+| Register         | Reader                                    | Shape                                                            |
+| ---------------- | ----------------------------------------- | ---------------------------------------------------------------- |
+| **Commit**       | `git blame`, months on, diff already open | Why, never what. The constraint, the rejected option. ≤ 3 lines. |
+| **Pull request** | deciding whether to take it, no context   | What broke → what changed → what is different. Diagram the flow. |
+| **Comment**      | in the thread, holding it                 | The next thing, then stop. Usually one sentence.                 |
+| **Issue**        | the fleet, or the author on a phone       | The ask, the target, the evidence. No essay.                     |
 
-**A report is three things**: what changed, what you checked, what you
-deliberately did not do. Nothing else. No preamble, no restatement of the task,
-no summary of your summary, no "I have now".
+Writing one of those and pasting it into another is the characteristic failure,
+and it happens because it feels efficient.
 
-**One claim per sentence, and no adjectives you cannot defend.** "Comprehensive"
-and "robust" are how a report sounds when it has nothing to say.
-
-### Three registers, because there are three readers
-
-A commit message, a pull request and a comment are not one text at three
-lengths. Different readers, at different moments, holding different things.
-Writing one and pasting it into the others is the characteristic failure, and it
-happens because it feels efficient.
-
-**Commit — what and why, technical.** The reader is in `git log` or `git blame`,
-months from now, with the diff already in front of them, asking why this line is
-like this. Never narrate the diff. Say what it cannot: the constraint you hit,
-the alternative you rejected and why, the fact that will have been forgotten.
-Unsentimental, no audience. One commit, one concern.
-
-**Pull request — the story, high level.** The reader is deciding whether to
-accept this, now, with no context. What hurt, what you did about it, what is
-different afterwards. Written for someone who has not read the commits and may
-not. **Never a copy of the commit body** — if the two are the same text, one of
-them is wrong. Link the commits; that is what they are for.
-
-**Comment — terse, context-aware.** The reader is in a conversation already in
-progress and has the thread. No preamble, no restating what is above, no
-summarising the exchange. Contribute the next thing and stop. This is the only
-one of the three _addressed to someone_, so it may be short in a way the others
-may not: a sentence is often the whole comment.
+**Code comments are the exception.** A comment recovers reasoning the next
+reader has no other way to get, so it earns its length. Long comments, short
+reports.
 
 ## Two rules
 

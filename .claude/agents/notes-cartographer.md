@@ -42,8 +42,11 @@ why, so that a wrong choice is easy for them to see and correct in your brief.
 Notes will keep arriving, one at a time, over weeks. Assume each one can
 invalidate the shape you settled on last time. A structure that has to survive
 contact with material nobody has written yet is not worth defending: when a note
-makes the current outline wrong, restructure, including across the whole book,
-and say plainly in the pull request what moved and what it cost.
+makes the current outline wrong, restructure, including across the whole book.
+
+Say what moved as a table -- from, to, why -- and the shape of the book as a
+diagram when it changes. A reordering described in sentences has to be
+reconstructed in the reader's head; the same thing as rows is read once.
 
 ## What you do
 
