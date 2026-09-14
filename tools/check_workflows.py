@@ -35,7 +35,7 @@ import sys
 import textwrap
 import unittest
 from pathlib import Path
-from typing import ClassVar
+from typing import Any, ClassVar
 
 ROOT = Path(__file__).resolve().parent.parent
 HEREDOC = re.compile(r"<<-?\s*'?\"?([A-Za-z_][A-Za-z0-9_]*)'?\"?")
@@ -639,6 +639,103 @@ def has_concurrency(document: dict[str, object]) -> bool:
     return all(isinstance(job, dict) and "concurrency" in job for job in jobs.values())
 
 
+# The events `anthropics/claude-code-action` will run on. Its
+# `src/github/context.ts` switches on the event name and throws
+# "Unsupported event type" in the default arm, so anything absent here is a
+# job that resolves its credential, starts the action, and dies.
+#
+# Read off that switch rather than from its README. It is a fact of a
+# program, so the honest way to keep this list true is the version pin: a
+# bump that changes the switch is a bump that should fail here.
+AGENT_EVENTS = frozenset(
+    {
+        "issue_comment",
+        "issues",
+        "pull_request",
+        "pull_request_review",
+        "pull_request_review_comment",
+        "pull_request_target",
+        "repository_dispatch",
+        "schedule",
+        "workflow_dispatch",
+        "workflow_run",
+    }
+)
+
+AGENT_ACTION = "anthropics/claude-code-action"
+
+# `if: github.event_name != 'push'`, in any of the quotings a workflow uses.
+EXCLUDED_EVENT = re.compile(r"github\.event_name\s*!=\s*['\"]([a-z_]+)['\"]")
+
+
+def agent_events(document: dict[str, Any], job: dict[str, Any]) -> set[str]:
+    """Which of the workflow's events can actually reach this job.
+
+    Only a literal `github.event_name != 'x'` is read as an exclusion. A
+    condition this cannot parse leaves the event in, which is the safe
+    direction: the gate then asks for a reason rather than assuming one.
+    """
+    triggers = document.get(True) if True in document else document.get("on")
+    events = set(triggers) if isinstance(triggers, dict) else set()
+    if isinstance(triggers, list):
+        events = set(triggers)
+    if isinstance(triggers, str):
+        events = {triggers}
+    return events - set(EXCLUDED_EVENT.findall(str(job.get("if", ""))))
+
+
+def check_agent_events(paths: list[Path]) -> list[str]:
+    """No job runs the agent on an event the agent refuses.
+
+    `fleet.yml` fired on pushes to `notes/**` for weeks. Every one of them
+    started the workflow, installed the toolchain, resolved the credential
+    and then threw "Unsupported event type: push" -- the author's primary
+    loop, dead, reporting a failure that read like a bad key.
+
+    Nothing could have caught that by reading the YAML, which is valid, or
+    the action's inputs, which are fine. It is one list in the action's
+    source against one list in ours, and the only place the two meet is
+    here.
+    """
+    try:
+        import yaml  # noqa: PLC0415 - optional, same as check_yaml
+    except ImportError:
+        return ["agent events: PyYAML is not installed, so nothing was checked"]
+
+    problems: list[str] = []
+    for path in paths:
+        if path.parent.name != "workflows":
+            continue
+        text = path.read_text(encoding="utf-8")
+        if AGENT_ACTION not in text:
+            continue
+        try:
+            document = yaml.safe_load(text) or {}
+        except yaml.YAMLError:
+            continue
+        if not isinstance(document, dict):
+            continue
+        for name, job in (document.get("jobs") or {}).items():
+            if not isinstance(job, dict):
+                continue
+            steps = job.get("steps") or []
+            if not any(
+                AGENT_ACTION in str(step.get("uses", ""))
+                for step in steps
+                if isinstance(step, dict)
+            ):
+                continue
+            refused = sorted(agent_events(document, job) - AGENT_EVENTS)
+            if refused:
+                problems.append(
+                    f"{path.relative_to(ROOT)}: job {name!r} runs the agent on "
+                    f'{", ".join(refused)}, which it refuses with "Unsupported '
+                    f'event type". Relay the event, or exclude it with '
+                    f"`if: github.event_name != '{refused[0]}'`"
+                )
+    return problems
+
+
 def check_job_hygiene(paths: list[Path]) -> list[str]:
     """`timeout-minutes` on every job, `concurrency` on every workflow.
 
@@ -722,10 +819,20 @@ def check_no_interpolation(paths: list[Path]) -> list[str]:
     return problems
 
 
-def main() -> None:
-    paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted(
+def workflow_files() -> list[Path]:
+    """Every yaml under `.github/`, which is more than the workflows.
+
+    A function so the cases below check the tree rather than a fixture: a
+    gate that only ever sees its own examples is a gate that passes while
+    the tree is broken.
+    """
+    return sorted((ROOT / ".github").rglob("*.yml")) + sorted(
         (ROOT / ".github").rglob("*.yaml")
     )
+
+
+def main() -> None:
+    paths = workflow_files()
     if not paths:
         sys.exit("no workflow files found under .github/")
 
@@ -734,6 +841,7 @@ def main() -> None:
         + check_tools()
         + check_pins(paths)
         + check_job_hygiene(paths)
+        + check_agent_events(paths)
         + check_no_interpolation(paths)
     )
 
@@ -766,6 +874,52 @@ def main() -> None:
         f"workflows: {len(paths)} files, {tools} tools, "
         f"{pins} pinned actions, no problems"
     )
+
+
+class AgentEvents(unittest.TestCase):
+    """Which events reach a job that runs the agent."""
+
+    def workflow(self, events, condition: str = "") -> tuple[dict, dict]:
+        job = {"steps": [{"uses": f"{AGENT_ACTION}@sha"}]}
+        if condition:
+            job["if"] = condition
+        return {True: events, "jobs": {"dispatch": job}}, job
+
+    def test_a_mapping_of_triggers(self) -> None:
+        document, job = self.workflow({"push": {}, "schedule": []})
+        self.assertEqual(agent_events(document, job), {"push", "schedule"})
+
+    def test_a_bare_list_of_triggers(self) -> None:
+        document, job = self.workflow(["push", "schedule"])
+        self.assertEqual(agent_events(document, job), {"push", "schedule"})
+
+    def test_a_single_trigger(self) -> None:
+        document, job = self.workflow("schedule")
+        self.assertEqual(agent_events(document, job), {"schedule"})
+
+    def test_an_exclusion_removes_it(self) -> None:
+        document, job = self.workflow(
+            {"push": {}, "schedule": []}, "github.event_name != 'push'"
+        )
+        self.assertEqual(agent_events(document, job), {"schedule"})
+
+    def test_double_quotes_too(self) -> None:
+        document, job = self.workflow({"push": {}}, 'github.event_name != "push"')
+        self.assertEqual(agent_events(document, job), set())
+
+    def test_a_condition_it_cannot_read_excludes_nothing(self) -> None:
+        # The safe direction. A gate that guessed an unreadable `if` meant
+        # "not push" would let the original bug straight back through.
+        document, job = self.workflow({"push": {}}, "needs.plan.outputs.any")
+        self.assertEqual(agent_events(document, job), {"push"})
+
+    def test_push_is_not_a_supported_event(self) -> None:
+        # The whole finding, as one assertion: this is what `fleet.yml` did
+        # for weeks, and what the gate exists to refuse.
+        self.assertNotIn("push", AGENT_EVENTS)
+
+    def test_the_tree_passes_its_own_gate(self) -> None:
+        self.assertEqual(check_agent_events(workflow_files()), [])
 
 
 class Grouped(unittest.TestCase):
