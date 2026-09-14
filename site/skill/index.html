@@ -71,31 +71,38 @@
   /* The title cycles a rainbow through its own letterforms. `background-clip:
      text` paints the gradient and the transparent fill lets it through. */
   h1 {
-    font-size: 1.9rem; margin: 0 0 .3rem; line-height: 1.15;
+    font-size: clamp(2.6rem, 13vw, 4rem); margin: 0 0 2rem; line-height: 1;
+    letter-spacing: -.02em; text-transform: lowercase;
     background: var(--rainbow); background-size: 300% 100%;
     -webkit-background-clip: text; background-clip: text; color: transparent;
-    animation: rainbow 8s linear infinite;
+    animation: rainbow 5s linear infinite, wobble 4s ease-in-out infinite;
   }
   @keyframes rainbow { to { background-position: 300% 0; } }
-
-  /* The unicorn gallops the width of the page, forever, because why not. */
-  .unicorn {
-    display: inline-block; font-size: 1.6rem; margin: .2rem 0 .6rem;
-    animation: gallop 9s ease-in-out infinite;
+  @keyframes wobble {
+    25% { transform: rotate(-2deg) scale(1.03); }
+    75% { transform: rotate(2deg) scale(.98); }
   }
+
+  /* A parade, forever, because why not. Fixed and behind the form so they
+     cross the whole screen rather than a column of it. */
+  .parade { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+  .parade i {
+    position: absolute; left: -3rem; font-style: normal;
+    animation: gallop linear infinite;
+  }
+  .parade i:nth-child(1) { top: 12%; font-size: 3rem; animation-duration: 17s; }
+  .parade i:nth-child(2) { top: 47%; font-size: 1.7rem; animation-duration: 26s; animation-delay: -9s; opacity: .8; }
+  .parade i:nth-child(3) { top: 78%; font-size: 4.2rem; animation-duration: 34s; animation-delay: -20s; opacity: .55; }
   @keyframes gallop {
-    0%   { transform: translateX(0) rotate(-4deg); }
-    25%  { transform: translateX(30vw) translateY(-8px) rotate(6deg); }
-    50%  { transform: translateX(60vw) rotate(-4deg); }
-    52%  { transform: translateX(60vw) rotate(-4deg) scaleX(-1); }
-    75%  { transform: translateX(25vw) translateY(-8px) rotate(6deg) scaleX(-1); }
-    98%  { transform: translateX(0) rotate(-4deg) scaleX(-1); }
-    100% { transform: translateX(0) rotate(-4deg); }
+    0%   { transform: translateX(0) translateY(0) rotate(-6deg); }
+    25%  { transform: translateX(30vw) translateY(-22px) rotate(7deg); }
+    50%  { transform: translateX(60vw) translateY(0) rotate(-6deg); }
+    75%  { transform: translateX(90vw) translateY(-22px) rotate(7deg); }
+    100% { transform: translateX(115vw) translateY(0) rotate(-6deg); }
   }
 
-  p.lede { color: var(--dim); margin: 0 0 2.5rem; }
-  label { display: block; margin: 1.5rem 0 .35rem; font-weight: 600; font-size: .95rem; }
-  .hint { color: var(--dim); font-size: .85rem; font-weight: 400; display: block; margin-top: .15rem; }
+  label { display: block; margin: 1.5rem 0 .4rem; font-weight: 700; font-size: 1.1rem; }
+  .hint { color: var(--accent); font-size: .8rem; font-weight: 600; }
   input, textarea {
     width: 100%; padding: .6rem .7rem; font: inherit; font-size: .95rem;
     background: var(--field); color: var(--fg);
@@ -114,8 +121,8 @@
 
   /* The button is the whole point of the page, so it behaves like it. */
   button {
-    position: relative; margin-top: 2rem; padding: .85rem 1.6rem;
-    font: inherit; font-weight: 700; font-size: 1.05rem;
+    position: relative; margin-top: 2.5rem; padding: 1.1rem 2.4rem; width: 100%;
+    font: inherit; font-weight: 800; font-size: 1.5rem; letter-spacing: .02em;
     background: var(--rainbow); background-size: 300% 100%;
     color: #17161c; text-shadow: 0 1px 0 rgba(255, 255, 255, .45);
     border: 0; border-radius: 999px; cursor: pointer;
@@ -128,13 +135,9 @@
   button:active { transform: scale(.96); }
   button:disabled { opacity: .45; cursor: not-allowed; animation: none; }
 
-  .note {
-    margin-top: 1.75rem; padding: 1rem 1.2rem;
-    border-left: 3px solid transparent;
-    border-image: var(--rainbow-v) 1;
-    color: var(--dim); font-size: .92rem;
-  }
-  .note strong { color: var(--fg); }
+  .small { color: var(--dim); font-size: .85rem; margin-top: 2.5rem; }
+  summary { cursor: pointer; font-weight: 600; color: var(--fg); }
+  details[open] summary { margin-bottom: .5rem; }
   #status { margin-top: .75rem; min-height: 1.5em; font-size: .92rem; }
   #status.bad { color: #c0392b; }
   #status.good { color: var(--accent); font-weight: 600; }
@@ -179,57 +182,35 @@
 </head>
 <body>
 <div class="sky" aria-hidden="true"><i class="blob"></i><i class="blob"></i><i class="blob"></i></div>
+<div class="parade" aria-hidden="true"><i>🦄</i><i>🦄</i><i>🦄</i></div>
 <main>
-  <h1>Notes inbox — skill generator</h1>
-  <div class="unicorn" aria-hidden="true">🦄</div>
-  <p class="lede">
-    Makes a Claude skill that lets a note-taking session file notes to the
-    book. Give it the inbox and its token, download the zip, and add it to
-    that session. 🌈
-  </p>
+  <h1>skill&nbsp;maker</h1>
 
   <form id="form">
-    <label for="endpoint">Inbox URL
-      <span class="hint" id="endpoint-hint">The worker's address, ending in
-        <code>.workers.dev</code>. The deploy's run summary links to this page
-        with it already filled in, so arriving from there you can skip it.</span>
-    </label>
+    <label for="endpoint">🌈 inbox <span class="hint" id="endpoint-hint"></span></label>
     <input id="endpoint" class="mono" type="url" required spellcheck="false"
-           placeholder="https://notes-intake.your-subdomain.workers.dev"
-           autocomplete="off">
+           placeholder="https://notes-intake.you.workers.dev" autocomplete="off">
 
-    <label for="token">Intake token
-      <span class="hint">The value of <code>NOTES_INTAKE_TOKEN</code>. Hidden as
-        you type, so a screenshot of this page does not carry it.</span>
-    </label>
+    <label for="token">🔑 token</label>
     <input id="token" class="mono" type="password" required spellcheck="false"
-           placeholder="the long random string" autocomplete="off">
+           placeholder="NOTES_INTAKE_TOKEN" autocomplete="off">
 
-    <label for="book">What the notes are for
-      <span class="hint">One line, so the skill knows when it applies. The
-        default is right unless you are pointing this at something else.</span>
-    </label>
+    <label for="book">📚 about</label>
     <input id="book" type="text" value="a book about software, written in Typst"
            autocomplete="off">
 
-    <button id="go" type="submit">🦄 Download the skill 💥</button>
+    <button id="go" type="submit">MAKE IT ✨</button>
     <p id="status" role="status"></p>
   </form>
 
-  <p class="note">
-    <strong>The token never leaves this page.</strong> The zip is built here,
-    in your browser, and handed straight to the download. This is a static
-    file on GitHub Pages; there is no server behind it to send anything to.
-  </p>
-  <p class="note">
-    <strong>Treat the zip as a credential.</strong> The token is written into
-    the skill, because a Claude session has no other way to hold one. Anyone
-    with the zip can file notes to the book. Rotating the token means changing
-    <code>NOTES_INTAKE_TOKEN</code> and generating a new one here.
-  </p>
-  <p class="note">
-    Not part of the book — <a href="../">that is over here</a>.
-  </p>
+  <details class="small">
+    <summary>🔒 safe?</summary>
+    The zip is built in your browser and goes nowhere else — this page is a
+    static file with no server behind it. But the token is written into the
+    zip, so anyone holding it can file notes. Treat it as a credential.
+  </details>
+
+  <p class="small"><a href="../">📖 the book</a></p>
 </main>
 
 <script id="builder">
@@ -429,8 +410,7 @@ if (form) {
     // The hint below the field explains where the address comes from, which
     // is a question the reader no longer has once it is in the box. Saying
     // who filled it is the useful thing at that point.
-    document.getElementById("endpoint-hint").textContent =
-      "Filled in from the deploy that created the worker. Change it if that is not the inbox you mean.";
+    document.getElementById("endpoint-hint").textContent = "✅ from your deploy";
   }
 }
 
@@ -445,12 +425,12 @@ if (form) form.addEventListener("submit", (event) => {
 
   if (!/^https:\/\//.test(endpoint)) {
     status.className = "bad";
-    status.textContent = "The inbox URL has to be https.";
+    status.textContent = "🙅 https only";
     return;
   }
   if (token.length < 16) {
     status.className = "bad";
-    status.textContent = "That token looks too short to be the real one.";
+    status.textContent = "🤏 that token is too short";
     return;
   }
 
@@ -467,7 +447,7 @@ if (form) form.addEventListener("submit", (event) => {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 
   status.className = "good";
-  status.textContent = "✨ Downloaded! Add it to the note-taking session, then try one note.";
+  status.textContent = "🎉 got it — drop the zip in your session";
   if (window.party) window.party(document.getElementById("go"));
 });
 </script>
@@ -493,7 +473,7 @@ if (form) form.addEventListener("submit", (event) => {
   const CAST = ["🎉", "✨", "🌈", "💥", "🦄", "⭐", "🎊", "💫", "🩷", "🍀"];
   const QUIET = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
 
-  window.party = function (origin) {
+  window.party = function (origin, count) {
     if (QUIET && QUIET.matches) return;
 
     const box = origin.getBoundingClientRect();
@@ -505,7 +485,7 @@ if (form) form.addEventListener("submit", (event) => {
     flash.addEventListener("animationend", () => flash.remove());
     document.body.appendChild(flash);
 
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i < (count || 34); i++) {
       const spark = document.createElement("span");
       spark.className = "spark";
       spark.textContent = CAST[Math.floor(Math.random() * CAST.length)];
@@ -526,6 +506,27 @@ if (form) form.addEventListener("submit", (event) => {
       document.body.appendChild(spark);
     }
   };
+
+  // A small hello on arrival, from the title rather than the button, so the
+  // two bursts do not look like the same event.
+  window.addEventListener("load", () => {
+    const h1 = document.querySelector("h1");
+    if (h1) setTimeout(() => window.party(h1, 12), 250);
+  });
+
+  // And a ping off each field as it stops being empty. Once per field: a
+  // spark on every keystroke of a forty-character token is a strobe.
+  document.querySelectorAll("input").forEach((field) => {
+    let fired = field.value !== "";
+    field.addEventListener("input", () => {
+      if (!fired && field.value !== "") {
+        fired = true;
+        window.party(field, 6);
+      } else if (field.value === "") {
+        fired = false;
+      }
+    });
+  });
 })();
 </script>
 </body>
