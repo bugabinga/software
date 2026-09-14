@@ -189,12 +189,19 @@ jobs:
           # read, not Claude Code subagents, so nothing was reading their
           # frontmatter and every agent ran on whatever the action defaulted
           # to. `tools/fleet_brief.py` resolves the tier to an id.
-          # 60, raised from 40 after a review needed 46 to read a diff that
-          # had grown over five rounds. The ceiling is a runaway-loop guard,
-          # not a budget: the budget is `Fleet review` being one job.
+          # 80, raised from 60 for the second time this happened, and the
+          # measurement is the same shape both times: 40 -> 60 after a review
+          # needed 46 on a diff grown over five rounds, 60 -> 80 after run
+          # 34834205194 hit the ceiling on #82 at twelve rounds -- 61 turns,
+          # $6.41, 15 minutes, and no verdict written, which is a red required
+          # check rather than a finding. The ceiling is a runaway-loop guard,
+          # not a budget: the budget is `Fleet review` being one job. What it
+          # does not fix is why the cost grows -- the reviewer re-reads a diff
+          # that gets longer every round, so a branch left open long enough
+          # will reach any ceiling. See `docs/FLEET.md`'s note on `hold`.
           claude_args: >-
             --model ${{ steps.brief.outputs.model }}
-            --max-turns 60
+            --max-turns 80
             --allowedTools "Bash,Read,Grep,Glob"
 
       # The evidence, kept. `tools/fleet_report.py` reads this to say what the

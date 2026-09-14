@@ -368,7 +368,11 @@ Three things are meant to keep it from running forever:
   (`docs/FLEET.md:43`) and `hold` is the author's only brake -- named here
   rather than closed because the remedy is not a guard on the trigger:
   `Fleet review` is a required context on the `Main` ruleset (`repo.toml:139`),
-  so whatever stops the reviewing still has to report a verdict.
+  so whatever stops the reviewing still has to report a verdict. The cost is not
+  flat either: the reviewer re-reads the whole diff each round, so run
+  34834205194 hit its 60-turn ceiling on #82 at twelve rounds and wrote no
+  verdict, which reads as a failed required check. Raised to 80, which buys
+  rounds rather than fixing the slope.
 - **The responder does not answer itself.** The bot comes through only on a
   `pull_request_review` that requests changes, never on a
   `pull_request_review_comment`, which is what its own replies are. The author
