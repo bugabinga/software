@@ -55,8 +55,20 @@ BRIEFS = ROOT / ".claude" / "fleet"
 # book. `Agent branches` is included because it is where an agent's branch
 # either becomes a merge or becomes an issue, which is the outcome worth
 # knowing.
-AGENT_WORKFLOWS = {"Fleet", "Fleet review", "Fleet respond"}
+AGENT_WORKFLOWS = {"Fleet", "Fleet review", "Fleet respond", "Triage"}
 PLUMBING_WORKFLOWS = {"Agent branches", "Maintenance"}
+
+# How many runs' execution records to download. One artifact each, so this is
+# the report's whole running time. It was unbounded, which was survivable
+# while the report could only see a hundred runs of anything; the week this
+# was written the fleet alone had 897, and fetching all of them took longer
+# than the job's timeout.
+#
+# The cap costs only the money figures, and only past it: run counts,
+# failures and durations come from the runs API and stay exact for the whole
+# window. `render` says how many runs the costs cover, so a capped report
+# reads as partial rather than as cheap.
+USAGE_CAP = 150
 
 # Tracking issues that `agent-branches.yml` opens for branches it will not
 # merge by itself. They are noise once the branch is gone, and counting them
@@ -138,36 +150,81 @@ def parse_time(value: str | None) -> datetime | None:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
+def flatten(run: dict, cutoff: datetime) -> dict | None:
+    """One API run, as the report needs it, or None if it is outside the window."""
+    started = parse_time(run.get("run_started_at") or run.get("created_at"))
+    if not started or started < cutoff:
+        return None
+    finished = parse_time(run.get("updated_at"))
+    return {
+        "id": run["id"],
+        "workflow": run.get("name", "?"),
+        "event": run.get("event", "?"),
+        "branch": run.get("head_branch") or "",
+        "actor": (run.get("triggering_actor") or {}).get("login", "?"),
+        "status": run.get("status"),
+        "conclusion": run.get("conclusion"),
+        "started": started.isoformat(),
+        "seconds": (
+            round((finished - started).total_seconds())
+            if finished and started
+            else None
+        ),
+        "url": run.get("html_url", ""),
+    }
+
+
 def collect_runs(repo: str, days: int) -> list[dict]:
-    """Every workflow run in the window, flattened to what the report needs."""
+    """Every run of a workflow this report is about, in the window.
+
+    Per workflow, not one page of everything. It was
+    `actions/runs?per_page=100` with no paging, and by the time anyone read
+    the output the repository was doing 2845 runs a week -- so the hundred it
+    saw were the last two hours of pushes and it reported, in earnest, that
+    the fleet had not run at all. A report that is confidently wrong is worse
+    than no report: it was the instrument for deciding whether any of this
+    works.
+
+    Asking each workflow for its own runs is also a twentieth of the calls,
+    because the answer is the sixteen workflows' runs rather than everything
+    that touched the repository.
+    """
     cutoff = since(days)
     stamp = cutoff.strftime("%Y-%m-%d")
-    raw = api_dict(f"repos/{repo}/actions/runs?per_page=100&created=%3E%3D{stamp}")
-    runs = []
-    for run in raw.get("workflow_runs", []):
-        started = parse_time(run.get("run_started_at") or run.get("created_at"))
-        if not started or started < cutoff:
-            continue
-        finished = parse_time(run.get("updated_at"))
-        runs.append(
-            {
-                "id": run["id"],
-                "workflow": run.get("name", "?"),
-                "event": run.get("event", "?"),
-                "branch": run.get("head_branch") or "",
-                "actor": (run.get("triggering_actor") or {}).get("login", "?"),
-                "status": run.get("status"),
-                "conclusion": run.get("conclusion"),
-                "started": started.isoformat(),
-                "seconds": (
-                    round((finished - started).total_seconds())
-                    if finished and started
-                    else None
-                ),
-                "url": run.get("html_url", ""),
-            }
+    wanted = AGENT_WORKFLOWS | PLUMBING_WORKFLOWS
+    known = {
+        str(w.get("name", "")): w.get("id")
+        for w in api_dict(f"repos/{repo}/actions/workflows?per_page=100").get(
+            "workflows"
         )
-    return runs
+        or []
+    }
+    runs = []
+    for name in sorted(wanted):
+        identifier = known.get(name)
+        if identifier is None:
+            # A renamed workflow is silence in every figure below. Say so
+            # rather than reporting a zero that looks like calm.
+            print(
+                f"::warning::no workflow named {name!r}; its runs are missing "
+                "from this report",
+                file=sys.stderr,
+            )
+            continue
+        for page in range(1, 11):
+            got = (
+                api_dict(
+                    f"repos/{repo}/actions/workflows/{identifier}/runs"
+                    f"?per_page=100&page={page}&created=%3E%3D{stamp}"
+                ).get("workflow_runs")
+                or []
+            )
+            if not got:
+                break
+            runs += [r for r in (flatten(run, cutoff) for run in got) if r]
+            if len(got) < 100:
+                break
+    return sorted(runs, key=lambda r: r["started"])
 
 
 def usage_for(repo: str, run_id: int, cache: Path | None) -> dict | None:
@@ -517,6 +574,14 @@ def as_text(report: dict) -> str:
         f"  median {seconds(overall['median_seconds'])}"
         f"  cost {money(overall['cost_usd'])}"
     )
+    # Said out loud when it applies, because a cost that covers a third of
+    # the runs and a cost that covers all of them print identically.
+    priced = len(report.get("usage") or {})
+    if overall["finished"] > priced:
+        lines.append(
+            f"  (cost and turns cover the {priced} most recent of "
+            f"{overall['finished']} finished runs)"
+        )
     for name, tally in report["judgement"]["by_agent"].items():
         lines.append(
             f"    {name:<18} {(', '.join(tally['models'] or ['?']))[:22]:<22}"
@@ -659,10 +724,14 @@ def as_html(report: dict) -> str:
 def build_report(days: int, cache: Path | None) -> dict:
     repo = repository()
     runs = collect_runs(repo, days)
+    settled = [
+        run for run in runs if run["workflow"] in AGENT_WORKFLOWS and run["conclusion"]
+    ]
+    # Newest first: one artifact download each, and when the cap bites, the
+    # runs it keeps should be the ones somebody is about to go and look at.
+    wanted = sorted(settled, key=lambda r: r["started"], reverse=True)[:USAGE_CAP]
     usage = {}
-    for run in runs:
-        if run["workflow"] not in AGENT_WORKFLOWS or not run["conclusion"]:
-            continue
+    for run in wanted:
         if found := usage_for(repo, run["id"], cache):
             usage[run["id"]] = found
 
