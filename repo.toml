@@ -4,13 +4,13 @@
 # `mise run check-settings` reads back from GitHub's API and fails on, and
 # `mise run check` runs it -- but only where this checkout holds the copy of
 # this file the last successful `Settings` run applied. On the branch that
-# edits it nothing is read back at all, because there is nothing to read back
-# yet: see `unapplied_reason` in `tools/repo_state.py`. Two narrower parts
-# read unread even then, short of a wide credential:
-# `actions/permissions/workflow`, which needs administration, and the eight
-# merge settings below, which GitHub omits from the repository object it
-# hands a CI token. The check prints which of the three it managed, every
-# run; do not infer coverage from the exit code.
+# edits it nothing is read back at all -- not one section -- because there is
+# nothing to read back yet: see `unapplied_reason` in `tools/repo_state.py`.
+# Where it does compare, two narrower parts still read unread short of a wide
+# credential: `actions/permissions/workflow`, which needs administration, and
+# the eight merge settings below, which GitHub omits from the repository
+# object it hands a CI token. Read what the run printed; do not infer
+# coverage from the exit code.
 # Before this file, the same claims lived in prose -- and prose about a
 # setting cannot be checked, so `docs/FLEET.md` spent months asserting a
 # ruleset that had changed under it. A pull request is now how a setting

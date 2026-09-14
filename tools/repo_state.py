@@ -634,7 +634,7 @@ def check(repo: str, declared_path: Path = DECLARED) -> int:
         # not to infer coverage from the exit code and to read what the run
         # printed -- and in CI what it printed is a line inside `mise run
         # check`'s log, on the one branch where the whole check is a no-op.
-        # `check_epub.py:154` reaches for the same key for the same reason.
+        # `check_epub.py:155` reaches for the same key for the same reason.
         lead = "::warning::" if "GITHUB_ACTIONS" in __import__("os").environ else ""
         print()
         print(
