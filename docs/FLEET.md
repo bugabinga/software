@@ -251,12 +251,13 @@ corrupt download at the moment they are setting up their note-taker.
 34695708756's `Key in the Bot environment` job signed a JWT with
 `FLEET_APP_PRIVATE_KEY` from the `Bot` environment and read the installation's
 own grants. That reading, on 2026-09-12, also says `administration` was granted
-at **read**, and `settings.yml` mints its token asking for write. The author has
-since said the grant was widened; nothing here can check that, because the only
-thing that could read it was `bot-check.yml` and it is deleted. The first
-`Settings` run is the measurement, and it fails at the token step with a 422
-naming both sides if the grant is still read. An SSH signing key, which is what
-would make the fleet's commits read Verified, does not exist and is not urgent.
+at **read**, and `settings.yml` mints its token asking for write. That was
+settled by the first `Settings` run: 34791533048 minted the token and applied
+all five settings, which a Read grant would have refused with a 422, so
+`administration` is Read and write now. If a later run dies at the token step,
+the annotation prints what it asked for against what the installation holds. An
+SSH signing key, which is what would make the fleet's commits read Verified,
+does not exist and is not urgent.
 
 ## Nothing here needs setting up
 

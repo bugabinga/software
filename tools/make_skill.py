@@ -184,7 +184,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--subdomain", help="the account's workers.dev subdomain name")
     parser.add_argument("--out", type=Path, help="where to write the zip")
     parser.add_argument(
-        "--book", default=default_book(), help="one line on what the notes are for"
+        # Not `default=default_book()`: that reads the page when the parser
+        # is built, so `--print-endpoint` -- which `worker-deploy.yml` calls,
+        # and which has nothing to do with the page's prose -- would die on a
+        # page edit that moved the `value=` attribute. Resolved at use.
+        "--book",
+        help="one line on what the notes are for (default: the page's)",
     )
     parser.add_argument(
         "--print-endpoint",
@@ -208,7 +213,9 @@ def main(argv: list[str] | None = None) -> int:
     if len(token) < 16:
         sys.exit("no token on stdin, or one too short to be the real one")
 
-    return build(endpoint_for(args.subdomain), token, args.book, args.out)
+    return build(
+        endpoint_for(args.subdomain), token, args.book or default_book(), args.out
+    )
 
 
 if __name__ == "__main__":

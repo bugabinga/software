@@ -292,6 +292,17 @@
   #status.bad  { color: #ff9aab; }
   #status.good { color: var(--gold); }
 
+  /* The one thing a reader must not be able to skip: it was two visible
+     paragraphs before the page was cut down, and cutting it into a closed
+     `details` meant somebody could download a live token having been told
+     nothing. The detail behind it can stay folded; this line cannot. */
+  .warn {
+    margin: var(--s5) 0 0; padding: var(--s3) var(--s4);
+    border-radius: .75rem; font-size: .82rem; font-weight: 600;
+    color: var(--gold-lit); background: rgba(242, 193, 78, .09);
+    border: 1px solid rgba(242, 193, 78, .28);
+  }
+
   footer, .small {
     margin-top: var(--s6); color: var(--ink-dim); font-size: .8rem;
     letter-spacing: .01em;
@@ -364,6 +375,8 @@
     <button id="go" type="submit">Make it ✨</button>
     <p id="status" role="status"></p>
   </form>
+
+  <p class="warn">The zip holds a live token. Treat it as a credential.</p>
 
   <details class="small">
     <summary>Is this safe?</summary>
