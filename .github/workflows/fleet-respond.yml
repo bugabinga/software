@@ -420,10 +420,6 @@ jobs:
           ask ci.yml
           ask fleet-review.yml -f pr="$PR"
 
-      # The evidence, kept. `tools/fleet_report.py` reads this to say what the
-      # fleet cost and how hard it worked; without it the weekly report can
-      # only count runs. `always()` because a run that failed is exactly the
-      # one worth having a record of.
       # What this run was for, next to what it cost. The execution output
       # says turns and dollars; without this the report cannot say which
       # agent, which trigger, or what it was pointed at -- `fleet.yml`
@@ -446,6 +442,11 @@ jobs:
             --model "${{ steps.brief.outputs.model }}" \
             --brief /tmp/brief.md
 
+      # The evidence, kept. `tools/fleet_report.py` reads this to say what the
+      # fleet cost and how hard it worked; without it the weekly report can
+      # only count runs. Gated like the step that writes the file, and not on
+      # `always()` alone as it is in `fleet.yml` and `fleet-review.yml`: here
+      # a run that stopped short has no tree to have written one from.
       - name: Keep the run's record
         if: always() && steps.key.outputs.present == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

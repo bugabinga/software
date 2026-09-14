@@ -183,8 +183,10 @@ absent on a free plan, so check before building a merge rule around it.
       proceed at a time.
 - [ ] Logic worth being wrong about lives in a program with a self-test.
 - [ ] `actionlint` passes -- and `mise run check-workflows` with it, which adds
-      `tools/check_workflows.py`: the pin rule above, and a heredoc terminator
-      indented past its `run:` block, which never closes.
+      the rules in `tools/check_workflows.py`'s docstring rather than a list
+      here that goes stale: the pin rule above, a heredoc terminator indented
+      past its `run:` block, and `gh api --paginate` with a jq filter that
+      aggregates, which answers once per page and killed this workflow on #82.
 - [ ] The check name matches what the ruleset requires, exactly.
 - [ ] You can name who can trigger this and what they reach.
 - [ ] If two workflows talk to each other, you have checked the `GITHUB_TOKEN`
@@ -195,7 +197,7 @@ Three items are standing debt here rather than rules this repository keeps.
 Seven `run:` bodies interpolate `${{ }}`: `release.yml:43` builds a shell string
 out of a tag name, `maintenance.yml:120` out of a step output,
 `maintenance.yml:227` an issue body, and `fleet.yml:313`, `fleet-review.yml:214`
-and `fleet-respond.yml:401` pass `runner.temp` while `fleet-review.yml:291`
+and `fleet-respond.yml:439` pass `runner.temp` while `fleet-review.yml:291`
 passes a pull request number or a dispatch input. And three workflows declare no
 `concurrency` at all: `agent-branches.yml`, `labels.yml` and `release.yml`. All
 three stay on the list because they are right, and they are named because a
