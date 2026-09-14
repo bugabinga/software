@@ -110,7 +110,8 @@ def fetch(path: str) -> Any | None:
 # these eight unread and every other declared field compared, and a session
 # token holding more gets all fifteen back. Before the check distinguished
 # the two, an absent key and a null one looked identical through `.get()`,
-# so arming this in CI turned these eight from matching into disagreeing.
+# so arming this in CI turned these eight from matching into disagreeing --
+# run 34793388031, the red one that started this.
 #
 # Named rather than inferred from absence, and that is the point. "Any key
 # the document does not carry is unread" would also swallow `has_wikis` for
