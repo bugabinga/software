@@ -270,6 +270,8 @@ def check_comment_width(path: Path) -> list[str]:
 
 # jq filters that answer once for the whole input. Harmless alone; wrong under
 # `--paginate`, which is the point of the check below.
+COMMENT_LINE = re.compile(r"^\s*#")
+
 AGGREGATE = re.compile(
     r"\|\s*(length|last|first|add|min|max|any|all|unique|sort|group_by)\b"
 )
@@ -289,19 +291,28 @@ def check_paginate_aggregate(path: Path) -> list[str]:
     emit one line per match and count the lines in the caller.
 
     A window rather than a parse, because the call spans lines in YAML and in
-    Python alike and both wrap it differently. Six lines is what the longest
-    of the three needed; there is no suppression for a false positive here, so
-    one is answered by rewriting the call or narrowing this rule, and this
-    class costs a fleet outage.
+    Python alike and both wrap it differently. Three lines is the furthest any
+    of the three reached, from the `--paginate` to the aggregate; six is slack
+    against a wrap nobody has written yet. It reaches both ways, because `gh`
+    takes the flags in either order and a window that only looks forward holds
+    only for as long as the next writer wraps the call the way the last three
+    did. There is no suppression for a false positive here, so one is answered
+    by rewriting the call or narrowing this rule, and this class costs a fleet
+    outage.
     """
     problems: list[str] = []
     lines = path.read_text(encoding="utf-8").splitlines()
-    for number, line in enumerate(lines, 1):
+    # Blanked, not dropped, so the line numbers still point at the call.
+    # Reaching backwards means reaching over the comment that explains the
+    # fix, and in `fleet-respond.yml` that comment quotes `| length` and
+    # `| last` -- the rule would report its own documentation.
+    code = ["" if COMMENT_LINE.match(line) else line for line in lines]
+    for number, line in enumerate(code, 1):
         if "--paginate" not in line:
             continue
-        window = "\n".join(lines[number - 1 : number + 6])
+        window = "\n".join(code[max(0, number - 7) : number + 6])
         # `--jq` as well, which is what separates a call from prose about
-        # one -- this file's own docstring names the flag three times and
+        # one -- this file's own docstring names the flag several times and
         # would otherwise be its own first finding.
         if "--jq" in window and AGGREGATE.search(window):
             problems.append(
