@@ -44,55 +44,16 @@ jobs:
       - name: Build the book
         uses: ./.github/actions/build-book
 
+      # The slug decides what a reader downloads, and a release's assets
+      # are named once -- there is no correcting them afterwards. It used to
+      # be a Python heredoc nested inside a shell heredoc inside YAML.
       - name: Name the assets after the tag
         id: assets
         env:
-          # Through `env:`, because a dispatch input is whatever a person
-          # typed and an expression expanded here would be a statement.
+          # A dispatch input is whatever a person typed.
           TAG: ${{ inputs.tag || github.ref_name }}
-        run: |
-          set -euo pipefail
-          tag="$TAG"
+        run: python3 tools/release_assets.py --tag "$TAG"
 
-          # Named from the title in book.toml, so the download says what the
-          # book is called rather than what the repository is called. The
-          # title is still a placeholder, and this is one of the places that
-          # will quietly start being right when it stops being one.
-          slug=$(python3 - <<'SLUG'
-          import json, re
-          title = json.load(open("dist/build-info.json"))["title"]
-          print(re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-"))
-          SLUG
-          )
-
-          mkdir -p release
-          cp dist/book.pdf   "release/${slug}-${tag}.pdf"
-          cp dist/book.epub  "release/${slug}-${tag}.epub"
-          cp dist/book.html  "release/${slug}-${tag}.html"
-          (cd dist && zip -qr "../release/${slug}-${tag}-site.zip" .)
-
-          # A reader who downloads a file years from now should be able to
-          # tell whether it is the file that was published.
-          (cd release && sha256sum ./* > SHA256SUMS.txt)
-
-          {
-            echo "### ${slug} ${tag}"
-            echo
-            echo "| file | size |"
-            echo "| --- | --- |"
-            for f in release/*; do
-              # shellcheck disable=SC2016  # the backticks are markdown for the
-            # summary table, not command substitution.
-            printf '| `%s` | %s |\n' "$(basename "$f")" "$(du -h "$f" | cut -f1)"
-            done
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-
-      # A malformed EPUB opens in one reader and not another, and the reader
-      # who finds out is not the one who can fix it. The build already refuses
-      # to write a container whose documents are not well-formed; this checks
-      # the artefact that is actually being published.
       - name: Check the EPUB before publishing it
         run: |
           set -euo pipefail
