@@ -1,6 +1,6 @@
 name: Labels
 
-# Keeps the repository's labels in step with `.github/labels.yml`.
+# Keeps the repository's labels in step with `.github/labels.toml`.
 #
 # Not cosmetics: `maintenance.yml` files its link-rot issue with `chore` and
 # `agent-branches.yml` refuses to merge anything carrying `hold`, so a missing
@@ -14,7 +14,7 @@ on:
   push:
     branches: [main]
     paths:
-      - ".github/labels.yml"
+      - ".github/labels.toml"
       - ".github/workflows/labels.yml"
   workflow_dispatch:
 
@@ -35,10 +35,10 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      # `.github/labels.yml` is YAML, and it is read by a YAML parser.
-      # This step used to embed a Python heredoc that parsed it with four
-      # regexes, which could not read a folded description or a quoted name
-      # and would have got either wrong without saying so.
+      # The roster is TOML, so `tomllib` reads it and this needs nothing
+      # installed. It was YAML parsed by four regexes in a heredoc, then
+      # briefly YAML parsed by PyYAML -- which is on the runner by luck and
+      # not by declaration (`mise.toml`: every tool here is stdlib only).
       - name: Create or update each label
         env:
           GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,54 @@
+# The repository's labels, as data.
+#
+# Synced by `.github/workflows/labels.yml` via `tools/labels.py`, because
+# several workflows depend on labels existing -- `maintenance.yml` files its
+# link-rot issue with `chore`, `agent_branch.py` refuses to merge anything
+# carrying `hold` -- and a label that exists only because somebody typed it
+# into a web page once is a dependency nobody can see.
+#
+# TOML rather than YAML so that `tomllib` reads it. `tools/` is standard
+# library only (`mise.toml`), and the YAML version needed PyYAML, which is
+# on the runner by luck rather than by declaration.
+#
+# The sync creates and updates. It never deletes, so a label added by hand
+# survives.
+
+[[label]]
+name = "fleet:material"
+color = "0e8a16"
+description = "New material for notes/. The fleet ingests it and reads it."
+
+[[label]]
+name = "fleet:task"
+color = "1d76db"
+description = "Work asked of the fleet. Applying this label dispatches an agent."
+
+[[label]]
+name = "fleet:running"
+color = "fbca04"
+description = "An agent is working on this. Added by the fleet, not by hand."
+
+[[label]]
+name = "fleet:blocked"
+color = "d93f0b"
+description = "The fleet tried and could not finish. It says why in a comment."
+
+[[label]]
+name = "hold"
+color = "b60205"
+description = "Do not merge automatically, however green. The escape hatch."
+
+[[label]]
+name = "chore"
+color = "cfd3d7"
+description = "Mechanical work. Merges itself when green."
+
+[[label]]
+name = "book"
+color = "5319e7"
+description = "Touches the book's text or structure."
+
+[[label]]
+name = "pipeline"
+color = "006b75"
+description = "Touches the build, the checks or the workflows."

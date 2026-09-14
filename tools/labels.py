@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Make the repository's labels match `.github/labels.yml`.
+"""Make the repository's labels match `.github/labels.toml`.
 
 The workflow embedded a Python heredoc that parsed that file with four
 regexes -- a hand-rolled YAML parser, for a YAML file, inside a YAML file.
-It could not read a folded description, a single-quoted name or a list
-written inline, and would have misread any of them in silence.
+Replacing it with PyYAML traded that for a worse fault: `mise.toml` says
+every tool here is standard library only, and PyYAML is on the runner by
+luck rather than by declaration. The roster is TOML, which `tomllib` reads.
 
 Creates and updates. Never deletes: a label added by hand is somebody's
 decision, and a sync that removes it is a sync nobody dares run.
@@ -22,18 +23,16 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
+import tomllib
 from fleetlib import api, gh, notice
 
-ROSTER = Path(__file__).resolve().parent.parent / ".github" / "labels.yml"
+ROSTER = Path(__file__).resolve().parent.parent / ".github" / "labels.toml"
 
 
 def read(text: str) -> list[dict[str, str]]:
     """The roster, parsed by a parser rather than by four regexes."""
-    import yaml  # noqa: PLC0415 - optional, and the caller reports its absence
-
-    loaded = yaml.safe_load(text) or []
     rows = []
-    for entry in loaded:
+    for entry in tomllib.loads(text).get("label") or []:
         if not isinstance(entry, dict) or "name" not in entry:
             continue
         rows.append(
@@ -56,23 +55,20 @@ def changed(want: dict[str, str], have: dict[str, Any]) -> bool:
 
 def self_test() -> int:
     rows = read(
-        '- name: "fleet:task"\n'
-        '  color: "1d76db"\n'
-        "  description: Work asked of the fleet.\n"
-        "- name: hold\n"
-        "  color: b60205\n"
-        "  description: >-\n"
-        "    A folded description, which the regexes\n"
-        "    this replaces could not read at all.\n"
+        '[[label]]\nname = "fleet:task"\ncolor = "1d76db"\n'
+        'description = "Work asked of the fleet."\n'
+        '[[label]]\nname = "hold"\ncolor = "b60205"\n'
+        'description = """\nA description over more than one line, which the\n'
+        'regexes this replaces could not read at all.\n"""\n'
     )
     assert [r["name"] for r in rows] == ["fleet:task", "hold"]
     assert rows[0]["color"] == "1d76db"
     # The shape the hand-rolled parser dropped on the floor.
-    assert "folded description" in rows[1]["description"]
+    assert "more than one line" in rows[1]["description"]
     assert rows[1]["color"] == "b60205"
 
     # A colour written with a leading hash is the same colour.
-    assert read('- name: x\n  color: "#abcdef"\n')[0]["color"] == "abcdef"
+    assert read('[[label]]\nname = "x"\ncolor = "#abcdef"\n')[0]["color"] == "abcdef"
 
     have = {"color": "1D76DB", "description": "Work asked of the fleet."}
     assert not changed(rows[0], have), "case is not a change"
@@ -89,7 +85,7 @@ def self_test() -> int:
 
     every = read(ROSTER.read_text(encoding="utf-8"))
     assert every, "the roster is not empty"
-    print(f"labels: {len(every)} in the roster, folded and hashed forms read")
+    print(f"labels: {len(every)} in the roster, multi-line and hashed forms read")
     return 0
 
 
