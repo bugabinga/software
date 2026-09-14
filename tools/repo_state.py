@@ -428,8 +428,8 @@ def _compare_rule_parameters(
     # here is real drift and reads as one -- "declared X, found nothing"
     # rather than a message about a token, which would send whoever is
     # holding the red run to the App's grant instead of to the ruleset.
-    findings, unread = compare(want, have, where)
-    return findings + unread
+    findings, _ = compare(want, have, where)
+    return findings
 
 
 def _actors(actors: list[Any]) -> list[str]:

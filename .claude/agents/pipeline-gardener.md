@@ -52,11 +52,10 @@ You keep the machinery working so the author never thinks about it.
   this checkout's `repo.toml` is the one the last successful `Settings` run
   applied, so a branch that edits the file compares nothing and exits 0. The
   discriminator is the file, not you -- a Typst bump or a link-rot fix leaves it
-  alone, so the check actually looks. What it can see under a CI token is the
-  rulesets, the topics and seven of `[repository]`'s sixteen keys; the other
-  eight and the whole `actions` section need a wider credential and come back
-  unread, so neither can go red for you. Read what the run printed; the exit
-  code is not the finding. Fix a setting by editing the file and opening a pull
+  alone, so the check actually looks. Parts of it need a credential wider than
+  CI's and come back unread, so those cannot go red for you. Read what the run
+  printed; the exit code is not the finding, and it is the only thing that says
+  what was compared. Fix a setting by editing the file and opening a pull
   request -- never by changing the setting in a web page or calling the API,
   because a setting changed by hand is exactly the untracked state the file
   exists to end. Where GitHub is right and the file is stale, say so in the
