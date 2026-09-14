@@ -421,6 +421,13 @@ are held in an approval-required state and never execute -- runs 34760403200 and
 Without that the fixes would carry the verdict they answered, and `Fleet review`
 is required.
 
+The same token is why **a finding about a workflow file always waits for a
+human**. GitHub refuses `GITHUB_TOKEN` any write under `.github/workflows/`, and
+no `permissions:` block changes that -- `workflows` is not one of the sixteen
+scopes a workflow may ask for. The responder answers such a finding on its
+thread with the replacement text and cannot land it; `docs/IDENTITY.md` has the
+route that would.
+
 ## Which model runs which agent
 
 Three tiers, and the words are the author's.

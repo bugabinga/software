@@ -91,14 +91,22 @@ jobs:
         env:
           # `check-settings` compares the live repository against `repo.toml`,
           # and without a token every `gh api` call fails, every section reads
-          # `unread`, and the task passes having compared nothing. The
-          # workflow token reads the repository object, its topics and the
-          # rulesets. It does not see everything in them -- the repository it
-          # is handed omits the merge settings rather than reporting them, and
-          # `actions/permissions/workflow` needs administration -- and those
-          # read as unread rather than as disagreement, which is the whole of
-          # why `repo_state.py` has three outcomes and not two.
-          GH_TOKEN: ${{ github.token }}
+          # `unread`, and the task passes having compared nothing. So the
+          # token is what arms it -- and it is armed on `main` only.
+          #
+          # A pull request that edits `repo.toml` declares what the repository
+          # is *about to* be. `settings.yml` applies on a push to `main`, so
+          # the live repository cannot agree until the merge, and a required
+          # `CI` that demanded agreement first would refuse every such merge
+          # -- permanently, not once. On `main` the declaration is live or
+          # the run says so, which is the question worth asking.
+          #
+          # The `||` is safe here in a way `fetch-depth: ${{ x && 0 || 1 }}`
+          # was not: the middle operand is `github.token`, which is always
+          # truthy, so the expression yields it when the branch matches and
+          # the empty string otherwise. A `0` there would have been falsy and
+          # the `||` would have swallowed it.
+          GH_TOKEN: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && github.token || '' }}
         run: mise run check
 
       - name: Check spelling

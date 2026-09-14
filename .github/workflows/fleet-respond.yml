@@ -160,13 +160,18 @@ jobs:
           echo "proceed=true" >> "$GITHUB_OUTPUT"
           echo "::notice::answering the review on #$pr ($branch)"
 
-      # `always()`, and not merely unconditional. A step with no `if:` is
-      # `if: success()`, so it is skipped when the step above fails -- which
-      # is the case this exists for: `about` makes five `gh api` calls under
-      # `set -euo pipefail`, a 5xx ends it, and `Record what this run was`
-      # then reaches `python3 tools/fleet_record.py` with no working tree and
-      # exits 2. That is the shape of the five red runs on 2026-09-13
-      # (34788221741, 34788857763, 34789428196, 34790028463, 34790149693).
+      # `always()`, and not merely unconditional, because there are two ways
+      # to reach the record step with no tree and they are not the same way.
+      #
+      # The five red runs on 2026-09-13 (34788221741, 34788857763,
+      # 34789428196, 34790028463, 34790149693) are the first: `about`
+      # *succeeded*, set `proceed=false` at "nothing to answer", and this
+      # step was skipped by its own `if:` -- which it no longer has.
+      #
+      # The second is `about` dying: five `gh api` calls under
+      # `set -euo pipefail`, and a 5xx ends it. A bare unconditional step
+      # would not cover that one, because a step with no `if:` still carries
+      # an implicit `success()`. Hence `always()` rather than nothing.
       #
       # What that costs is the provenance, not the row. `runs.jsonl` gets a
       # line for every agent run from the API's own listing -- `append_runs`
@@ -179,8 +184,11 @@ jobs:
         if: always()
         with:
           # The pull request's own branch, because that is where the fixes go.
-          # No branch means nothing to answer or nothing that got that far,
-          # and then any tree will do: the only step left writes the record.
+          # `about` writes `branch` before both of its later `stop`s, so a
+          # no-op run has one too and checks the same tree out. The fallback
+          # covers only the two earliest exits -- no open pull request to
+          # name -- and a death before that line; any tree will do then,
+          # because the only step left writes the record.
           ref: ${{ steps.about.outputs.branch || github.event.repository.default_branch }}
           # Full history, like `fleet.yml:80` and `fleet-review.yml:72`, and
           # not a ternary. `${{ x && 0 || 1 }}` is always 1, because `0` is
