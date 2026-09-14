@@ -74,10 +74,11 @@ Three parties, and confusing them is the operator's characteristic failure.
   build all return 200.
 - **The settings are a file now.** `repo.toml` says what this repository is
   configured to be, `mise run check-settings` reads it back and `mise run check`
-  runs it -- not everywhere, and not at all on the branch that edits the file,
-  so read what the run printed rather than its exit code -- and `settings.yml`
-  makes GitHub agree. Do not read a setting out of a document and do not change
-  one in a web page: read the file, and change it with a pull request.
+  runs it -- not everywhere, and not at all on a branch that changes a value in
+  it, so read what the run printed rather than its exit code -- and
+  `settings.yml` makes GitHub agree. Do not read a setting out of a document and
+  do not change one in a web page: read the file, and change it with a pull
+  request.
 
   `.github/CODEOWNERS` is gone with it: at zero required approvals
   `require_code_owner_review` requested the owner and merged without them (#78),

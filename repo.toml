@@ -2,12 +2,13 @@
 #
 # Every value here is a claim about `bugabinga/software` that
 # `mise run check-settings` reads back from GitHub's API and fails on, and
-# `mise run check` runs it -- but only where this checkout holds the copy of
-# this file the last successful `Settings` run applied. On the branch that
-# edits it nothing is read back at all -- not one section -- because there is
-# nothing to read back yet: see `unapplied_reason` in `tools/repo_state.py`.
-# Where it does compare, two narrower parts still read unread short of a wide
-# credential: `actions/permissions/workflow`, which needs administration, and
+# `mise run check` runs it -- but only where this checkout declares the
+# settings the last successful `Settings` run applied. On a branch that
+# changes a value nothing is read back at all -- not one section -- because
+# there is nothing to read back yet; editing the prose around a value changes
+# nothing and is still compared. See `unapplied_reason` in
+# `tools/repo_state.py`. Where it does compare, two narrower parts still read
+# unread short of a wide credential: `actions/permissions/workflow`, which needs administration, and
 # the eight merge settings below, which GitHub omits from the repository
 # object it hands a CI token. Read what the run printed; do not infer
 # coverage from the exit code.

@@ -151,22 +151,39 @@ def unapplied_reason(
     queue the apply behind an earlier one for longer than that. Arming on
     `main` means arming exactly where the two collide.
 
-    So the discriminator is not the branch, it is the bytes. Compare only when
-    the file in this checkout is the file the last successful apply was run
-    from; anything else is unread, with the reason said out loud. That answer
-    is the same on a pull request, on `main`, inside an agent and on a laptop,
-    which is why it belongs here rather than in three copies of a workflow
-    condition.
+    So the discriminator is not the branch, it is the declaration. Compare
+    only when the settings this checkout declares are the settings the last
+    successful apply was run from; anything else is unread, with the reason
+    said out loud. That answer is the same on a pull request, on `main`,
+    inside an agent and on a laptop, which is why it belongs here rather than
+    in three copies of a workflow condition.
     """
     if applied is None or sha is None:
         return (
             f"the last successful `{APPLIER}` run could not be read, so "
             "whether this declaration has been applied is unknown"
         )
-    if applied != here:
+
+    # Values, not bytes. This file is mostly the reasoning behind its values,
+    # so comparing raw bytes made a prose edit indistinguishable from a
+    # settings change -- and turned the whole check into a no-op on the branch
+    # that made one. Measured on #82: three commits moved comments only, the
+    # head declared exactly what run 34791533048 had applied, and the gate
+    # compared nothing for nine commits while six documents described what it
+    # was checking. `settings.yml` applies values, so values are what decide
+    # whether reading them back proves anything. A file that will not parse
+    # falls back to its bytes, which can then only differ.
+    def declaration(raw: bytes) -> Any:
+        try:
+            return tomllib.loads(raw.decode("utf-8"))
+        except (tomllib.TOMLDecodeError, UnicodeDecodeError):
+            return raw
+
+    if declaration(applied) != declaration(here):
         return (
-            f"this file is not the one run {run} applied (it ran on {sha[:7]}): "
-            "declared here, not yet applied, so there is nothing to read back"
+            f"the values here are not the ones run {run} applied (it ran on "
+            f"{sha[:7]}): declared here, not yet applied, so there is nothing "
+            "to read back"
         )
     return None
 
@@ -728,6 +745,16 @@ def self_test() -> int:
     assert unapplied_reason(b"x", b"x", "6aa0507", "34791533048") is None
     edited = unapplied_reason(b"y", b"x", "6aa0507", "34791533048")
     assert edited is not None and "not yet applied" in edited
+    # The case that made the gate a no-op on #82 for nine commits: the same
+    # settings, different prose. Bytes said "not applied"; values say applied.
+    same = b"[repository]\nhas_wiki = false\n"
+    commented = b"# why\n[repository]\nhas_wiki = false  # still why\n"
+    assert unapplied_reason(commented, same, "6aa0507", "1") is None
+    changed = b"[repository]\nhas_wiki = true\n"
+    assert unapplied_reason(changed, same, "6aa0507", "1") is not None
+    # Unparsable falls back to bytes, which can then only differ.
+    assert unapplied_reason(b"{{{", b"[a]\n", "6aa0507", "1") is not None
+
     blind = unapplied_reason(b"x", None, None, None)
     assert blind is not None and "could not be read" in blind
     # A run whose head SHA is known but whose file would not decode is the
