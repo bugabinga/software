@@ -35,10 +35,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import unittest
 import zipfile
 from pathlib import Path
 
 from check_skill_page import extract_script
+from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 PAGE = ROOT / "site" / "skill" / "index.html"
@@ -143,21 +145,34 @@ def build(endpoint: str, token: str, book: str, out: Path, page: Path = PAGE) ->
     return 0
 
 
-def self_test() -> int:
-    assert (
-        endpoint_for("software-fleet")
-        == "https://notes-intake.software-fleet.workers.dev"
-    )
-    # The API returns the bare name; a person pasting from a browser does not.
-    assert endpoint_for("software-fleet.workers.dev") == endpoint_for("software-fleet")
-    assert worker_name(WRANGLER) == "notes-intake"
+class Addresses(unittest.TestCase):
+    """Where the skill posts, from whichever form of the name it is given."""
 
-    if not shutil.which("node"):
-        print("make_skill: addresses agree (node absent, so the zip is unbuilt)")
-        return 0
+    def test_the_endpoint(self) -> None:
+        self.assertEqual(
+            endpoint_for("software-fleet"),
+            "https://notes-intake.software-fleet.workers.dev",
+        )
 
-    with tempfile.TemporaryDirectory() as directory:
-        out = Path(directory) / "skill.zip"
+    def test_a_pasted_name_is_the_same_name(self) -> None:
+        # The API returns the bare name; a person pasting from a browser
+        # brings the suffix with them.
+        self.assertEqual(
+            endpoint_for("software-fleet.workers.dev"), endpoint_for("software-fleet")
+        )
+
+    def test_the_worker_names_itself(self) -> None:
+        self.assertEqual(worker_name(WRANGLER), "notes-intake")
+
+
+@unittest.skipUnless(shutil.which("node"), "node is absent, so the zip is unbuilt")
+class TheZip(unittest.TestCase):
+    """This tool's zip is the page's zip, built by the page's own code."""
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        out = Path(tmp.name) / "skill.zip"
         build(
             "https://notes-intake.example.workers.dev",
             "a-very-long-random-intake-token",
@@ -165,18 +180,22 @@ def self_test() -> int:
             out,
         )
         with zipfile.ZipFile(out) as archive:
-            assert archive.namelist() == ["file-note/SKILL.md"]
-            skill = archive.read("file-note/SKILL.md").decode("utf-8")
-    # The two values that make the skill work at all, rather than the prose
-    # around them, which is the page's to change.
-    assert "notes-intake.example.workers.dev/note" in skill
-    assert "a-very-long-random-intake-token" in skill
-    # Not the prose-pinning the line above refuses: both sides of this are
-    # the page's, and what it asserts is that the default still travels from
-    # the field to the file rather than being copied out on the way.
-    assert default_book() in skill
-    print("make_skill: this tool's zip is the page's zip")
-    return 0
+            self.names = archive.namelist()
+            self.skill = archive.read("file-note/SKILL.md").decode("utf-8")
+
+    def test_one_file(self) -> None:
+        self.assertEqual(self.names, ["file-note/SKILL.md"])
+
+    def test_the_two_values_that_make_it_work(self) -> None:
+        # Rather than the prose around them, which is the page's to change.
+        self.assertIn("notes-intake.example.workers.dev/note", self.skill)
+        self.assertIn("a-very-long-random-intake-token", self.skill)
+
+    def test_the_default_travels_from_the_field(self) -> None:
+        # Not prose-pinning: both sides are the page's, and what this asserts
+        # is that the default reaches the file rather than being copied out
+        # on the way.
+        self.assertIn(default_book(), self.skill)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -200,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.self_test:
-        return self_test()
+        return run_tests()
     if args.print_endpoint:
         if not args.subdomain:
             parser.error("--print-endpoint needs --subdomain")
