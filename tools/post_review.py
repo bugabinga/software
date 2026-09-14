@@ -34,7 +34,11 @@ import re
 import shutil
 import subprocess
 import sys
+import unittest
 from pathlib import Path
+from typing import ClassVar
+
+from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
@@ -244,94 +248,75 @@ diff --git a/b.md b/b.md
 """
 
 
-def self_test() -> int:
-    """Check the line arithmetic, which is the part that silently misplaces.
+class LineArithmetic(unittest.TestCase):
+    """The part that silently misplaces.
 
     A comment on the wrong line is worse than no comment: it reads as a
     finding about code that is fine, and the author has to work out that the
     reviewer meant three lines down.
     """
-    problems = []
 
-    def expect(name, got, want):
-        if got != want:
-            problems.append(f"{name}: got {got!r}, wanted {want!r}")
+    def test_only_right_hand_lines_are_commentable(self) -> None:
+        allowed = commentable_lines(SELF_TEST_DIFF)
+        # The hunk starts at 10. `gone_eleven` is a deletion, has no
+        # right-hand line, and must not appear.
+        self.assertEqual(allowed["a.py"], {10, 11, 12, 13})
+        self.assertEqual(allowed["b.md"], {1, 2, 3})
 
-    allowed = commentable_lines(SELF_TEST_DIFF)
-    # Hunk starts at 10: keep_ten=10, add_eleven=11, add_twelve=12,
-    # keep_thirteen=13. `gone_eleven` is a deletion and has no right-hand
-    # line, so it must not appear.
-    expect("a.py lines", allowed["a.py"], {10, 11, 12, 13})
-    expect("b.md lines", allowed["b.md"], {1, 2, 3})
 
-    inline, orphaned = build(
+class Placement(unittest.TestCase):
+    """Which findings become threads, and which become rows in the body."""
+
+    FINDINGS: ClassVar[list[dict[str, object]]] = [
+        {"path": "a.py", "line": 11, "what": "w", "why": "y", "suggestion": "fixed"},
+        {"path": "a.py", "start_line": 10, "line": 12, "what": "range", "why": ""},
         {
-            "findings": [
-                {
-                    "path": "a.py",
-                    "line": 11,
-                    "what": "w",
-                    "why": "y",
-                    "suggestion": "fixed",
-                },
-                {
-                    "path": "a.py",
-                    "start_line": 10,
-                    "line": 12,
-                    "what": "range",
-                    "why": "",
-                },
-                {
-                    "path": "a.py",
-                    "line": 99,
-                    "where": "a.py:99",
-                    "what": "off the diff",
-                    "why": "",
-                },
-                {
-                    "path": "c.txt",
-                    "line": 1,
-                    "where": "c.txt:1",
-                    "what": "untouched file",
-                    "why": "",
-                },
-                {"where": "the argument", "what": "no file at all", "why": ""},
-            ]
+            "path": "a.py",
+            "line": 99,
+            "where": "a.py:99",
+            "what": "off the diff",
+            "why": "",
         },
-        allowed,
-    )
-    expect("inline count", len(inline), 2)
-    expect("orphaned count", len(orphaned), 3)
-    expect(
-        "suggestion is fenced", "```suggestion\nfixed\n```" in inline[0]["body"], True
-    )
-    expect("range start", inline[1].get("start_line"), 10)
-    expect("range side", inline[1].get("start_side"), "RIGHT")
-    expect("single line has no range", "start_line" in inline[0], False)
-    expect("off-diff line is named", any("a.py:99" in o for o in orphaned), True)
+        {
+            "path": "c.txt",
+            "line": 1,
+            "where": "c.txt:1",
+            "what": "untouched file",
+            "why": "",
+        },
+        {"where": "the argument", "what": "no file at all", "why": ""},
+    ]
 
-    expect(
-        "a pass is a comment",
-        "COMMENT"
-        if {"verdict": "pass"}.get("verdict") == "pass"
-        else "REQUEST_CHANGES",
-        "COMMENT",
-    )
-    body = review_body({"verdict": "fail", "summary": "s"}, [], 3)
-    expect("later rounds are numbered", "(round 3)" in body, True)
-    expect(
-        "the first round is not",
-        "(round 1)" in review_body({"verdict": "fail"}, [], 1),
-        False,
-    )
+    def setUp(self) -> None:
+        allowed = commentable_lines(SELF_TEST_DIFF)
+        self.inline, self.orphaned = build({"findings": self.FINDINGS}, allowed)
 
-    for problem in problems:
-        print(f"  {problem}", file=sys.stderr)
-    if problems:
-        print(f"{len(problems)} problem(s) in the review builder", file=sys.stderr)
-        return 1
-    print("post_review: line mapping, placement, suggestions and rounds all check out")
-    return 0
+    def test_placeable_and_not(self) -> None:
+        self.assertEqual(len(self.inline), 2)
+        self.assertEqual(len(self.orphaned), 3)
+
+    def test_a_suggestion_is_fenced(self) -> None:
+        self.assertIn("```suggestion\nfixed\n```", self.inline[0]["body"])
+
+    def test_a_range_carries_its_start(self) -> None:
+        self.assertEqual(self.inline[1].get("start_line"), 10)
+        self.assertEqual(self.inline[1].get("start_side"), "RIGHT")
+
+    def test_a_single_line_has_no_range(self) -> None:
+        self.assertNotIn("start_line", self.inline[0])
+
+    def test_an_off_diff_finding_still_names_its_place(self) -> None:
+        self.assertTrue(any("a.py:99" in row for row in self.orphaned))
+
+
+class Rounds(unittest.TestCase):
+    def test_later_rounds_are_numbered(self) -> None:
+        self.assertIn(
+            "(round 3)", review_body({"verdict": "fail", "summary": "s"}, [], 3)
+        )
+
+    def test_the_first_is_not(self) -> None:
+        self.assertNotIn("(round 1)", review_body({"verdict": "fail"}, [], 1))
 
 
 def main() -> int:
@@ -347,7 +332,7 @@ def main() -> int:
     arguments = parser.parse_args()
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
     if arguments.pr is None or arguments.verdict is None:
         parser.error("--pr and --verdict are required unless --self-test")
 

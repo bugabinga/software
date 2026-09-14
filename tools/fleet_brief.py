@@ -26,10 +26,12 @@ import argparse
 import os
 import re
 import sys
+import unittest
 from datetime import date
 from pathlib import Path
+from typing import ClassVar
 
-from fleetlib import summary
+from fleetlib import run_tests, summary
 
 ROOT = Path(__file__).resolve().parent.parent
 BRIEFS = ROOT / ".claude" / "fleet"
@@ -206,57 +208,45 @@ def build(
     return resolved_agent, fill(header["branch"], values), fill(body, values).strip()
 
 
-def self_test() -> None:
-    """Check every brief routes, fills and names a real agent."""
-    failures = []
-    samples = {
-        "changed": ["notes/x.md"],
-        "agent": "prose-editor",
-        "target": "chapter 3",
-        "pr": "42",
-        "issue": "7",
-    }
-    for path in sorted(BRIEFS.glob("*.md")):
-        trigger = path.stem
-        try:
-            agent, branch, body = build(
-                trigger,
-                samples["changed"],
-                samples["agent"],
-                samples["target"],
-                samples["pr"],
-                samples["issue"],
-            )
-            if PLACEHOLDER.search(body) or PLACEHOLDER.search(branch):
-                failures.append(f"{trigger}: placeholder survived filling")
-            elif len(body) < 200:
-                failures.append(f"{trigger}: brief is suspiciously short")
-            else:
-                print(f"{trigger:20} -> {agent:20} {branch}")
-        except BriefError as error:
-            failures.append(f"{trigger}: {error}")
+class Briefs(unittest.TestCase):
+    """Every brief routes, fills, and names an agent that exists."""
 
-    for failure in failures:
-        print(failure, file=sys.stderr)
-    if failures:
-        sys.exit(f"{len(failures)} brief(s) broken")
+    CHANGED: ClassVar[list[str]] = ["notes/x.md"]
+    AGENT = "prose-editor"
+    TARGET = "chapter 3"
+    PR = "42"
+    ISSUE = "7"
 
-    # Every agent resolves to a real model. A typo in a `model:` line would
-    # otherwise surface as a workflow failing at the moment it was needed.
-    for definition in sorted(AGENTS.glob("*.md")):
-        try:
-            resolved = model_of(definition.stem)
-        except BriefError as error:
-            failures.append(str(error))
-            continue
-        print(f"{definition.stem:<20} -> {resolved}")
+    def test_each_one_fills(self) -> None:
+        # One subTest per brief, so a broken one names itself instead of
+        # stopping the sweep at the first.
+        for path in sorted(BRIEFS.glob("*.md")):
+            with self.subTest(trigger=path.stem):
+                agent, branch, body = build(
+                    path.stem,
+                    self.CHANGED,
+                    self.AGENT,
+                    self.TARGET,
+                    self.PR,
+                    self.ISSUE,
+                )
+                self.assertIsNone(PLACEHOLDER.search(body), "placeholder survived")
+                self.assertIsNone(PLACEHOLDER.search(branch), "placeholder in branch")
+                self.assertGreater(len(body), 200, "suspiciously short")
+                self.assertTrue(agent)
 
-    for failure in failures:
-        print(failure, file=sys.stderr)
-    if failures:
-        sys.exit(f"{len(failures)} agent(s) ask for a model that does not exist")
+    def test_there_are_some(self) -> None:
+        self.assertTrue(list(BRIEFS.glob("*.md")))
 
-    print(f"\n{len(list(BRIEFS.glob('*.md')))} briefs, all route to a defined agent")
+
+class Models(unittest.TestCase):
+    """A typo in a `model:` line would surface as a workflow failing at the
+    moment it was needed, which is the worst time to learn it."""
+
+    def test_every_agent_resolves(self) -> None:
+        for definition in sorted(AGENTS.glob("*.md")):
+            with self.subTest(agent=definition.stem):
+                self.assertTrue(model_of(definition.stem))
 
 
 def export_env(name: str, value: str) -> bool:
@@ -298,8 +288,7 @@ def main() -> None:
     arguments = parser.parse_args()
 
     if arguments.self_test:
-        self_test()
-        return
+        sys.exit(run_tests())
     if arguments.list:
         for path in sorted(BRIEFS.glob("*.md")):
             header, _ = load(path.stem)
