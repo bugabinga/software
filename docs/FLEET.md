@@ -363,8 +363,11 @@ Three things are meant to keep it from running forever:
   because of #75 -- #78 passed the third round without one and kept going to
   twelve. What `hold` stops is only the answering: `Fleet review` has no `hold`
   check and fires on every `synchronize`, so the reviewer went on posting
-  verdicts and #82 passed 185 of them while labelled. That is an exposure rather
-  than a design -- the model is the cost that grows with use
+  verdicts, and most of the ones on #82 came after the label rather than before
+  it. Count them rather than trust a number written here -- the reviews whose
+  body contains `Fleet review`, against the label's timestamp -- because a tally
+  of a thing still running is stale by the time it is read. That is an exposure
+  rather than a design -- the model is the cost that grows with use
   (`docs/FLEET.md:43`) and `hold` is the author's only brake -- named here
   rather than closed because the remedy is not a guard on the trigger:
   `Fleet review` is a required context on the `Main` ruleset (`repo.toml:139`),
