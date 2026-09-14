@@ -21,7 +21,10 @@ judgement, which does not.
    secrets; [`workflow_run` and `pull_request_target`][events] have both, for
    any head. If you cannot say in one sentence who can cause this to run, stop.
 2. **What may it do?** Start at `permissions: contents: read` and raise per job.
-   The default is what an attacker inherits.
+   The default is what an attacker inherits. Name `types:` rather than
+   inheriting them. `pull_request` defaults to `opened`, `synchronize`,
+   `reopened` -- `synchronize` is every push, so anything expensive under it
+   runs once per commit, not once per pull request.
 3. **What is its output?** A check name, an artifact, a comment, a branch. Name
    it now: a required check's _name_ is the contract with the ruleset, so
    renaming a job wedges every merge until the rule is renamed with it.
@@ -71,8 +74,16 @@ Caching is not free and not always a win. The rules that outlive the numbers:
   pull request restores it and nothing outside the pull request can.
 - The key is exact; `restore-keys` is the prefix ladder below it.
 
+- A cache whose content changes every run wants `actions/cache/restore` with a
+  rolling key plus `actions/cache/save`, not `actions/cache`: one restores the
+  newest near-match, the other writes today's. Using `actions/cache` for this
+  warns on every run that the key already exists.
+
 Do not cache what is cheap to fetch. A toolchain cache saving forty seconds is a
 bad trade the moment it evicts a build cache saving four minutes.
+
+`actions/checkout` fetches one commit. `fetch-depth: 0` is a whole history, and
+is a cost, not a default -- reach for it only when something reads the log.
 
 [Cache limits, eviction and scope][cache].
 
@@ -96,7 +107,11 @@ What saves minutes, in order of effect:
 
 1. **Do not start the run.** Path filters, and a `concurrency` group that
    cancels superseded runs. The commonest waste is five runs of one branch while
-   somebody pushes fixes.
+   somebody pushes fixes. **Never path-filter a required check.** A workflow
+   that does not run reports no status, and a required context with no status is
+   "Expected -- waiting for status to be reported" forever: the pull request can
+   never merge, and no error anywhere says why. Filter inside the job instead --
+   the job reports, and the expensive steps carry the `if:`.
 2. **Key that group on the event as well as the ref.** On the ref alone a `push`
    run and a `pull_request` run cancel each other, and a required check reading
    _Canceled_ is not a check that passed.

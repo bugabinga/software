@@ -2,6 +2,10 @@ name: CI
 
 on:
   pull_request:
+    # The defaults, named. `synchronize` is every push to the branch, which
+    # is what a required check has to answer on -- `CI` cannot be narrowed or
+    # filtered without wedging every merge behind a status that never reports.
+    types: [opened, synchronize, reopened]
   push:
     branches:
       - main
