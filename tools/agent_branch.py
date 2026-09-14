@@ -28,7 +28,7 @@ import time
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from fleetlib import api, gh, notice
+from fleetlib import api, gh, notice, paged, warn
 
 # The one thing the fleet does not merge for itself. A change under these
 # prefixes is the automation deciding its own future, and an agent that can
@@ -255,6 +255,132 @@ def act(repo: str, branch: Branch, decision: Decision, sha: str, server: str) ->
     return 0
 
 
+def pr_body(branch: str, commits: tuple[str, ...], files: tuple[str, ...]) -> str:
+    """The body for a pull request the fleet could not open for itself."""
+    rows = "\n".join(f"| `{name}` |" for name in files)
+    log = "\n".join(f"- {subject}" for subject in commits)
+    return (
+        f"Opened for `{branch}`, which the fleet pushed and cannot open a pull "
+        "request for itself. The commit messages carry the reasoning; nobody "
+        "wrote the story of this change, because no human opened it.\n\n"
+        f"**Commits**\n\n{log}\n\n"
+        f"| Files |\n| --- |\n{rows}\n"
+    )
+
+
+def open_pull(repo: str, branch: str) -> int:
+    """Open one for a branch the fleet pushed, if this repository allows it."""
+    owner = repo.split("/", 1)[0]
+    existing = api(f"repos/{repo}/pulls?head={owner}:{branch}&state=open") or []
+    if existing:
+        notice(f"#{existing[0]['number']} already tracks {branch}")
+        return 0
+
+    comparison = api(f"repos/{repo}/compare/main...{branch}") or {}
+    commits = tuple(
+        c["commit"]["message"].splitlines()[0] for c in comparison.get("commits") or []
+    )
+    files = tuple(f["filename"] for f in comparison.get("files") or [])
+    subject = commits[-1] if commits else branch
+
+    made = api(
+        f"repos/{repo}/pulls",
+        "-X",
+        "POST",
+        "-f",
+        f"title={subject}",
+        "-f",
+        f"head={branch}",
+        "-f",
+        "base=main",
+        "-f",
+        f"body={pr_body(branch, commits, files)}",
+        check=False,
+    )
+    if not isinstance(made, dict) or "number" not in made:
+        # Not a failure. `decide` handles a branch with no pull request; one
+        # is the nicer presentation, not the mechanism. A repository with
+        # Actions barred from opening them answers exactly here.
+        notice(
+            f"no pull request was opened for {branch}; it will be handled without one"
+        )
+        return 0
+
+    number = made["number"]
+    notice(f"opened #{number} for {branch}")
+    # `Fleet review` is required, and a pull request opened with the workflow
+    # token starts no runs, so the verdict would never report and the branch
+    # could never merge. Asked for by name.
+    if not gh(
+        "workflow",
+        "run",
+        "fleet-review.yml",
+        "--repo",
+        repo,
+        "--ref",
+        branch,
+        "-f",
+        f"pr={number}",
+        check=False,
+    ):
+        warn(
+            f"#{number} is open but Fleet review could not be started on it. "
+            f"Run that workflow from the Actions tab with pr={number}."
+        )
+    return 0
+
+
+def close_finished(repo: str) -> int:
+    """Close the notices that stood in for a pull request, once one exists."""
+    owner = repo.split("/", 1)[0]
+    tracked = re.compile(r"^(Ready to review|Green and unmerged): (?P<branch>.+)$")
+    closed = 0
+    for issue in paged(f"repos/{repo}/issues?state=open"):
+        if issue.get("pull_request"):
+            continue
+        found = tracked.match(str(issue.get("title", "")))
+        if not found:
+            continue
+        branch = found["branch"]
+
+        if api(f"repos/{repo}/git/ref/heads/{branch}", check=False) is None:
+            why = f"`{branch}` no longer exists."
+        else:
+            pulls = api(f"repos/{repo}/pulls?head={owner}:{branch}&state=all") or []
+            merged = next((p for p in pulls if p.get("merged_at")), None)
+            open_one = next((p for p in pulls if p.get("state") == "open"), None)
+            if merged:
+                why = f"`{branch}` was merged in #{merged['number']}."
+            elif open_one:
+                why = f"#{open_one['number']} now tracks `{branch}`."
+            else:
+                continue
+
+        gh(
+            "api",
+            "-X",
+            "POST",
+            f"repos/{repo}/issues/{issue['number']}/comments",
+            "-f",
+            f"body={why} Closing: it tracked one branch and that branch is done.",
+            check=False,
+        )
+        gh(
+            "api",
+            "-X",
+            "PATCH",
+            f"repos/{repo}/issues/{issue['number']}",
+            "-f",
+            "state=closed",
+            "-f",
+            "state_reason=completed",
+            check=False,
+        )
+        closed += 1
+    notice(f"closed {closed} finished tracking issue(s)")
+    return 0
+
+
 def self_test() -> int:
     """`decide`, against every shape it has been wrong about."""
     green = (("CI", "completed", "success"),)
@@ -328,6 +454,12 @@ def self_test() -> int:
             f"{name}: wanted {want}, got {got.action} ({got.why})"
         )
 
+    # The body is the only pure part of the two new subcommands, and the
+    # part a human reads.
+    body = pr_body("agent/x", ("first", "second"), ("book/a.typ",))
+    assert "- first" in body and "- second" in body
+    assert "| `book/a.typ` |" in body
+
     actions = sorted({want for _, want, _ in cases})
     print(f"agent_branch: {len(cases)} cases over {', '.join(actions)}")
     return 0
@@ -345,12 +477,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--dry-run", action="store_true", help="Print the decision and change nothing."
     )
+    parser.add_argument(
+        "--open-pull",
+        action="store_true",
+        help="Open a pull request for a branch the fleet pushed.",
+    )
+    parser.add_argument(
+        "--close-finished",
+        action="store_true",
+        help="Close the notices whose branch is done.",
+    )
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
         return self_test()
-    if not (arguments.branch and arguments.sha and arguments.repo):
-        parser.error("--branch, --sha and a repository are required")
+    if not arguments.repo:
+        parser.error("a repository is required")
+    if arguments.close_finished:
+        return close_finished(arguments.repo)
+    if arguments.open_pull:
+        if not arguments.branch:
+            parser.error("--open-pull needs --branch")
+        return open_pull(arguments.repo, arguments.branch)
+    if not (arguments.branch and arguments.sha):
+        parser.error("--branch and --sha are required")
 
     branch = observe(arguments.repo, arguments.branch, arguments.sha)
     decision = decide(branch)
