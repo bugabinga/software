@@ -290,8 +290,9 @@ def check_paginate_aggregate(path: Path) -> list[str]:
 
     A window rather than a parse, because the call spans lines in YAML and in
     Python alike and both wrap it differently. Six lines is what the longest
-    of the three needed; a false positive is answerable with a `noqa`-style
-    line, and this class costs a fleet outage.
+    of the three needed; there is no suppression for a false positive here, so
+    one is answered by rewriting the call or narrowing this rule, and this
+    class costs a fleet outage.
     """
     problems: list[str] = []
     lines = path.read_text(encoding="utf-8").splitlines()

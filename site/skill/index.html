@@ -638,7 +638,14 @@ if (form) {
     // there is nothing to say that the placeholder does not already show.
     // Once the address is in, the question is no longer where it comes
     // from but who put it there.
-    document.getElementById("endpoint-hint").textContent = "✦ from your deploy";
+    // The span is inside `<label for="endpoint">`, so this lands in the
+    // field's accessible name, not beside it: `textContent` made it announce
+    // "inbox ✦ from your deploy". Same treatment as `say()` and the button.
+    const hint = document.getElementById("endpoint-hint");
+    const mark = document.createElement("span");
+    mark.setAttribute("aria-hidden", "true");
+    mark.textContent = "✦";
+    hint.replaceChildren(mark, document.createTextNode(" from your deploy"));
   }
 }
 

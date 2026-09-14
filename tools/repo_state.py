@@ -158,10 +158,21 @@ def unapplied_reason(
     inside an agent and on a laptop, which is why it belongs here rather than
     in three copies of a workflow condition.
     """
-    if applied is None or sha is None:
+    # Two failures, two sentences. `applied` is None whenever the contents
+    # fetch 404s, is refused, or is not base64 -- with the run in hand -- and
+    # blaming the run listing for that sends whoever is holding the declined
+    # run to the `Settings` history, which is fine. `_at`'s docstring names
+    # the 404 case exactly, so it is the one this line is most likely to
+    # describe.
+    if sha is None:
         return (
             f"the last successful `{APPLIER}` run could not be read, so "
             "whether this declaration has been applied is unknown"
+        )
+    if applied is None:
+        return (
+            f"run {run} applied {sha[:7]}, but the file it applied could not "
+            "be read back, so whether this declaration matches it is unknown"
         )
 
     # Values, not bytes. This file is mostly the reasoning behind its values,
