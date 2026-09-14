@@ -248,6 +248,10 @@ run = [
   "python3 tools/make_skill.py --self-test",
 ]
 
+[tasks.check-branches]
+description = "What a green agent branch has earned"
+run = "python3 tools/agent_branch.py --self-test"
+
 [tasks.check-review]
 description = "The review builder's line arithmetic"
 run = "python3 tools/post_review.py --self-test"
@@ -304,6 +308,7 @@ depends = [
   "check-format",
   "check-spelling",
   "check-skill",
+  "check-branches",
   "check-review",
   "check-prose",
   "check-lint",
