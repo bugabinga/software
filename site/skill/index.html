@@ -723,7 +723,7 @@ if (form) form.addEventListener("submit", (event) => {
 // positioned container: the button can be anywhere down a scrolled page, and
 // `getBoundingClientRect` already answers in the space `position: fixed`
 // uses. The particles remove themselves on `animationend` so a page left open
-// through twenty downloads does not accumulate two hundred dead spans.
+// through twenty downloads does not accumulate seven hundred dead spans.
 (() => {
   const CAST = ["✨", "⭐", "🌟", "💫", "🦄", "🎉"];
   const QUIET = window.matchMedia?.("(prefers-reduced-motion: reduce)");
