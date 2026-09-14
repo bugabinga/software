@@ -269,12 +269,12 @@ def check_comment_width(path: Path) -> list[str]:
     return problems
 
 
-# jq filters that answer once for the whole input. Harmless alone; wrong under
-# `--paginate`, which is the point of the check below.
 DOCSTRING_OWNERS = (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
 
 COMMENT_LINE = re.compile(r"^\s*#")
 
+# jq filters that answer once for the whole input. Harmless alone; wrong under
+# `--paginate`, which is the point of the check below.
 AGGREGATE = re.compile(
     r"\|\s*(length|last|first|add|min|max|any|all|unique|sort|group_by)\b"
 )
@@ -343,10 +343,11 @@ def check_paginate_aggregate(path: Path) -> list[str]:
     # Reaching backwards means reaching over the prose that explains the fix,
     # and that prose quotes the aggregates: `fleet-respond.yml`'s comment
     # names `| length` and `| last`, and `post_review.py`'s docstring names
-    # both `| length` and `gh api --paginate`. The second is why docstrings
-    # count too -- it escapes today only by sitting five lines clear of the
-    # call below it, so shortening it would make this rule report its own
-    # documentation, and there is no suppression to answer that with.
+    # both `| length` and `gh api --paginate`. Docstrings are blanked for the
+    # second: no file in the tree needs it today -- measured, with the ast
+    # pass and without it, no findings either way -- but a docstring naming
+    # the flag and an aggregate within six lines of each other would be
+    # reported, and there is no suppression to answer that with.
     code = _without_prose(path, lines)
     for number, line in enumerate(code, 1):
         if "--paginate" not in line:

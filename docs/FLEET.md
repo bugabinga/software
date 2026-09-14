@@ -358,9 +358,11 @@ Three things are meant to keep it from running forever:
 - **Three rounds.** `fleet-respond.yml` counts the fleet's own changes-requested
   reviews. On the fourth it does not run the agent at all: it labels the pull
   request `hold`, says once why, and leaves it. Two agents disagreeing is the
-  author's to settle. **The `hold` has never been applied**, because until #75
-  was fixed the count was never taken on a pull request only the fleet had
-  reviewed -- #78 passed the third round without one, and kept going to twelve.
+  author's to settle. It first fired on #82, at 01:35 on 14 September; before
+  that the count was never taken on a pull request only the fleet had reviewed,
+  because of #75 -- #78 passed the third round without one and kept going to
+  twelve. What `hold` stops is the answering: the reviewer goes on reviewing a
+  held pull request, and #82 was past a hundred reviews while labelled.
 - **The responder does not answer itself.** The bot comes through only on a
   `pull_request_review` that requests changes, never on a
   `pull_request_review_comment`, which is what its own replies are. The author
