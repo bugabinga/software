@@ -268,6 +268,48 @@ def check_comment_width(path: Path) -> list[str]:
     return problems
 
 
+# jq filters that answer once for the whole input. Harmless alone; wrong under
+# `--paginate`, which is the point of the check below.
+AGGREGATE = re.compile(
+    r"\|\s*(length|last|first|add|min|max|any|all|unique|sort|group_by)\b"
+)
+
+
+def check_paginate_aggregate(path: Path) -> list[str]:
+    """`gh api --paginate` with a jq filter that aggregates.
+
+    `--paginate` runs the filter once per page and concatenates what each
+    returns, so `| length` over 101 reviews answers "6\\n1" rather than 7.
+    Three call sites had this and all three broke on #82 the day its review
+    count crossed 100: one killed `fleet-respond` outright (run 34809724830,
+    a multi-line value into `$GITHUB_OUTPUT`), and two failed silently --
+    a `| last | .state` comparison that quietly went false, and a
+    `raw.isdigit()` fallback that reset the round counter to zero, disarming
+    the three-round guard. The shape that works was already in the same file:
+    emit one line per match and count the lines in the caller.
+
+    A window rather than a parse, because the call spans lines in YAML and in
+    Python alike and both wrap it differently. Six lines is what the longest
+    of the three needed; a false positive is answerable with a `noqa`-style
+    line, and this class costs a fleet outage.
+    """
+    problems: list[str] = []
+    lines = path.read_text(encoding="utf-8").splitlines()
+    for number, line in enumerate(lines, 1):
+        if "--paginate" not in line:
+            continue
+        window = "\n".join(lines[number - 1 : number + 6])
+        # `--jq` as well, which is what separates a call from prose about
+        # one -- this file's own docstring names the flag three times and
+        # would otherwise be its own first finding.
+        if "--jq" in window and AGGREGATE.search(window):
+            problems.append(
+                f"{path.relative_to(ROOT)}:{number}: `gh api --paginate` with an "
+                "aggregating jq filter; it answers once per page"
+            )
+    return problems
+
+
 def main() -> None:
     paths = sorted((ROOT / ".github").rglob("*.yml")) + sorted(
         (ROOT / ".github").rglob("*.yaml")
@@ -276,6 +318,11 @@ def main() -> None:
         sys.exit("no workflow files found under .github/")
 
     problems = check_yaml(paths) + check_tools() + check_pins(paths)
+
+    # `tools/` too, for this one: `post_review.py` held the third instance,
+    # and a rule that only reads workflows would have left it there.
+    for path in [*paths, *sorted((ROOT / "tools").glob("*.py"))]:
+        problems += check_paginate_aggregate(path)
 
     for path in paths:
         problems += check_heredocs(path)

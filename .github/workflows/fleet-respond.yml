@@ -147,8 +147,14 @@ jobs:
           [ "$draft" = "false" ] || stop "#$pr is a draft"
 
           if [ "$EVENT" = "workflow_run" ]; then
+            # One `.state` per line and `tail`, not `| last` inside the
+            # filter: `gh api --paginate` runs the jq once per page, so an
+            # aggregate returns one answer per page. At 100 reviews this
+            # started yielding two lines and the comparison below silently
+            # went false -- the responder declining to answer a real verdict.
             state=$(gh api "repos/$REPO/pulls/$pr/reviews" --paginate \
-              --jq '[.[] | select(.body | contains("Fleet review"))] | last | .state // empty')
+              --jq '.[] | select(.body | contains("Fleet review")) | .state' \
+              | tail -n 1)
             [ "$state" = "CHANGES_REQUESTED" ] \
               || stop "the last fleet verdict on #$pr is ${state:-none}, so there is nothing to answer"
           fi
@@ -209,9 +215,15 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          # `wc -l`, not `| length` inside the filter: see the same fix in
+          # `about`. This one did not fail quietly -- run 34809724830 put
+          # "6\n1" into `$rounds`, `[ -lt ]` said "integer expression
+          # expected", and the multi-line value broke `$GITHUB_OUTPUT`. The
+          # responder was dead on this pull request until it was fixed.
           rounds=$(gh api "repos/$REPO/pulls/$PR/reviews" --paginate \
-            --jq '[.[] | select(.state == "CHANGES_REQUESTED")
-                       | select(.body | contains("Fleet review"))] | length')
+            --jq '.[] | select(.state == "CHANGES_REQUESTED")
+                      | select(.body | contains("Fleet review")) | .id' \
+            | wc -l)
           echo "count=$rounds" >> "$GITHUB_OUTPUT"
 
           if [ "$rounds" -lt 3 ]; then
