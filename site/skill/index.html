@@ -49,6 +49,7 @@
   }
   input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
   code, .mono { font-family: ui-monospace, "DejaVu Sans Mono", monospace; font-size: .9em; }
+  #endpoint { font-size: .74rem; }
   button {
     margin-top: 2rem; padding: .7rem 1.4rem; font: inherit; font-weight: 600;
     background: var(--accent); color: var(--bg); border: 0; border-radius: .3rem;
@@ -56,11 +57,11 @@
   }
   button:disabled { opacity: .45; cursor: not-allowed; }
   .note {
-    margin-top: 2.5rem; padding: 1rem 1.2rem; border-left: 3px solid var(--line);
+    margin-top: 1.75rem; padding: 1rem 1.2rem; border-left: 3px solid var(--line);
     color: var(--dim); font-size: .92rem;
   }
   .note strong { color: var(--fg); }
-  #status { margin-top: 1rem; min-height: 1.5em; font-size: .92rem; }
+  #status { margin-top: .75rem; min-height: 1.5em; font-size: .92rem; }
   #status.bad { color: #c0392b; }
   a { color: inherit; }
 </style>
@@ -70,26 +71,30 @@
   <h1>Notes inbox — skill generator</h1>
   <p class="lede">
     Makes a Claude skill that lets a note-taking session file notes to the
-    book. Fill in the two values, download the zip, add it to that session.
+    book. Give it the inbox and its token, download the zip, and add it to
+    that session.
   </p>
 
   <form id="form">
     <label for="endpoint">Inbox URL
-      <span class="hint">The worker's address, ending in <code>.workers.dev</code>. The
-        deploy's summary links here with it already filled in.</span>
+      <span class="hint" id="endpoint-hint">The worker's address, ending in
+        <code>.workers.dev</code>. The deploy's run summary links to this page
+        with it already filled in, so arriving from there you can skip it.</span>
     </label>
     <input id="endpoint" class="mono" type="url" required spellcheck="false"
            placeholder="https://notes-intake.your-subdomain.workers.dev"
            autocomplete="off">
 
     <label for="token">Intake token
-      <span class="hint">The value of <code>NOTES_INTAKE_TOKEN</code>.</span>
+      <span class="hint">The value of <code>NOTES_INTAKE_TOKEN</code>. Hidden as
+        you type, so a screenshot of this page does not carry it.</span>
     </label>
     <input id="token" class="mono" type="password" required spellcheck="false"
            placeholder="the long random string" autocomplete="off">
 
     <label for="book">What the notes are for
-      <span class="hint">One line, so the skill knows when it applies.</span>
+      <span class="hint">One line, so the skill knows when it applies. The
+        default is right unless you are pointing this at something else.</span>
     </label>
     <input id="book" type="text" value="a book about software, written in Typst"
            autocomplete="off">
@@ -308,6 +313,11 @@ if (form) {
   const given = new URLSearchParams(location.search).get("inbox");
   if (given && /^https:\/\//.test(given)) {
     document.getElementById("endpoint").value = given.trim().replace(/\/+$/, "");
+    // The hint below the field explains where the address comes from, which
+    // is a question the reader no longer has once it is in the box. Saying
+    // who filled it is the useful thing at that point.
+    document.getElementById("endpoint-hint").textContent =
+      "Filled in from the deploy that created the worker. Change it if that is not the inbox you mean.";
   }
 }
 
