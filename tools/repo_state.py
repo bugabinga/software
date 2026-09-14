@@ -105,10 +105,12 @@ def fetch(path: str) -> Any | None:
 
 
 # The eight fields GitHub removes from the repository object it hands a
-# `contents: read` workflow token, rather than reporting them. Measured, on
-# run 103821744889: arming this check in CI turned these eight from matching
-# into disagreeing, because an absent key and a null one look identical
-# through `.get()`.
+# `contents: read` workflow token, rather than reporting them. Measured
+# rather than reasoned about: run 34793557043's Check step reported exactly
+# these eight unread and every other declared field compared, and a session
+# token holding more gets all fifteen back. Before the check distinguished
+# the two, an absent key and a null one looked identical through `.get()`,
+# so arming this in CI turned these eight from matching into disagreeing.
 #
 # Named rather than inferred from absence, and that is the point. "Any key
 # the document does not carry is unread" would also swallow `has_wikis` for
