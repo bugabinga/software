@@ -21,9 +21,10 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import unittest
 from dataclasses import dataclass
 
-from fleetlib import api, gh, notice, output, paged
+from fleetlib import api, gh, notice, output, paged, run_tests
 
 # Three rounds, then the author. Two agents that disagree three times are not
 # converging, and a fourth round is the same money for the same answer.
@@ -77,29 +78,53 @@ def round_of(verdicts: list[str]) -> int:
     return sum(1 for state in verdicts if state == "CHANGES_REQUESTED")
 
 
-def self_test() -> int:
-    assert not decide(event="workflow_run", pr=None).proceed
-    assert not decide(event="workflow_run", pr=7, draft=True).proceed
-    # The wake that means "the reviewer finished", not "the reviewer objected".
-    assert not decide(event="workflow_run", pr=7, last_verdict="APPROVED").proceed
-    assert not decide(event="workflow_run", pr=7, last_verdict="").proceed
-    assert decide(event="workflow_run", pr=7, last_verdict="CHANGES_REQUESTED").proceed
-    # A review event carries its own verdict, so it is not re-checked.
-    assert decide(event="pull_request_review", pr=7).proceed
-    # A draft is a draft whatever woke this.
-    assert not decide(event="pull_request_review", pr=7, draft=True).proceed
-    # The pull request number survives a stop, because the record step needs it.
-    assert decide(event="workflow_run", pr=7, draft=True).pr == 7
+class Answerable(unittest.TestCase):
+    """Is there a fleet verdict here waiting to be answered?"""
 
-    assert round_of([]) == 0
-    assert round_of(["CHANGES_REQUESTED"]) == 1
-    assert round_of(["CHANGES_REQUESTED", "COMMENTED", "CHANGES_REQUESTED"]) == 2
-    # 101 reviews is where the old aggregate broke. Counting is counting.
-    assert round_of(["CHANGES_REQUESTED"] * 101) == 101
-    assert round_of(["COMMENTED"] * 200) == 0
+    def test_no_pull_request(self) -> None:
+        self.assertFalse(decide(event="workflow_run", pr=None).proceed)
 
-    print("respond: seven answerability cases, and a count that survives 101")
-    return 0
+    def test_a_draft_is_a_draft_whatever_woke_this(self) -> None:
+        for event in ("workflow_run", "pull_request_review"):
+            with self.subTest(event=event):
+                self.assertFalse(decide(event=event, pr=7, draft=True).proceed)
+
+    def test_finishing_is_not_objecting(self) -> None:
+        # A `workflow_run` wake means the reviewer finished. Only a
+        # changes-requested verdict is something to answer.
+        for verdict in ("APPROVED", "COMMENTED", ""):
+            with self.subTest(verdict=verdict):
+                self.assertFalse(
+                    decide(event="workflow_run", pr=7, last_verdict=verdict).proceed
+                )
+        self.assertTrue(
+            decide(event="workflow_run", pr=7, last_verdict="CHANGES_REQUESTED").proceed
+        )
+
+    def test_a_review_event_carries_its_own_verdict(self) -> None:
+        self.assertTrue(decide(event="pull_request_review", pr=7).proceed)
+
+    def test_the_number_survives_a_stop(self) -> None:
+        # The record step needs it even when nothing is answered.
+        self.assertEqual(decide(event="workflow_run", pr=7, draft=True).pr, 7)
+
+
+class Rounds(unittest.TestCase):
+    """The count that decides when the fleet stops and asks the author."""
+
+    def test_counting(self) -> None:
+        for verdicts, want in (
+            ([], 0),
+            (["CHANGES_REQUESTED"], 1),
+            (["CHANGES_REQUESTED", "COMMENTED", "CHANGES_REQUESTED"], 2),
+            (["COMMENTED"] * 200, 0),
+        ):
+            with self.subTest(n=len(verdicts)):
+                self.assertEqual(round_of(verdicts), want)
+
+    def test_it_survives_a_second_page(self) -> None:
+        # 101 is where the old `--paginate` aggregate answered "6\n1".
+        self.assertEqual(round_of(["CHANGES_REQUESTED"] * 101), 101)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -112,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
     repo = arguments.repo
     if not repo:
         parser.error("a repository is required")

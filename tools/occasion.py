@@ -20,10 +20,11 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import unittest
 from dataclasses import dataclass
 from pathlib import Path
 
-from fleetlib import notice, output
+from fleetlib import notice, output, run_tests
 
 # Label -> trigger. `tools/triage.py` routes unlabelled issues to one of
 # these, so the two must agree; `--self-test` checks that they do.
@@ -101,60 +102,81 @@ def decide(
     return Occasion(problem=f"no routing for event {event!r}")
 
 
-def self_test() -> int:
-    assert decide("workflow_dispatch").trigger == "on-demand"
+class Routing(unittest.TestCase):
+    """Which occasion woke the workflow, from the event it carries."""
 
-    assert decide("issues", label="fleet:task", issue="7").trigger == "issue-task"
-    assert decide("issues", label="fleet:task", issue="7").issue == "7"
-    assert decide("issues", label="fleet:material").trigger == "issue-material"
-    # A label the fleet does not act on is quiet, not red: `hold`, `chore` and
-    # `fleet:running` all reach this workflow.
-    for label in ("hold", "chore", "fleet:running", ""):
-        got = decide("issues", label=label)
-        assert got.trigger == "" and got.problem == "", label
+    def test_a_dispatch_is_on_demand(self) -> None:
+        self.assertEqual(decide("workflow_dispatch").trigger, "on-demand")
 
-    assert decide("schedule", cron="0 7 * * 1").trigger == "weekly-garden"
-    assert decide("schedule", cron="0 8 1 * *").trigger == "monthly-prose"
-    # An unmapped cron is a schedule added without a brief. Loud.
-    assert decide("schedule", cron="0 0 * * *").problem
+    def test_a_routing_label_routes(self) -> None:
+        for label, want in BY_LABEL.items():
+            with self.subTest(label=label):
+                self.assertEqual(decide("issues", label=label, issue="7").trigger, want)
+        self.assertEqual(decide("issues", label="fleet:task", issue="7").issue, "7")
 
-    # Notes beat chapters when a push carries both.
-    both = ("notes/2026-01-01.md", "book/chapters/01-x.typ")
-    assert decide("push", changed=both).trigger == "notes-arrived"
-    assert decide("push", changed=both).changed == "notes/2026-01-01.md"
-    # The generated index is not new material, and neither is a raw capture.
-    assert decide("push", changed=("notes/index.md",)).trigger == ""
-    assert decide("push", changed=("notes/raw/x.html",)).trigger == ""
-    assert (
-        decide("push", changed=("notes/index.md", "book/chapters/a.typ")).trigger
-        == "chapters-changed"
-    )
-    assert decide("push", changed=("README.md",)).trigger == ""
+    def test_any_other_label_is_quiet_not_red(self) -> None:
+        # `hold`, `chore` and `fleet:running` all reach this workflow, and
+        # `triage.yml` is what answers an issue nothing routes.
+        for label in ("hold", "chore", "fleet:running", ""):
+            with self.subTest(label=label):
+                got = decide("issues", label=label)
+                self.assertEqual(got.trigger, "")
+                self.assertEqual(got.problem, "")
 
-    assert decide("deployment_status").problem
+    def test_a_mapped_cron_routes(self) -> None:
+        for cron, want in BY_CRON.items():
+            with self.subTest(cron=cron):
+                self.assertEqual(decide("schedule", cron=cron).trigger, want)
 
-    # Every trigger this can produce must have a brief, and every label
-    # `triage.py` applies must route here. Two files, one agreement.
-    import triage  # noqa: PLC0415 - the check is the point
+    def test_an_unmapped_cron_is_loud(self) -> None:
+        # A schedule somebody added without a brief is a failure, not a shrug.
+        self.assertTrue(decide("schedule", cron="0 0 * * *").problem)
+        self.assertTrue(decide("deployment_status").problem)
 
-    assert set(triage.ROUTING) == set(BY_LABEL), (triage.ROUTING, BY_LABEL)
 
-    fleet_dir = Path(__file__).resolve().parent.parent / ".claude" / "fleet"
-    briefs = {brief.stem for brief in fleet_dir.glob("*.md")}
-    produced = {
-        "on-demand",
-        *BY_LABEL.values(),
-        *BY_CRON.values(),
-        "notes-arrived",
-        "chapters-changed",
-    }
-    missing = produced - briefs
-    assert not missing, f"triggers with no brief: {missing}"
+class Pushes(unittest.TestCase):
+    """What a push changed, and which beat wins when it changed both."""
 
-    print(
-        f"occasion: {len(produced)} triggers, all with briefs, labels agree with triage"
-    )
-    return 0
+    def test_notes_beat_chapters(self) -> None:
+        both = ("notes/2026-01-01.md", "book/chapters/01-x.typ")
+        self.assertEqual(decide("push", changed=both).trigger, "notes-arrived")
+        self.assertEqual(decide("push", changed=both).changed, "notes/2026-01-01.md")
+
+    def test_generated_and_raw_are_not_material(self) -> None:
+        for path in ("notes/index.md", "notes/raw/x.html"):
+            with self.subTest(path=path):
+                self.assertEqual(decide("push", changed=(path,)).trigger, "")
+
+    def test_chapters_alone(self) -> None:
+        self.assertEqual(
+            decide("push", changed=("notes/index.md", "book/chapters/a.typ")).trigger,
+            "chapters-changed",
+        )
+
+    def test_anything_else_is_nothing(self) -> None:
+        self.assertEqual(decide("push", changed=("README.md",)).trigger, "")
+
+
+class AgreesWithTheTree(unittest.TestCase):
+    """Two agreements no single file can hold on its own."""
+
+    def test_every_trigger_has_a_brief(self) -> None:
+        fleet_dir = Path(__file__).resolve().parent.parent / ".claude" / "fleet"
+        briefs = {brief.stem for brief in fleet_dir.glob("*.md")}
+        produced = {
+            "on-demand",
+            *BY_LABEL.values(),
+            *BY_CRON.values(),
+            "notes-arrived",
+            "chapters-changed",
+        }
+        self.assertEqual(produced - briefs, set())
+
+    def test_labels_match_triage(self) -> None:
+        # Drift here is an issue that triage labels and no brief answers.
+        import triage  # noqa: PLC0415 - the cross-check is the point
+
+        self.assertEqual(set(triage.ROUTING), set(BY_LABEL))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -170,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
 
     changed = tuple(p for p in arguments.changed.splitlines() if p.strip())
     if not changed and arguments.before and arguments.sha:

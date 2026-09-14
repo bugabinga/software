@@ -25,10 +25,11 @@ import os
 import re
 import sys
 import time
+import unittest
 from dataclasses import dataclass, field, replace
 from typing import Any
 
-from fleetlib import api, gh, notice, paged, warn
+from fleetlib import api, gh, notice, paged, run_tests, warn
 
 # The one thing the fleet does not merge for itself. A change under these
 # prefixes is the automation deciding its own future, and an agent that can
@@ -41,6 +42,8 @@ PROTECTED = re.compile(r"^(\.github/|\.claude/)")
 SETTLED = {"success", "neutral", "skipped"}
 
 # This workflow's own checks, which cannot be waited on from inside itself.
+GREEN_CI = (("CI", "completed", "success"),)
+
 OWN_CHECKS = {"Merge green chores", "Open the pull request", "Agent branches"}
 
 
@@ -381,88 +384,76 @@ def close_finished(repo: str) -> int:
     return 0
 
 
-def self_test() -> int:
-    """`decide`, against every shape it has been wrong about."""
-    green = (("CI", "completed", "success"),)
-    base = Branch(
-        name="agent/x", ahead_by=1, files=("book/a.typ",), checks=green, pull=7
+class Earned(unittest.TestCase):
+    """What a green agent branch has earned. Both old faults are cases."""
+
+    GREEN = (("CI", "completed", "success"),)
+    BASE = Branch(
+        name="agent/x",
+        ahead_by=1,
+        files=("book/a.typ",),
+        checks=(("CI", "completed", "success"),),
+        pull=7,
     )
 
-    cases: list[tuple[str, str, dict[str, Any]]] = [
-        # The happy path, and the two the shell version got wrong.
-        ("green book change merges", "merge", {}),
-        # A branch created before main moved on is diverged, which is normal.
-        # Only "not ahead" means there is nothing left to give.
-        ("not ahead", "leave", {"ahead_by": 0}),
-        # Squash merging leaves the branch holding its own commits, so it
-        # stays ahead forever. `agent-branches.yml` once raised review issues
-        # for branches whose work was already in main.
-        ("already merged", "leave", {"merged_before": True}),
-        # Zero checks is not green. A GITHUB_TOKEN push starts no runs at all.
-        ("no checks at all", "wait", {"checks": ()}),
-        # CI by name, not "some check passed".
-        (
-            "only an unrelated check",
-            "wait",
-            {"checks": (("prose-scan", "completed", "success"),)},
-        ),
-        ("CI still running", "wait", {"checks": (("CI", "in_progress", "pending"),)}),
-        ("CI failed", "leave", {"checks": (("CI", "completed", "failure"),)}),
-        (
-            "CI green, another red",
-            "leave",
-            {"checks": (*green, ("prose-scan", "completed", "failure"))},
-        ),
-        # neutral and skipped are settled, not pending.
-        (
-            "skipped checks are green",
-            "merge",
-            {"checks": (*green, ("Fleet respond", "completed", "skipped"))},
-        ),
-        # The automation supervising itself.
-        (
-            "workflow change with a pull request",
-            "leave",
-            {"files": (".github/workflows/ci.yml",)},
-        ),
-        (
-            "workflow change with no pull request",
-            "raise",
-            {"files": (".github/workflows/ci.yml",), "pull": None},
-        ),
-        (
-            "brief change is protected too",
-            "raise",
-            {"files": (".claude/agents/prose-editor.md",), "pull": None},
-        ),
-        (
-            "one protected file among many is enough",
-            "leave",
-            {"files": ("book/a.typ", ".claude/x.md")},
-        ),
-        # The brakes.
-        ("hold label", "leave", {"held": True}),
-        ("[hold] in the subject", "leave", {"subject": "wip [hold] not yet"}),
-        ("conflicts with main", "leave", {"mergeable_state": "dirty"}),
-        ("green but nothing to merge into", "leave", {"pull": None}),
-        ("no files", "leave", {"files": ()}),
-    ]
+    def outcome(self, **over: object) -> str:
+        return decide(replace(self.BASE, **over)).action
 
-    for name, want, override in cases:
-        got = decide(replace(base, **override))
-        assert got.action == want, (
-            f"{name}: wanted {want}, got {got.action} ({got.why})"
-        )
+    def test_a_green_book_change_merges(self) -> None:
+        self.assertEqual(self.outcome(), "merge")
 
-    # The body is the only pure part of the two new subcommands, and the
-    # part a human reads.
-    body = pr_body("agent/x", ("first", "second"), ("book/a.typ",))
-    assert "- first" in body and "- second" in body
-    assert "| `book/a.typ` |" in body
+    def test_diverged_is_normal_only_not_ahead_is_done(self) -> None:
+        # Testing for `diverged` is what skipped the fleet's first delivery:
+        # it is the state of any branch created before main moved on.
+        self.assertEqual(self.outcome(ahead_by=0), "leave")
 
-    actions = sorted({want for _, want, _ in cases})
-    print(f"agent_branch: {len(cases)} cases over {', '.join(actions)}")
-    return 0
+    def test_a_squash_merged_branch_stays_ahead_forever(self) -> None:
+        self.assertEqual(self.outcome(merged_before=True), "leave")
+
+    def test_green_means_ci_by_name(self) -> None:
+        # Zero checks is not green: a GITHUB_TOKEN push starts no runs at
+        # all, and `agent/typst-0.15.1` had exactly none.
+        for checks, want in (
+            ((), "wait"),
+            ((("prose-scan", "completed", "success"),), "wait"),
+            ((("CI", "in_progress", "pending"),), "wait"),
+            ((("CI", "completed", "failure"),), "leave"),
+            ((*GREEN_CI, ("prose-scan", "completed", "failure")), "leave"),
+            ((*GREEN_CI, ("Fleet respond", "completed", "skipped")), "merge"),
+        ):
+            with self.subTest(checks=checks):
+                self.assertEqual(self.outcome(checks=checks), want)
+
+    def test_the_automation_supervises_itself(self) -> None:
+        for files, pull, want in (
+            ((".github/workflows/ci.yml",), 7, "leave"),
+            ((".github/workflows/ci.yml",), None, "raise"),
+            ((".claude/agents/prose-editor.md",), None, "raise"),
+            (("book/a.typ", ".claude/x.md"), 7, "leave"),
+        ):
+            with self.subTest(files=files, pull=pull):
+                self.assertEqual(self.outcome(files=files, pull=pull), want)
+
+    def test_the_brakes(self) -> None:
+        for over in (
+            {"held": True},
+            {"subject": "wip [hold] not yet"},
+            {"mergeable_state": "dirty"},
+            {"pull": None},
+            {"files": ()},
+        ):
+            with self.subTest(over=over):
+                self.assertEqual(self.outcome(**over), "leave")
+
+
+class PullRequestBody(unittest.TestCase):
+    """The only pure part of the two subcommands, and what a human reads."""
+
+    def test_it_carries_the_log_and_the_files(self) -> None:
+        body = pr_body("agent/x", ("first", "second"), ("book/a.typ",))
+        self.assertIn("- first", body)
+        self.assertIn("- second", body)
+        self.assertIn("| `book/a.typ` |", body)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -490,7 +481,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
     if not arguments.repo:
         parser.error("a repository is required")
     if arguments.close_finished:

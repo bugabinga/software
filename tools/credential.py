@@ -21,9 +21,10 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import unittest
 from pathlib import Path
 
-from fleetlib import notice, output, warn
+from fleetlib import notice, output, run_tests, warn
 
 
 def tidy(raw: str | None) -> str:
@@ -86,33 +87,53 @@ def export(oauth: str, api_key: str, present: bool) -> None:
     output("present", "true" if present else "false")
 
 
-def self_test() -> int:
-    assert tidy(None) == ""
-    assert tidy("") == ""
-    assert tidy("  ") == ""
-    assert tidy("sk-abc") == "sk-abc"
-    # The fault this exists for: a line break inside the pasted value.
-    assert tidy("sk-abc\ndef") == "sk-abcdef"
-    assert tidy("\nsk-abc\n") == "sk-abc"
-    assert tidy("sk abc\tdef\r\n") == "skabcdef"
+class Tidying(unittest.TestCase):
+    """What a secret has to survive on the way in."""
 
-    # OAuth wins when both are set, and absence is reported, not guessed.
-    assert report("oauth", "key")[0] == "oauth"
-    assert report("oauth", "key")[2] is True
-    assert report(None, "key")[1] == "key"
-    assert report(None, "key")[2] is True
-    assert report(None, None)[2] is False
-    assert report("  ", "")[2] is False, "whitespace is not a credential"
+    def test_nothing_is_not_a_credential(self) -> None:
+        for raw in (None, "", "  ", "\n\t "):
+            with self.subTest(raw=raw):
+                self.assertEqual(tidy(raw), "")
 
-    print("credential: tidying, precedence, and absence all check out")
-    return 0
+    def test_whitespace_anywhere_comes_out(self) -> None:
+        # The fault this exists for: a value pasted from a wrapped terminal
+        # carries an interior newline, and the action then fails in 38ms
+        # having called no model, with nothing in the log naming the cause.
+        for raw, want in (
+            ("sk-abc", "sk-abc"),
+            ("sk-abc\ndef", "sk-abcdef"),
+            ("\nsk-abc\n", "sk-abc"),
+            ("sk abc\tdef\r\n", "skabcdef"),
+        ):
+            with self.subTest(raw=raw):
+                self.assertEqual(tidy(raw), want)
+
+
+class Precedence(unittest.TestCase):
+    """Which credential wins, and what absence looks like."""
+
+    def test_oauth_wins_when_both_are_set(self) -> None:
+        oauth, _, present = report("oauth", "key")
+        self.assertEqual(oauth, "oauth")
+        self.assertTrue(present)
+
+    def test_api_key_is_the_fallback(self) -> None:
+        _, key, present = report(None, "key")
+        self.assertEqual(key, "key")
+        self.assertTrue(present)
+
+    def test_absence_is_reported_not_guessed(self) -> None:
+        self.assertFalse(report(None, None)[2])
+
+    def test_whitespace_is_not_a_credential(self) -> None:
+        self.assertFalse(report("  ", "")[2])
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-test", action="store_true")
     if parser.parse_args(argv).self_test:
-        return self_test()
+        return run_tests()
 
     oauth, api_key, present = report(
         os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"),

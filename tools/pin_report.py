@@ -23,9 +23,11 @@ import argparse
 import shutil
 import subprocess
 import sys
+import unittest
 from dataclasses import dataclass
+from typing import ClassVar
 
-from fleetlib import notice, output, summary
+from fleetlib import notice, output, run_tests, summary
 from pinned import pins
 
 UNRESOLVED = "?"
@@ -79,37 +81,44 @@ def latest(tool: str) -> str:
     return done.stdout.strip() or UNRESOLVED
 
 
-def self_test() -> int:
-    rows = [
+class States(unittest.TestCase):
+    """Behind, current, and the one the shell version conflated with behind."""
+
+    ROWS: ClassVar[list[Pin]] = [
         Pin("typst", "0.15.0", "0.15.1"),
         Pin("gh", "2.63.2", "2.63.2"),
         Pin("typos", "1.28.1", UNRESOLVED),
         Pin("shfmt", "3.10.0", ""),
     ]
-    assert [r.behind for r in rows] == [True, False, False, False]
-    # Unresolved is not behind. Reporting a tool as behind because mise could
-    # not reach its release page is how a report trains its reader to skim.
-    assert rows[2].state == "mise could not resolve it"
-    assert rows[3].state == "mise could not resolve it"
 
-    rendered = table(rows)
-    assert "1 behind." in rendered
-    assert "| `typst` | 0.15.0 | 0.15.1 | **behind** |" in rendered
-    # Every pin in the manifest reaches the table -- the row that was silently
-    # missing before is the whole reason this is a program.
-    assert len(rendered.splitlines()) == len(rows) + 6
+    def test_only_a_known_newer_version_is_behind(self) -> None:
+        self.assertEqual([r.behind for r in self.ROWS], [True, False, False, False])
 
-    every = pins()
-    assert "typst" in every, "the manifest is the roster"
-    print(f"pin_report: {len(every)} pins in the manifest, four states covered")
-    return 0
+    def test_unresolved_is_not_behind(self) -> None:
+        # Reporting a tool as behind because a release page was unreachable
+        # is how a weekly report teaches its reader to skim it.
+        for row in self.ROWS[2:]:
+            with self.subTest(latest=row.latest):
+                self.assertEqual(row.state, "mise could not resolve it")
+
+
+class Table(unittest.TestCase):
+    def test_every_pin_reaches_it(self) -> None:
+        rendered = table(States.ROWS)
+        self.assertIn("1 behind.", rendered)
+        self.assertIn("| `typst` | 0.15.0 | 0.15.1 | **behind** |", rendered)
+        # The row silently missing before is the whole reason this is a program.
+        self.assertEqual(len(rendered.splitlines()), len(States.ROWS) + 6)
+
+    def test_the_manifest_is_the_roster(self) -> None:
+        self.assertIn("typst", pins())
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-test", action="store_true")
     if parser.parse_args(argv).self_test:
-        return self_test()
+        return run_tests()
 
     rows = [Pin(tool, pinned, latest(tool)) for tool, pinned in sorted(pins().items())]
     summary(table(rows))

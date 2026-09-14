@@ -24,10 +24,11 @@ import argparse
 import json
 import os
 import sys
+import unittest
 from pathlib import Path
 from typing import Any
 
-from fleetlib import api, gh, notice, output, warn
+from fleetlib import api, gh, notice, output, run_tests, warn
 
 # The labels that route. `fleet.yml`'s occasion router maps exactly these two
 # to a trigger; anything else it prints a notice about and exits 0.
@@ -136,41 +137,58 @@ def apply(repo: str, issue: int, verdict: dict[str, Any], agent: str = "") -> in
     return 0
 
 
-def self_test() -> int:
-    # Mechanical half: what routes and what does not.
-    assert needs_triage([])
-    assert needs_triage(["bug"])
-    # A state label is not a route. This is the case that made the hole
-    # visible: the fleet marks an issue running and nothing routes it.
-    assert needs_triage(["fleet:running"])
-    assert needs_triage(["fleet:blocked", "hold"])
-    assert not needs_triage(["fleet:task"])
-    assert not needs_triage(["fleet:material"])
-    assert not needs_triage(["bug", "fleet:task"])
+class NeedsTriage(unittest.TestCase):
+    """Does anything on this issue route it anywhere?"""
 
-    # Every state label must be absent from the routing set, or an issue the
-    # fleet marked would look routed.
-    assert not (FLEET_STATE & ROUTING)
+    def test_nothing_routing_needs_triage(self) -> None:
+        for labels in ([], ["bug"], ["fleet:running"], ["fleet:blocked", "hold"]):
+            with self.subTest(labels=labels):
+                self.assertTrue(needs_triage(labels))
 
-    # Judgement half: a verdict is trusted only when it is well formed.
-    assert verdict_route({"route": "task", "why": "asks for a chapter"})[0] == "task"
-    assert verdict_route({"route": "close", "why": "spam"})[0] == "close"
-    # The failures all land on `human`, never on `close`: a malformed verdict
-    # closing somebody's issue is the worst outcome this program can have.
-    assert verdict_route({})[0] == "human"
-    assert verdict_route({"route": "delete", "why": "x"})[0] == "human"
-    assert verdict_route({"route": "close"})[0] == "human", "no reason, no close"
-    assert verdict_route({"route": "task", "why": "   "})[0] == "human"
-    # A reason spanning lines is flattened: it goes into a comment body and a
-    # label call, and a stray newline has broken both before.
-    assert "\n" not in verdict_route({"route": "task", "why": "a\nb"})[1]
+    def test_a_routing_label_is_enough(self) -> None:
+        for labels in (["fleet:task"], ["fleet:material"], ["bug", "fleet:task"]):
+            with self.subTest(labels=labels):
+                self.assertFalse(needs_triage(labels))
 
-    assert label_for("material") == "fleet:material"
-    assert label_for("task") == "fleet:task"
-    assert label_for("close") is None
+    def test_a_state_label_is_not_a_route(self) -> None:
+        # The case that made the hole visible: the fleet marks an issue
+        # running and nothing ever routes it.
+        self.assertEqual(FLEET_STATE & ROUTING, set())
 
-    print("triage: routing, state labels, and eight verdict shapes check out")
-    return 0
+
+class Verdicts(unittest.TestCase):
+    """A verdict is trusted only when it is well formed."""
+
+    def test_a_good_verdict_routes(self) -> None:
+        for route in ("task", "close", "material", "human"):
+            with self.subTest(route=route):
+                self.assertEqual(
+                    verdict_route({"route": route, "why": "because"})[0], route
+                )
+
+    def test_every_failure_lands_on_human(self) -> None:
+        # Never on `close`. A malformed answer shutting somebody's issue is
+        # the worst outcome this program can have.
+        for data in (
+            {},
+            {"route": "delete", "why": "x"},
+            {"route": "close"},
+            {"route": "task", "why": "   "},
+        ):
+            with self.subTest(data=data):
+                self.assertEqual(verdict_route(data)[0], "human")
+
+    def test_a_reason_is_flattened(self) -> None:
+        # It goes into a comment body and a label call, and a stray newline
+        # has broken both before.
+        self.assertNotIn("\n", verdict_route({"route": "task", "why": "a\nb"})[1])
+
+
+class Labels(unittest.TestCase):
+    def test_only_routes_have_labels(self) -> None:
+        self.assertEqual(label_for("material"), "fleet:material")
+        self.assertEqual(label_for("task"), "fleet:task")
+        self.assertIsNone(label_for("close"))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -185,7 +203,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
     if not (arguments.issue and arguments.repo):
         parser.error("--issue and a repository are required")
 

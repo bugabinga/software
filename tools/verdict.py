@@ -26,10 +26,11 @@ import argparse
 import json
 import subprocess
 import sys
+import unittest
 from pathlib import Path
 from typing import Any
 
-from fleetlib import fail, notice, summary
+from fleetlib import fail, notice, run_tests, summary
 
 SELF = ".github/workflows/fleet-review.yml"
 
@@ -69,36 +70,46 @@ def edits_itself() -> bool:
     return done.returncode != 0
 
 
-def self_test() -> int:
-    passed, text = report({"verdict": "pass", "summary": "  every citation holds  "})
-    assert passed
-    assert "every citation holds" in text
-    assert "_No findings._" in text
+class Rendering(unittest.TestCase):
+    """The summary a human reads, and the shapes that shear its table."""
 
-    failed, text = report(
-        {
-            "verdict": "fail",
-            "summary": "two claims do not survive the files they name",
-            "findings": [{"where": "a.py:1", "what": "wrong", "why": "measured"}],
-        }
-    )
-    assert not failed
-    assert "| `a.py:1` | wrong | measured |" in text
+    def test_a_pass_reads_as_one(self) -> None:
+        passed, text = report(
+            {"verdict": "pass", "summary": "  every citation holds  "}
+        )
+        self.assertTrue(passed)
+        self.assertIn("every citation holds", text)
+        self.assertIn("_No findings._", text)
 
-    # A pipe in a finding would end the cell and shear the table.
-    _, text = report({"verdict": "fail", "findings": [{"what": "a | b"}]})
-    assert r"a \| b" in text
-    # So would a newline.
-    _, text = report({"verdict": "fail", "findings": [{"why": "one\ntwo"}]})
-    assert "| one two |" in text
+    def test_findings_become_rows(self) -> None:
+        failed, text = report(
+            {
+                "verdict": "fail",
+                "summary": "two claims do not survive the files they name",
+                "findings": [{"where": "a.py:1", "what": "wrong", "why": "measured"}],
+            }
+        )
+        self.assertFalse(failed)
+        self.assertIn("| `a.py:1` | wrong | measured |", text)
 
-    # Anything that is not the word `pass` fails. An empty object is not a
-    # pass, a missing verdict is not a pass, and neither is "passed".
-    for data in ({}, {"verdict": ""}, {"verdict": "passed"}, {"verdict": None}):
-        assert not report(data)[0], data
+    def test_a_cell_cannot_break_the_table(self) -> None:
+        # A pipe would end the cell; a newline would end the row.
+        _, piped = report({"verdict": "fail", "findings": [{"what": "a | b"}]})
+        self.assertIn(r"a \| b", piped)
+        _, wrapped = report({"verdict": "fail", "findings": [{"why": "one\ntwo"}]})
+        self.assertIn("| one two |", wrapped)
 
-    print("verdict: five renderings, and only the word `pass` passes")
-    return 0
+
+class OnlyPassPasses(unittest.TestCase):
+    """This exit code decides whether a pull request may merge."""
+
+    def test_anything_else_fails(self) -> None:
+        for data in ({}, {"verdict": ""}, {"verdict": "passed"}, {"verdict": None}):
+            with self.subTest(data=data):
+                self.assertFalse(report(data)[0])
+
+    def test_the_word_itself(self) -> None:
+        self.assertTrue(report({"verdict": "pass"})[0])
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -108,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
 
     if edits_itself():
         notice(

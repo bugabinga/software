@@ -19,12 +19,13 @@ from __future__ import annotations
 
 import argparse
 import sys
+import unittest
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import quote
 
 import tomllib
-from fleetlib import api, gh, notice
+from fleetlib import api, gh, notice, run_tests
 
 ROSTER = Path(__file__).resolve().parent.parent / ".github" / "labels.toml"
 
@@ -53,40 +54,67 @@ def changed(want: dict[str, str], have: dict[str, Any]) -> bool:
     )
 
 
-def self_test() -> int:
-    rows = read(
+class Roster(unittest.TestCase):
+    """The roster, read by a parser rather than by four regexes."""
+
+    FIXTURE = (
         '[[label]]\nname = "fleet:task"\ncolor = "1d76db"\n'
         'description = "Work asked of the fleet."\n'
         '[[label]]\nname = "hold"\ncolor = "b60205"\n'
         'description = """\nA description over more than one line, which the\n'
         'regexes this replaces could not read at all.\n"""\n'
     )
-    assert [r["name"] for r in rows] == ["fleet:task", "hold"]
-    assert rows[0]["color"] == "1d76db"
-    # The shape the hand-rolled parser dropped on the floor.
-    assert "more than one line" in rows[1]["description"]
-    assert rows[1]["color"] == "b60205"
 
-    # A colour written with a leading hash is the same colour.
-    assert read('[[label]]\nname = "x"\ncolor = "#abcdef"\n')[0]["color"] == "abcdef"
+    def test_names_and_colours(self) -> None:
+        rows = read(self.FIXTURE)
+        self.assertEqual([r["name"] for r in rows], ["fleet:task", "hold"])
+        self.assertEqual(rows[0]["color"], "1d76db")
 
-    have = {"color": "1D76DB", "description": "Work asked of the fleet."}
-    assert not changed(rows[0], have), "case is not a change"
-    assert changed(rows[0], {**have, "description": "something else"})
-    assert changed(rows[0], {**have, "color": "000000"})
-    # GitHub answers a description-less label with null, not "".
-    assert not changed(
-        {"name": "x", "color": "", "description": ""},
-        {"color": "", "description": None},
-    )
+    def test_a_multiline_description(self) -> None:
+        self.assertIn("more than one line", read(self.FIXTURE)[1]["description"])
 
-    # A name with a colon in it has to survive the URL.
-    assert quote("fleet:task", safe="") == "fleet%3Atask"
+    def test_a_leading_hash_is_the_same_colour(self) -> None:
+        rows = read('[[label]]\nname = "x"\ncolor = "#abcdef"\n')
+        self.assertEqual(rows[0]["color"], "abcdef")
 
-    every = read(ROSTER.read_text(encoding="utf-8"))
-    assert every, "the roster is not empty"
-    print(f"labels: {len(every)} in the roster, multi-line and hashed forms read")
-    return 0
+    def test_the_real_roster_parses(self) -> None:
+        self.assertTrue(read(ROSTER.read_text(encoding="utf-8")))
+
+
+class Writes(unittest.TestCase):
+    """When a label is worth a PATCH, and when it is noise in a log."""
+
+    WANT: ClassVar[dict[str, str]] = {
+        "name": "fleet:task",
+        "color": "1d76db",
+        "description": "Work asked of the fleet.",
+    }
+
+    def test_case_is_not_a_change(self) -> None:
+        self.assertFalse(
+            changed(
+                self.WANT, {"color": "1D76DB", "description": self.WANT["description"]}
+            )
+        )
+
+    def test_a_real_difference_is(self) -> None:
+        for have in (
+            {"color": "1d76db", "description": "something else"},
+            {"color": "000000", "description": self.WANT["description"]},
+        ):
+            with self.subTest(have=have):
+                self.assertTrue(changed(self.WANT, have))
+
+    def test_github_answers_null_for_no_description(self) -> None:
+        self.assertFalse(
+            changed(
+                {"name": "x", "color": "", "description": ""},
+                {"color": "", "description": None},
+            )
+        )
+
+    def test_a_colon_survives_the_url(self) -> None:
+        self.assertEqual(quote("fleet:task", safe=""), "fleet%3Atask")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -96,7 +124,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
 
     import os  # noqa: PLC0415 - only main needs the environment
 

@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import unittest
 from pathlib import Path
 from typing import Any
 
@@ -127,28 +128,54 @@ def fail(text: str) -> None:
     print(f"::error::{text}")
 
 
-def self_test() -> int:
-    with tempfile.TemporaryDirectory() as tmp:
-        out = Path(tmp) / "out"
-        os.environ["GITHUB_OUTPUT"] = str(out)
+def run_tests(module: str = "__main__") -> int:
+    """Every `unittest.TestCase` in the calling module. The one way to test.
 
-        assert output("simple", "yes")
-        assert out.read_text(encoding="utf-8") == "simple=yes\n"
+    `--self-test` is the convention -- a program proves itself when run, so
+    the cases live in the file they are about and a reviewer sees the change
+    and its evidence in one diff. This is the body of it.
 
-        # The shape that matters: a value with a newline in it must not be
-        # read back as a second key. `key=6\n1` makes `1` a line the runner
-        # rejects, which is exactly how run 34809724830 died.
-        out.write_text("", encoding="utf-8")
-        assert output("count", "6\n1")
-        text = out.read_text(encoding="utf-8")
-        assert text == "count<<COUNT_EOF\n6\n1\nCOUNT_EOF\n", repr(text)
+    `unittest` rather than bare `assert`, and rather than pytest. Bare
+    `assert` stops at the first failure, so one broken case hides the rest of
+    the file; `setUp` and `addCleanup` give the programs that need a
+    directory one without three hundred lines of scaffolding; and `subTest`
+    reports every row of a table instead of the first bad one. All of it is
+    standard library, which is what `mise.toml` promises about `tools/`.
 
+    Verbosity 1: a dot per test and a line of failures. The gates print
+    enough already.
+    """
+    loaded = unittest.defaultTestLoader.loadTestsFromModule(sys.modules[module])
+    outcome = unittest.TextTestRunner(verbosity=1).run(loaded)
+    return 0 if outcome.wasSuccessful() else 1
+
+
+class Outputs(unittest.TestCase):
+    """`output`, which is where a multi-line value goes wrong."""
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.file = Path(self.tmp.name) / "out"
+        os.environ["GITHUB_OUTPUT"] = str(self.file)
+        self.addCleanup(self.tmp.cleanup)
+        self.addCleanup(os.environ.pop, "GITHUB_OUTPUT", None)
+
+    def test_simple(self) -> None:
+        self.assertTrue(output("simple", "yes"))
+        self.assertEqual(self.file.read_text(encoding="utf-8"), "simple=yes\n")
+
+    def test_multiline_uses_the_heredoc_form(self) -> None:
+        # `key=6\n1` makes `1` a line the runner rejects. That is how run
+        # 34809724830 killed `fleet-respond`.
+        self.assertTrue(output("count", "6\n1"))
+        self.assertEqual(
+            self.file.read_text(encoding="utf-8"), "count<<COUNT_EOF\n6\n1\nCOUNT_EOF\n"
+        )
+
+    def test_off_a_runner_is_quiet(self) -> None:
         del os.environ["GITHUB_OUTPUT"]
-        assert output("nowhere", "x") is False, "no runner, no write, no crash"
-
-    print("fleetlib: outputs, multi-line outputs, and no-runner all check out")
-    return 0
+        self.assertFalse(output("nowhere", "x"), "no runner, no write, no crash")
 
 
 if __name__ == "__main__":
-    sys.exit(self_test() if "--self-test" in sys.argv[1:] else 0)
+    sys.exit(run_tests() if "--self-test" in sys.argv[1:] else 0)

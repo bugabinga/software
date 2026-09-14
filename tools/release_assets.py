@@ -18,10 +18,11 @@ import json
 import re
 import shutil
 import sys
+import unittest
 import zipfile
 from pathlib import Path
 
-from fleetlib import notice, output, summary
+from fleetlib import notice, output, run_tests, summary
 
 ROOT = Path(__file__).resolve().parent.parent
 DIST = ROOT / "dist"
@@ -45,27 +46,42 @@ def human(size: int) -> str:
     return f"{scaled:.0f} B"
 
 
-def self_test() -> int:
-    assert slug("A Book Written in Types") == "a-book-written-in-types"
-    # The shapes a title can actually take, all of which the regex meets.
-    assert slug("Software: A Memoir") == "software-a-memoir"
-    assert slug("  Leading and trailing  ") == "leading-and-trailing"
-    assert slug("Types & Values") == "types-values"
-    assert slug("C++") == "c"
-    assert slug("Über Software") == "ber-software", "non-ascii is dropped, not mangled"
-    # A slug is never empty, never starts or ends with a hyphen, and never
-    # doubles one -- each of those makes a filename somebody has to quote.
-    for title in ("A Book", "!!!", "a---b", "-x-"):
-        made = slug(title)
-        assert "--" not in made and not made.startswith("-") and not made.endswith("-")
+class Slugs(unittest.TestCase):
+    """A title as a filename. Release assets are named once."""
 
-    assert human(0) == "0 B"
-    assert human(999) == "999 B"
-    assert human(1536) == "1.5 KB"
-    assert human(5 * 1024 * 1024) == "5.0 MB"
+    def test_shapes(self) -> None:
+        for title, want in (
+            ("A Book Written in Types", "a-book-written-in-types"),
+            ("Software: A Memoir", "software-a-memoir"),
+            ("  Leading and trailing  ", "leading-and-trailing"),
+            ("Types & Values", "types-values"),
+            ("C++", "c"),
+            ("\u00dcber Software", "ber-software"),
+        ):
+            with self.subTest(title=title):
+                self.assertEqual(slug(title), want)
 
-    print("release_assets: six slug shapes, four sizes")
-    return 0
+    def test_it_is_always_a_usable_filename(self) -> None:
+        # Never doubled, never leading or trailing -- each of those makes a
+        # name somebody has to quote.
+        for title in ("A Book", "!!!", "a---b", "-x-"):
+            with self.subTest(title=title):
+                made = slug(title)
+                self.assertNotIn("--", made)
+                self.assertFalse(made.startswith("-"))
+                self.assertFalse(made.endswith("-"))
+
+
+class Sizes(unittest.TestCase):
+    def test_units(self) -> None:
+        for size, want in (
+            (0, "0 B"),
+            (999, "999 B"),
+            (1536, "1.5 KB"),
+            (5 * 1024 * 1024, "5.0 MB"),
+        ):
+            with self.subTest(size=size):
+                self.assertEqual(human(size), want)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -75,7 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
-        return self_test()
+        return run_tests()
     if not arguments.tag:
         parser.error("--tag is required")
     tag = arguments.tag
