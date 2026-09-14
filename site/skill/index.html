@@ -20,46 +20,87 @@
   the first npm dependency into the published site.
 -->
 <style>
-  /* Over the top on purpose: this page is the one moment of setting the
-     note-taker up, so it may as well be the good moment. No dependencies --
-     the published site has no npm in it and this does not change that.
+  /* ------------------------------------------------------------------ *
+     Midnight and gold.
 
-     The techniques, so the next reader does not have to work them out:
+     The rules this follows, so the next person changing it knows what
+     they are breaking:
 
-       @property     registers `--angle` as a real <angle>, which is what
-                     makes a conic gradient animatable at all. Gradients are
-                     not interpolable; a typed custom property inside one is.
-       aurora        four drifting radial blobs behind everything, blurred
-                     far past their own edges, which is the mesh-gradient
-                     look without a generator or a canvas.
-       grain         an SVG feTurbulence data URI *above* the blur. Below it
-                     the blur eats it; above it, it hides the banding that
-                     large soft gradients show on 8-bit displays.
-       glass         backdrop-filter: blur + saturate. The saturate is not
-                     decoration -- blur mutes chroma and this puts it back.
-       linear()      a spring. Sampled points of a damped oscillation, so the
-                     button overshoots and settles instead of easing.
+     PALETTE. One family, one accent, and nothing else. A deep indigo
+     ground, three violets and a rose for depth, and warm gold as the
+     single accent -- it is the button, the focus ring, the tick, the
+     stars, and nothing competes with it. The first version of this page
+     used six rainbow stops at equal weight, which is not a palette; it
+     is every colour losing an argument. Roughly 60% ground, 30%
+     structure, 10% gold.
 
-     Everything stops under `prefers-reduced-motion`, at the bottom. */
+     TYPE. Two families and a fourth (1.333) between sizes. An old-style
+     serif for display -- the same stack the book's own pages use -- and
+     a sans for anything the reader has to operate. The contrast between
+     them is the design: a storybook title over machine-plain controls.
+     Display is tracked in (-0.03em) because large type looks loose at
+     default; small caps labels are tracked out (+0.16em) because small
+     type looks tight.
+
+     SPACE. Multiples of 4px, held in --s1..--s7. No arbitrary values.
+
+     MOTION. One thing at a time. The sky drifts, the stars breathe, the
+     gold sweeps the button. Nothing else moves until it is touched, and
+     none of it moves under prefers-reduced-motion.
+
+     TECHNIQUE. @property makes --angle a real <angle>, which is what
+     lets a conic gradient animate at all. Grain sits above the
+     backdrop-filter, because below it the blur eats it. linear() is a
+     sampled spring, so things overshoot and settle.
+   * ------------------------------------------------------------------ */
 
   @property --angle {
     syntax: "<angle>";
     initial-value: 0deg;
     inherits: false;
   }
+  @property --sweep {
+    syntax: "<percentage>";
+    initial-value: -40%;
+    inherits: false;
+  }
 
   :root {
     color-scheme: dark;
-    --bg: #07060c;
-    --fg: #f4f1ea;
-    --dim: #a49fb3;
-    --field: rgba(255, 255, 255, .045);
-    --line: rgba(255, 255, 255, .11);
-    --accent: #7ef0c0;
-    --c1: #ff4d8d; --c2: #ffb347; --c3: #6ee7ff; --c4: #a78bfa;
-    --rainbow: linear-gradient(90deg,
-      var(--c1), var(--c2), #fff07a, var(--accent), var(--c3), var(--c4), var(--c1));
-    /* A damped oscillation, sampled. The button overshoots and settles. */
+
+    /* Ground and structure */
+    --night-0: #05060f;
+    --night-1: #0b0f26;
+    --night-2: #161b3f;
+    --violet:  #4c3a8c;
+    --rose:    #c65f8e;
+    --teal:    #2f7d8a;
+
+    /* The one accent */
+    --gold:      #f2c14e;
+    --gold-lit:  #ffe9a8;
+    --gold-deep: #b8862b;
+
+    /* Ink */
+    --ink:      #f4f0e4;
+    --ink-soft: #b9b3c8;
+    --ink-dim:  #7d7791;
+
+    --glass: rgba(13, 16, 40, .74);
+    --line:  rgba(244, 240, 228, .13);
+
+    --display: "Iowan Old Style", "Palatino Linotype", Palatino,
+               "Book Antiqua", Georgia, ui-serif, serif;
+    --ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+    /* A fourth between steps. */
+    --t0: .75rem; --t1: 1rem; --t2: 1.333rem; --t3: 1.777rem;
+    --t4: 2.369rem; --t5: 3.157rem;
+
+    --s1: .25rem; --s2: .5rem; --s3: .75rem; --s4: 1rem;
+    --s5: 1.5rem; --s6: 2rem; --s7: 3rem;
+
     --spring: linear(0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%,
       0.938 16.7%, 1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161,
       1.154 29.9%, 1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%,
@@ -70,157 +111,206 @@
 
   body {
     margin: 0; min-height: 100svh;
-    background: var(--bg); color: var(--fg);
-    font: 16px/1.55 ui-sans-serif, system-ui, "Segoe UI", Helvetica, sans-serif;
+    background: var(--night-0); color: var(--ink);
+    font: var(--t1)/1.6 var(--ui);
     display: grid; place-items: center;
-    padding: 2.5rem 1.1rem 4rem;
+    padding: var(--s7) var(--s4) var(--s7);
     overflow-x: hidden;
   }
 
-  /* --- the aurora ------------------------------------------------------- */
-  .sky { position: fixed; inset: -20vmax; z-index: -2; pointer-events: none; }
+  /* --- night sky ------------------------------------------------------ */
+  .sky { position: fixed; inset: -25vmax; z-index: -3; pointer-events: none; }
   .blob {
-    position: absolute; width: 65vmax; height: 65vmax; border-radius: 50%;
-    filter: blur(110px); opacity: .3; will-change: transform;
+    position: absolute; width: 70vmax; height: 70vmax; border-radius: 50%;
+    filter: blur(110px); opacity: .34; will-change: transform;
   }
-  .blob:nth-child(1) { background: var(--c1); top: 2%;  left: -8%;  animation: drift1 26s ease-in-out infinite; }
-  .blob:nth-child(2) { background: var(--c4); top: 34%; right: -12%; animation: drift2 33s ease-in-out infinite; }
-  .blob:nth-child(3) { background: var(--c3); bottom: -6%; left: 12%; animation: drift3 29s ease-in-out infinite; }
-  .blob:nth-child(4) { background: var(--c2); top: 55%; left: 38%; opacity: .18; animation: drift1 38s ease-in-out infinite reverse; }
-  @keyframes drift1 { 50% { transform: translate(16vmax, 10vmax) scale(1.3); } }
-  @keyframes drift2 { 50% { transform: translate(-14vmax, 12vmax) scale(1.15); } }
-  @keyframes drift3 { 50% { transform: translate(12vmax, -12vmax) scale(.8); } }
+  .blob:nth-child(1) { background: var(--violet); top: 0;    left: -6%;   animation: drift1 34s ease-in-out infinite; }
+  .blob:nth-child(2) { background: var(--night-2); top: 28%; right: -10%; opacity: .8; animation: drift2 41s ease-in-out infinite; }
+  .blob:nth-child(3) { background: var(--rose);   bottom: -8%; left: 20%; opacity: .2; animation: drift3 37s ease-in-out infinite; }
+  .blob:nth-child(4) { background: var(--teal);   top: 62%; left: 44%;    opacity: .16; animation: drift1 46s ease-in-out infinite reverse; }
+  @keyframes drift1 { 50% { transform: translate(14vmax, 10vmax) scale(1.25); } }
+  @keyframes drift2 { 50% { transform: translate(-12vmax, 11vmax) scale(1.12); } }
+  @keyframes drift3 { 50% { transform: translate(11vmax, -11vmax) scale(.82); } }
 
-  /* Grain, above the blur. Below it the blur would eat it. */
+  /* Stars: three tiled radial-gradient dot fields at different scales, each
+     breathing on its own clock, so the field twinkles without one element
+     per star. */
+  .stars {
+    position: fixed; inset: 0; z-index: -2; pointer-events: none;
+    background-image:
+      radial-gradient(1.4px 1.4px at 18% 22%, var(--gold-lit), transparent 60%),
+      radial-gradient(1px 1px   at 74% 12%, #fff, transparent 60%),
+      radial-gradient(1.6px 1.6px at 42% 68%, var(--gold-lit), transparent 60%),
+      radial-gradient(1px 1px   at 88% 54%, #fff, transparent 60%),
+      radial-gradient(1.2px 1.2px at 8% 76%, #fff, transparent 60%),
+      radial-gradient(1.3px 1.3px at 62% 88%, var(--gold-lit), transparent 60%);
+    background-size: 340px 340px, 210px 210px, 470px 470px,
+                     290px 290px, 380px 380px, 250px 250px;
+    animation: twinkle 7s ease-in-out infinite;
+  }
+  @keyframes twinkle { 50% { opacity: .45; } }
+
   .vignette {
     position: fixed; inset: 0; z-index: -1; pointer-events: none;
-    background: radial-gradient(ellipse at 50% 45%, transparent 25%, rgba(4, 3, 9, .82) 78%);
+    background: radial-gradient(ellipse at 50% 42%, transparent 22%, rgba(3, 4, 12, .88) 80%);
   }
 
   .grain {
-    position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: .055;
+    position: fixed; inset: 0; z-index: 3; pointer-events: none; opacity: .045;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 
-  /* --- the unicorns ------------------------------------------------------ */
-  .parade { position: fixed; inset: 0; z-index: -1; pointer-events: none; }
-  .parade i {
-    position: absolute; left: -4rem; font-style: normal;
-    animation: gallop linear infinite;
-    filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .5));
+  /* One unicorn, not three. It is an ornament, and an ornament repeated is
+     wallpaper. */
+  .unicorn {
+    position: fixed; left: -4rem; top: 14%; z-index: -1;
+    font-size: var(--t4); font-style: normal; pointer-events: none;
+    filter: drop-shadow(0 8px 24px rgba(0, 0, 0, .6));
+    animation: gallop 42s linear infinite;
   }
-  .parade i:nth-child(1) { top: 9%;  font-size: 2.6rem; animation-duration: 19s; opacity: .85; }
-  .parade i:nth-child(2) { top: 52%; font-size: 1.5rem; animation-duration: 28s; animation-delay: -11s; opacity: .5; }
-  .parade i:nth-child(3) { top: 82%; font-size: 4rem;   animation-duration: 36s; animation-delay: -22s; opacity: .35; }
   @keyframes gallop {
-    0%   { transform: translateX(0) translateY(0) rotate(-6deg); }
-    25%  { transform: translateX(30vw) translateY(-26px) rotate(8deg); }
-    50%  { transform: translateX(60vw) translateY(0) rotate(-6deg); }
-    75%  { transform: translateX(90vw) translateY(-26px) rotate(8deg); }
-    100% { transform: translateX(118vw) translateY(0) rotate(-6deg); }
+    0%   { transform: translateX(0) translateY(0) rotate(-5deg); }
+    25%  { transform: translateX(32vw) translateY(-22px) rotate(6deg); }
+    50%  { transform: translateX(64vw) translateY(0) rotate(-5deg); }
+    75%  { transform: translateX(96vw) translateY(-22px) rotate(6deg); }
+    100% { transform: translateX(122vw) translateY(0) rotate(-5deg); }
   }
 
-  /* --- the card ---------------------------------------------------------- */
-  /* The rotating border is two backgrounds in one box: a flat fill clipped to
-     padding-box over a conic gradient clipped to border-box, so only the
-     border shows the moving colour. */
+  /* --- the card -------------------------------------------------------- */
   main {
-    position: relative; z-index: 2; width: min(30rem, 100%);
-    padding: 2.4rem 1.6rem 2rem; border-radius: 1.6rem;
-    border: 1.5px solid transparent;
-    background:
-      linear-gradient(rgba(12, 11, 20, .82), rgba(12, 11, 20, .82)) padding-box,
-      conic-gradient(from var(--angle),
-        var(--c1), var(--c2), var(--accent), var(--c3), var(--c4), var(--c1)) border-box;
-    backdrop-filter: blur(22px) saturate(180%);
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
-    box-shadow: 0 30px 80px -30px #000, inset 0 1px 0 rgba(255, 255, 255, .07);
-    animation: spin 9s linear infinite, land 1s var(--spring) both;
+    position: relative; z-index: 2; width: min(29rem, 100%);
+    padding: var(--s7) var(--s5) var(--s6);
+    border-radius: 1.5rem; background: var(--glass);
+    backdrop-filter: blur(24px) saturate(170%);
+    -webkit-backdrop-filter: blur(24px) saturate(170%);
+    box-shadow: 0 40px 90px -40px #000, inset 0 1px 0 rgba(255, 255, 255, .06);
+    animation: land 1s var(--spring) both;
+  }
+  main::before {
+    content: ""; position: absolute; inset: 0; z-index: -1;
+    border-radius: inherit; padding: 1px; pointer-events: none;
+    background: conic-gradient(from var(--angle),
+      transparent 10%, var(--gold-deep) 24%, var(--gold-lit) 32%,
+      var(--gold-deep) 40%, transparent 54%, rgba(244, 240, 228, .18) 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    animation: spin 14s linear infinite;
   }
   @keyframes spin { to { --angle: 360deg; } }
   @keyframes land {
-    from { opacity: 0; transform: translateY(28px) scale(.94); }
+    from { opacity: 0; transform: translateY(26px) scale(.95); }
     to   { opacity: 1; transform: none; }
   }
 
-  h1 {
-    font-size: clamp(2.5rem, 12vw, 3.4rem); line-height: .95; margin: 0 0 1.8rem;
-    font-weight: 800; letter-spacing: -.045em; text-wrap: balance;
-    background: var(--rainbow); background-size: 300% 100%;
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    animation: hue 6s linear infinite;
+  /* --- display type ---------------------------------------------------- */
+  .eyebrow {
+    margin: 0 0 var(--s2);
+    font-size: var(--t0); font-weight: 600; letter-spacing: .22em;
+    text-transform: uppercase; color: var(--gold);
   }
-  @keyframes hue { to { background-position: 300% 0; } }
+  h1 {
+    margin: 0 0 var(--s6); font-family: var(--display); font-weight: 400;
+    font-size: clamp(var(--t4), 15vw, var(--t5)); line-height: .92;
+    letter-spacing: -.03em; text-wrap: balance;
+    background: linear-gradient(100deg,
+      var(--gold-deep) 0%, var(--gold) 22%, var(--gold-lit) 34%,
+      var(--gold) 46%, var(--gold-deep) 70%, var(--gold) 100%);
+    background-size: 260% 100%;
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 3px 26px rgba(242, 193, 78, .3));
+    animation: shimmer 9s ease-in-out infinite;
+  }
+  h1 em { font-style: italic; }
+  @keyframes shimmer { 50% { background-position: 100% 0; } }
 
   label {
-    display: block; margin: 1.35rem 0 .45rem;
-    font-size: .72rem; font-weight: 700; letter-spacing: .14em;
-    text-transform: uppercase; color: var(--dim);
+    display: flex; align-items: baseline; gap: var(--s2);
+    margin: var(--s5) 0 var(--s2);
+    font-size: var(--t0); font-weight: 700; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-soft);
   }
-  .hint { color: var(--accent); letter-spacing: .04em; text-transform: none; }
+  .hint {
+    font-size: var(--t0); font-weight: 600; letter-spacing: .04em;
+    text-transform: none; color: var(--gold);
+  }
 
   input {
-    width: 100%; padding: .8rem .9rem; font: inherit; font-size: .9rem;
-    color: var(--fg); background: var(--field);
-    border: 1px solid var(--line); border-radius: .85rem;
+    width: 100%; padding: var(--s3) var(--s4); font: inherit; font-size: .84rem;
+    color: var(--ink); background: rgba(244, 240, 228, .04);
+    border: 1px solid var(--line); border-radius: .75rem;
     transition: background .3s, border-color .3s, box-shadow .3s, transform .3s;
   }
-  input::placeholder { color: rgba(244, 241, 234, .28); }
+  input::placeholder { color: var(--ink-dim); }
   input:focus {
-    outline: none; transform: translateY(-2px);
-    background: rgba(255, 255, 255, .075); border-color: transparent;
-    box-shadow: 0 0 0 1.5px var(--c4), 0 0 22px -4px var(--c4),
-                0 10px 30px -14px #000;
+    outline: none; transform: translateY(-1px);
+    background: rgba(244, 240, 228, .07); border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold), 0 0 26px -6px var(--gold),
+                0 12px 30px -18px #000;
   }
-  #endpoint { font-size: .66rem; font-family: ui-monospace, "DejaVu Sans Mono", monospace; }
-  #token { font-family: ui-monospace, "DejaVu Sans Mono", monospace; letter-spacing: .1em; }
+  #endpoint, #token { font-family: var(--mono); }
+  #endpoint { font-size: .66rem; }
+  #token { letter-spacing: .12em; }
 
-  /* --- the button -------------------------------------------------------- */
-  /* Shine layer: a field of pinhole dots, revealed by a conic sweep sharing
-     the card's `--angle`, so the light travels rather than blinks. */
+  /* --- the one hero ---------------------------------------------------- */
   button {
     position: relative; isolation: isolate; overflow: hidden;
-    width: 100%; margin-top: 2.2rem; padding: 1.05rem 1.5rem;
-    font: inherit; font-weight: 800; font-size: 1.15rem; letter-spacing: .06em;
-    text-transform: uppercase; color: #100e18;
-    background: var(--rainbow); background-size: 300% 100%;
+    width: 100%; margin-top: var(--s6); padding: var(--s4) var(--s5);
+    font-family: var(--display); font-size: var(--t2); font-weight: 600;
+    letter-spacing: .01em; color: #1c1405;
+    background: linear-gradient(168deg, var(--gold-lit), var(--gold) 44%, var(--gold-deep));
     border: 0; border-radius: 999px; cursor: pointer;
-    box-shadow: 0 14px 40px -14px var(--c1), 0 0 0 1px rgba(255, 255, 255, .18) inset;
-    animation: hue 4s linear infinite;
-    transition: transform .55s var(--spring), box-shadow .3s;
+    box-shadow: 0 16px 44px -16px rgba(242, 193, 78, .75),
+                inset 0 1px 0 rgba(255, 255, 255, .55),
+                inset 0 -2px 0 rgba(0, 0, 0, .18);
+    transition: transform .6s var(--spring), box-shadow .3s;
   }
-  button::before {
+  /* The sweep of light: one band travelling left to right, on its own
+     property so it interpolates. */
+  button::after {
     content: ""; position: absolute; inset: 0; z-index: -1;
-    background: radial-gradient(circle at 50% 50%, #fff 12%, transparent 0);
-    background-size: 9px 9px;
-    mask-image: conic-gradient(from calc(var(--angle) * -2), transparent 8%, #000 22%, transparent 40%);
-    opacity: .55;
+    background: linear-gradient(100deg,
+      transparent calc(var(--sweep) - 18%),
+      rgba(255, 255, 255, .72) var(--sweep),
+      transparent calc(var(--sweep) + 18%));
+    animation: sweep 4.5s ease-in-out infinite;
   }
+  @keyframes sweep { 60%, 100% { --sweep: 140%; } }
   button:hover, button:focus-visible {
-    transform: scale(1.045) rotate(-.8deg);
-    box-shadow: 0 20px 55px -14px var(--c4), 0 0 0 1px rgba(255, 255, 255, .3) inset;
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 22px 60px -16px rgba(242, 193, 78, .95),
+                inset 0 1px 0 rgba(255, 255, 255, .7);
   }
-  button:active { transform: scale(.97); }
-  button:disabled { opacity: .45; cursor: not-allowed; animation: none; }
+  button:active { transform: translateY(0) scale(.98); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
 
-  #status { margin: .9rem 0 0; min-height: 1.4em; font-size: .9rem; font-weight: 600; }
-  #status.bad { color: #ff8095; }
-  #status.good { color: var(--accent); }
+  #status {
+    margin: var(--s3) 0 0; min-height: 1.4em;
+    font-size: .85rem; font-weight: 600; letter-spacing: .01em;
+  }
+  #status.bad  { color: #ff9aab; }
+  #status.good { color: var(--gold); }
 
-  .small { color: var(--dim); font-size: .82rem; margin-top: 1.6rem; }
-  .small a { color: var(--dim); text-underline-offset: 3px; }
+  footer, .small {
+    margin-top: var(--s6); color: var(--ink-dim); font-size: .8rem;
+    letter-spacing: .01em;
+  }
+  .small a { color: var(--ink-soft); text-underline-offset: 3px; text-decoration-color: var(--line); }
+  .small a:hover { color: var(--gold); }
   summary {
-    cursor: pointer; font-weight: 600; color: var(--dim); list-style: none;
-    transition: color .25s;
+    cursor: pointer; font-weight: 600; color: var(--ink-soft);
+    list-style: none; transition: color .25s;
   }
   summary::-webkit-details-marker { display: none; }
-  summary:hover { color: var(--fg); }
-  details[open] summary { color: var(--fg); margin-bottom: .5rem; }
+  summary:hover, details[open] summary { color: var(--gold); }
+  details[open] summary { margin-bottom: var(--s2); }
+  details p { margin: 0; max-width: 34ch; }
 
-  /* --- confetti ---------------------------------------------------------- */
+  /* --- the burst ------------------------------------------------------- */
   .spark {
     position: fixed; z-index: 9; pointer-events: none; user-select: none;
-    font-size: 1.7rem; left: 0; top: 0;
+    font-size: var(--t2); left: 0; top: 0;
     animation: fling var(--life) cubic-bezier(.15, .75, .3, 1) forwards;
   }
   @keyframes fling {
@@ -228,60 +318,61 @@
     70%  { opacity: 1; }
     100% {
       transform: translate(calc(var(--x0) + var(--dx)), calc(var(--y0) + var(--dy)))
-                 scale(1.35) rotate(var(--spin));
+                 scale(1.3) rotate(var(--spin));
       opacity: 0;
     }
   }
   .flash {
     position: fixed; inset: 0; z-index: 8; pointer-events: none;
-    background: radial-gradient(circle at 50% 60%, #fff, transparent 65%);
-    animation: flash .55s ease-out forwards;
+    background: radial-gradient(circle at 50% 58%, var(--gold-lit), transparent 62%);
+    animation: flash .6s ease-out forwards;
   }
-  @keyframes flash { 0% { opacity: .35; } 100% { opacity: 0; } }
+  @keyframes flash { 0% { opacity: .3; } 100% { opacity: 0; } }
 
-  /* Nothing above is load-bearing. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
-    h1 { color: var(--fg); }
-    .sky, .parade, .grain, .vignette { display: none; }
-    main { border-color: var(--line); background: #14121c; }
+    h1 { color: var(--gold); }
+    .sky, .stars, .grain, .vignette, .unicorn { display: none; }
+    main { border-color: var(--line); background: #0d1128; }
   }
 </style>
 </head>
 <body>
 <div class="sky" aria-hidden="true"><i class="blob"></i><i class="blob"></i><i class="blob"></i><i class="blob"></i></div>
-<div class="parade" aria-hidden="true"><i>🦄</i><i>🦄</i><i>🦄</i></div>
+<div class="stars" aria-hidden="true"></div>
 <div class="vignette" aria-hidden="true"></div>
-<div class="grain" aria-hidden="true"></div>
+<i class="unicorn" aria-hidden="true">🦄</i>
 <main>
-  <h1>skill&nbsp;maker</h1>
+  <p class="eyebrow">notes inbox</p>
+  <h1>Wish it <em>into</em> a skill</h1>
 
   <form id="form">
-    <label for="endpoint">🌈 inbox <span class="hint" id="endpoint-hint"></span></label>
-    <input id="endpoint" class="mono" type="url" required spellcheck="false"
+    <label for="endpoint">inbox <span class="hint" id="endpoint-hint"></span></label>
+    <input id="endpoint" type="url" required spellcheck="false"
            placeholder="https://notes-intake.you.workers.dev" autocomplete="off">
 
-    <label for="token">🔑 token</label>
-    <input id="token" class="mono" type="password" required spellcheck="false"
+    <label for="token">token</label>
+    <input id="token" type="password" required spellcheck="false"
            placeholder="NOTES_INTAKE_TOKEN" autocomplete="off">
 
-    <label for="book">📚 about</label>
-    <input id="book" type="text" value="a book about software, written in Typst"
+    <label for="book">about</label>
+    <input id="book" type="text" value="one programmer's thoughts about software"
            autocomplete="off">
 
-    <button id="go" type="submit">MAKE IT ✨</button>
+    <button id="go" type="submit">Make it ✨</button>
     <p id="status" role="status"></p>
   </form>
 
   <details class="small">
-    <summary>🔒 safe?</summary>
-    The zip is built in your browser and goes nowhere else — this page is a
-    static file with no server behind it. But the token is written into the
-    zip, so anyone holding it can file notes. Treat it as a credential.
+    <summary>Is this safe?</summary>
+    <p>The zip is built in your browser and goes nowhere else — this page is a
+    static file with no server behind it. The token is written into the zip
+    though, so anyone holding it can file notes. Treat it as a credential.</p>
   </details>
 
-  <p class="small"><a href="../">📖 the book</a></p>
+  <p class="small"><a href="../">← the book</a></p>
 </main>
+<div class="grain" aria-hidden="true"></div>
 
 <script id="builder">
 "use strict";
@@ -480,7 +571,7 @@ if (form) {
     // The hint below the field explains where the address comes from, which
     // is a question the reader no longer has once it is in the box. Saying
     // who filled it is the useful thing at that point.
-    document.getElementById("endpoint-hint").textContent = "✅ from your deploy";
+    document.getElementById("endpoint-hint").textContent = "✦ from your deploy";
   }
 }
 
@@ -540,7 +631,7 @@ if (form) form.addEventListener("submit", (event) => {
 // uses. The particles remove themselves on `animationend` so a page left open
 // through twenty downloads does not accumulate two hundred dead spans.
 (function () {
-  const CAST = ["🎉", "✨", "🌈", "💥", "🦄", "⭐", "🎊", "💫", "🩷", "🍀"];
+  const CAST = ["✨", "⭐", "🌟", "💫", "🦄", "🎉"];
   const QUIET = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
 
   window.party = function (origin, count) {
