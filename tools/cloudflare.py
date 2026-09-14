@@ -89,8 +89,18 @@ def ask(token: str, account: str) -> tuple[str, str]:
     same four-line branch around this module. Identical but for one output,
     which is the state a shared step is in just before the two drift.
     """
+    return account_get(token, account, "workers/subdomain")
+
+
+def account_get(token: str, account: str, path: str) -> tuple[str, str]:
+    """GET one account-scoped path, and the HTTP status as a string.
+
+    `ask` is this with the subdomain path baked in; it stays as it is because
+    every caller of it wants that one question. This is the general form, for
+    the reaper, which asks for the account's Workers.
+    """
     request = urllib.request.Request(
-        f"https://api.cloudflare.com/client/v4/accounts/{account}/workers/subdomain",
+        f"https://api.cloudflare.com/client/v4/accounts/{account}/{path}",
         headers={"Authorization": f"Bearer {token}"},
     )
     try:

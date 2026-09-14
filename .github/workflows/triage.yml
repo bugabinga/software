@@ -14,19 +14,68 @@ name: Triage
 on:
   issues:
     types: [opened, reopened]
+  # The edge is not enough. An issue open before this workflow landed, one
+  # whose run died, one filed while the credential was missing: nothing would
+  # look at any of them again. #84 sat unlabelled for fifteen hours that way.
+  # Daily, so a stranded issue waits a day at worst rather than forever.
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
 
 permissions: {}
 
-concurrency:
-  # Per issue. Not cancel-in-progress: a triage half-done leaves an issue
-  # labelled and undispatched, which is the state this workflow exists to
-  # prevent.
-  group: triage-${{ github.event.issue.number }}
-  cancel-in-progress: false
-
 jobs:
+  # Which issues this run is about: the one the event named, or every open
+  # issue nothing routes. One program answers both, so a schedule and an
+  # event cannot disagree about what "needs triage" means.
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      # Per issue for an event, one shared group for the sweeps. Not
+      # cancel-in-progress: a plan takes seconds, and cancelling one takes
+      # `triage` down with it through `needs`.
+      group: triage-plan-${{ github.event.issue.number || 'sweep' }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      issues: ${{ steps.plan.outputs.issues }}
+      any: ${{ steps.plan.outputs.any }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+          # `--issue` only when an event named one; a schedule passes none
+          # and gets the sweep.
+          python3 tools/triage.py --plan ${ISSUE:+--issue "$ISSUE"}
+
   triage:
     name: Triage
+    needs: plan
+    if: needs.plan.outputs.any == 'true'
+    strategy:
+      # One leg per issue, and a failed leg must not cancel the others: the
+      # whole point is that no issue is left unanswered because another one
+      # was awkward.
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        issue: ${{ fromJSON(needs.plan.outputs.issues) }}
+    concurrency:
+      # Per issue, on the leg rather than the workflow -- a sweep's legs are
+      # different issues and must not serialise behind one group. Not
+      # cancel-in-progress: a triage half-done leaves an issue labelled and
+      # undispatched, which is the state this workflow exists to prevent.
+      group: triage-${{ matrix.issue }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     # Longer than the work needs, shorter than the hours a hung job bills.
     timeout-minutes: 15
@@ -46,7 +95,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          ISSUE: ${{ github.event.issue.number }}
+          ISSUE: ${{ matrix.issue }}
         run: python3 tools/triage.py --check --issue "$ISSUE"
 
       - name: Is there a credential to run with
@@ -61,15 +110,19 @@ jobs:
         id: brief
         if: steps.key.outputs.present == 'true'
         env:
-          ISSUE: ${{ github.event.issue.number }}
-          BODY: ${{ github.event.issue.body }}
-          TITLE: ${{ github.event.issue.title }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE: ${{ matrix.issue }}
         run: |
           set -euo pipefail
-          # Through `env:` and a file, never interpolated into this body:
-          # an issue title is a stranger's text, and an expression expanded
-          # into a shell body is a statement rather than a string.
-          printf '%s\n\n%s\n' "$TITLE" "$BODY" > /tmp/issue.md
+          # Read from the API rather than the event payload: a sweep has no
+          # payload, and reading it one way means the schedule and the event
+          # brief the agent identically. Into a file, never interpolated into
+          # this body -- an issue title is a stranger's text, and an
+          # expression expanded into a shell body is a statement, not a
+          # string.
+          gh api "repos/$GITHUB_REPOSITORY/issues/$ISSUE" \
+            --jq '.title + "\n\n" + (.body // "")' > /tmp/issue.md
           python3 tools/fleet_brief.py --trigger issue-triage \
             --issue "$ISSUE" --issue-body-file /tmp/issue.md > /tmp/brief.md
           {
@@ -102,5 +155,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          ISSUE: ${{ github.event.issue.number }}
+          ISSUE: ${{ matrix.issue }}
         run: python3 tools/triage.py --apply --issue "$ISSUE" --verdict /tmp/triage.json

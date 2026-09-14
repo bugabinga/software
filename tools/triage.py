@@ -12,9 +12,18 @@ label it, comment, close it, dispatch. The judgement in between -- what this
 issue actually is -- is an agent's, and it arrives as a verdict file, the same
 shape `tools/post_review.py` reads.
 
+The third half is `plan`, and it exists because the first two were reachable
+only from `issues: [opened]`. An issue that was open before this workflow
+landed, or whose triage run died, or that was filed while the credential was
+missing, was stranded: nothing would ever look at it again. #84 sat unlabelled
+for fifteen hours that way. `plan` is what a schedule asks -- which open
+issues nothing routes -- so the answer is a sweep rather than an edge.
+
 Usage:
     tools/triage.py --check --issue 7            # is triage needed?
     tools/triage.py --apply --issue 7 --verdict /tmp/triage.json
+    tools/triage.py --plan                       # every issue nothing routes
+    tools/triage.py --plan --issue 7             # just this one, for an event
 """
 
 from __future__ import annotations
@@ -27,7 +36,7 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from fleetlib import api, gh, notice, output, warn
+from fleetlib import api, gh, notice, output, paged, warn
 
 # The labels that route. `fleet.yml`'s occasion router maps exactly these two
 # to a trigger; anything else it prints a notice about and exits 0.
@@ -48,6 +57,31 @@ def needs_triage(labels: list[str]) -> bool:
     `fleet:task` is an issue the fleet marked and then forgot.
     """
     return not (set(labels) & ROUTING)
+
+
+# A matrix leg per issue, and GitHub caps a matrix at 256. A sweep that
+# wanted more than this is a repository nobody is triaging by hand either;
+# the cap keeps one bad morning from spending a day of runner slots, and the
+# next sweep takes the rest.
+SWEEP_CAP = 20
+
+
+def untriaged(issues: list[dict[str, Any]]) -> list[int]:
+    """The open issues nothing routes, oldest first.
+
+    Oldest first because a stranded issue is the one this exists for, and a
+    cap that took the newest would strand it a second time. Pull requests are
+    issues to this endpoint and are not triaged here.
+    """
+    numbers = [
+        int(issue["number"])
+        for issue in issues
+        if not issue.get("pull_request")
+        and needs_triage(
+            [str(label.get("name", "")) for label in issue.get("labels") or []]
+        )
+    ]
+    return sorted(numbers)[:SWEEP_CAP]
 
 
 def verdict_route(verdict: dict[str, Any]) -> tuple[str, str]:
@@ -155,6 +189,45 @@ class NeedsTriage(unittest.TestCase):
         self.assertEqual(FLEET_STATE & ROUTING, set())
 
 
+class Sweeping(unittest.TestCase):
+    """What a scheduled sweep picks up, and what it leaves."""
+
+    def issues(self, *rows: tuple[int, list[str]]) -> list[dict[str, Any]]:
+        return [
+            {"number": number, "labels": [{"name": name} for name in labels]}
+            for number, labels in rows
+        ]
+
+    def test_an_unlabelled_issue_is_stranded(self) -> None:
+        self.assertEqual(untriaged(self.issues((84, []))), [84])
+
+    def test_a_routed_issue_is_left_alone(self) -> None:
+        self.assertEqual(untriaged(self.issues((7, ["fleet:task"]))), [])
+
+    def test_a_state_label_is_not_a_route(self) -> None:
+        # `fleet:running` with no `fleet:task` is an issue the fleet marked
+        # and then forgot -- the exact shape the sweep is for.
+        self.assertEqual(untriaged(self.issues((9, ["fleet:running"]))), [9])
+
+    def test_a_pull_request_is_not_an_issue(self) -> None:
+        # This endpoint returns both, and a pull request is reviewed, not
+        # triaged.
+        rows = self.issues((1, []))
+        rows[0]["pull_request"] = {"url": "..."}
+        self.assertEqual(untriaged(rows), [])
+
+    def test_oldest_first_and_capped(self) -> None:
+        # Oldest first because the stranded issue is the one this exists for;
+        # a cap that took the newest would strand it again.
+        rows = self.issues(*[(number, []) for number in range(100, 60, -1)])
+        picked = untriaged(rows)
+        self.assertEqual(len(picked), SWEEP_CAP)
+        self.assertEqual(picked[0], 61)
+
+    def test_nothing_to_do_is_an_empty_list_not_a_guess(self) -> None:
+        self.assertEqual(untriaged([]), [])
+
+
 class Verdicts(unittest.TestCase):
     """A verdict is trusted only when it is well formed."""
 
@@ -194,14 +267,35 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--plan", action="store_true")
     parser.add_argument("--issue", type=int)
     parser.add_argument("--agent", default="")
     parser.add_argument("--verdict")
     parser.add_argument("--repo", default=os.environ.get("GITHUB_REPOSITORY", ""))
     arguments = parser.parse_args(argv)
 
-    if not (arguments.issue and arguments.repo):
-        parser.error("--issue and a repository are required")
+    if not arguments.repo:
+        parser.error("a repository is required")
+
+    if arguments.plan:
+        # One issue when an event named one, every stranded issue otherwise.
+        # The same program answers both so the schedule and the event cannot
+        # disagree about what "needs triage" means.
+        if arguments.issue:
+            wanted = [arguments.issue]
+        else:
+            wanted = untriaged(paged(f"repos/{arguments.repo}/issues?state=open"))
+        output("issues", json.dumps(wanted))
+        output("any", "true" if wanted else "false")
+        notice(
+            f"triaging {len(wanted)} issue(s): {wanted}"
+            if wanted
+            else "every open issue already routes somewhere"
+        )
+        return 0
+
+    if not arguments.issue:
+        parser.error("--issue is required")
 
     if arguments.check:
         issue = api(f"repos/{arguments.repo}/issues/{arguments.issue}") or {}
@@ -227,7 +321,7 @@ def main(argv: list[str] | None = None) -> int:
                 arguments.repo, arguments.issue, json.load(handle), arguments.agent
             )
 
-    parser.error("one of --check or --apply")
+    parser.error("one of --check, --apply or --plan")
     return 2
 
 

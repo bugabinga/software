@@ -332,6 +332,58 @@ def open_pull(repo: str, branch: str) -> int:
     return 0
 
 
+# Branches this may delete. Nothing else, ever: a prefix is the whole of the
+# safety argument, and `main`, `gh-pages` and `fleet-log` are all one typo
+# away from a rule that matched on "has a merged pull request" alone.
+DISPOSABLE = re.compile(r"^(agent|maintenance)/")
+
+
+def prunable(branch: str, pulls: list[dict[str, Any]]) -> str:
+    """Why this branch can be deleted, or "" for leave it.
+
+    `delete_branch_on_merge` covers a branch merged through the web UI, and
+    `act` deletes the ones it merges itself. Neither covered the ten that were
+    merged before that setting was applied, and neither covers a branch merged
+    by any route nobody has thought of yet. This is the sweep that does.
+
+    An open pull request is the veto even when a merged one also exists: a
+    branch reopened for a follow-up is live work, and the merged ancestor says
+    nothing about it.
+    """
+    if not DISPOSABLE.match(branch):
+        return ""
+    if any(pull.get("state") == "open" for pull in pulls):
+        return ""
+    merged = next((p for p in pulls if p.get("merged_at")), None)
+    return f"merged in #{merged['number']}" if merged else ""
+
+
+def prune(repo: str) -> int:
+    """Delete every disposable branch whose work is already on `main`."""
+    owner = repo.split("/", 1)[0]
+    gone = 0
+    for ref in paged(f"repos/{repo}/branches"):
+        branch = str(ref.get("name", ""))
+        if not DISPOSABLE.match(branch):
+            continue
+        pulls = api(f"repos/{repo}/pulls?head={owner}:{branch}&state=all") or []
+        why = prunable(branch, pulls)
+        if not why:
+            continue
+        gh(
+            "api",
+            "-X",
+            "DELETE",
+            f"repos/{repo}/git/refs/heads/{branch}",
+            check=False,
+        )
+        notice(f"deleted {branch}: {why}")
+        gone += 1
+    if not gone:
+        notice("no merged agent branches left behind")
+    return 0
+
+
 def close_finished(repo: str) -> int:
     """Close the notices that stood in for a pull request, once one exists."""
     owner = repo.split("/", 1)[0]
@@ -381,6 +433,47 @@ def close_finished(repo: str) -> int:
         closed += 1
     notice(f"closed {closed} finished tracking issue(s)")
     return 0
+
+
+class Pruning(unittest.TestCase):
+    """Which branches the sweep may delete. The prefix is the safety."""
+
+    def pulls(self, *rows: tuple[int, str, bool]) -> list[dict[str, Any]]:
+        return [
+            {"number": n, "state": state, "merged_at": "2026-01-01" if merged else None}
+            for n, state, merged in rows
+        ]
+
+    def test_a_merged_agent_branch_goes(self) -> None:
+        why = prunable("agent/pages-bootstrap", self.pulls((7, "closed", True)))
+        self.assertIn("#7", why)
+
+    def test_maintenance_too(self) -> None:
+        self.assertTrue(
+            prunable("maintenance/typst-0.15.1", self.pulls((9, "closed", True)))
+        )
+
+    def test_main_is_never_disposable(self) -> None:
+        # Not a hypothetical: "has a merged pull request" is true of `main`
+        # and of `fleet-log`, and a rule written on that alone deletes them.
+        for branch in ("main", "gh-pages", "fleet-log", "claude/something"):
+            with self.subTest(branch=branch):
+                self.assertEqual(prunable(branch, self.pulls((7, "closed", True))), "")
+
+    def test_an_open_pull_request_vetoes_a_merged_one(self) -> None:
+        # A branch reopened for a follow-up is live work; the merged ancestor
+        # says nothing about it.
+        self.assertEqual(
+            prunable("agent/x", self.pulls((7, "closed", True), (9, "open", False))), ""
+        )
+
+    def test_an_unmerged_branch_stays(self) -> None:
+        self.assertEqual(prunable("agent/x", self.pulls((7, "closed", False))), "")
+
+    def test_a_branch_with_no_pull_request_stays(self) -> None:
+        # The fleet pushes a branch before anything opens a pull request for
+        # it. Deleting that is deleting the delivery.
+        self.assertEqual(prunable("agent/x", []), "")
 
 
 class Earned(unittest.TestCase):
@@ -476,10 +569,17 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Close the notices whose branch is done.",
     )
+    parser.add_argument(
+        "--prune",
+        action="store_true",
+        help="Delete agent branches whose work is already merged.",
+    )
     arguments = parser.parse_args(argv)
 
     if not arguments.repo:
         parser.error("a repository is required")
+    if arguments.prune:
+        return prune(arguments.repo)
     if arguments.close_finished:
         return close_finished(arguments.repo)
     if arguments.open_pull:

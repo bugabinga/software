@@ -269,31 +269,16 @@ jobs:
       # comment posted above says so rather than promising otherwise. The
       # account's Worker limit is what a leak of dead previews eventually
       # costs, and it costs it silently.
+      # Nine lines of curl, pipe and loop until a token without the right
+      # scope made one `wrangler delete` exit non-zero, which under
+      # `set -euo pipefail` turned `main` red for a cleanup task. `--sweep`
+      # lists, decides and deletes, reports what it could not do, and returns
+      # 0: a stale preview costs a Worker slot, a red `main` costs the signal
+      # that says whether the book builds.
       - name: Delete the previews whose pull requests have closed
         if: steps.key.outputs.present == 'true'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          # Piped, not word-split: a Worker name is account-wide input and
-          # `--reap $scripts` would let a space in one become two arguments.
-          # `--reap` with no names reads stdin. It answers with the ones
-          # belonging to closed pull requests and ignores every other Worker
-          # on the account; an unreachable API answers "open", so a blip
-          # never deletes a live preview.
-          doomed=$(curl -fsS \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts" \
-            | python3 -c 'import json,sys; print("\n".join(s["id"] for s in json.load(sys.stdin).get("result") or []))' \
-            | python3 tools/preview.py --repo "$REPO" --reap)
-          if [ -z "$doomed" ]; then
-            echo "::notice::no stale previews"
-            exit 0
-          fi
-          for worker in $doomed; do
-            mise exec -- wrangler delete --name "$worker" --force
-            echo "::notice::deleted $worker"
-          done
+        run: python3 tools/preview.py --repo "$GITHUB_REPOSITORY" --sweep

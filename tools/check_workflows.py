@@ -620,6 +620,25 @@ class Paginate(unittest.TestCase):
         self.assertGreater(len(self.CASES) - caught, 0)
 
 
+def has_concurrency(document: dict[str, object]) -> bool:
+    """A group at the workflow, or one on every job.
+
+    Job-level is not a lesser form of the same thing: a matrix needs it. A
+    workflow-level group keyed on the ref serialises every leg of a sweep
+    behind one another, which for `triage.yml` means twenty issues answered
+    one at a time for no reason. The group belongs on the job, keyed on
+    `matrix.*`, and a gate that cannot see that is a gate that forces the
+    wrong design. Every job, not any: one job with a group and one without
+    still leaves runs piling up.
+    """
+    if "concurrency" in document:
+        return True
+    jobs = document.get("jobs")
+    if not isinstance(jobs, dict) or not jobs:
+        return False
+    return all(isinstance(job, dict) and "concurrency" in job for job in jobs.values())
+
+
 def check_job_hygiene(paths: list[Path]) -> list[str]:
     """`timeout-minutes` on every job, `concurrency` on every workflow.
 
@@ -655,10 +674,11 @@ def check_job_hygiene(paths: list[Path]) -> list[str]:
         if not isinstance(document, dict):
             continue
 
-        if "concurrency" not in document:
+        if not has_concurrency(document):
             problems.append(
-                f"{where}: no `concurrency`. Without a group, every push to a "
-                "branch runs the whole workflow again alongside the last one"
+                f"{where}: no `concurrency`, at the workflow or on every job. "
+                "Without a group, every push to a branch runs the whole "
+                "workflow again alongside the last one"
             )
 
         for name, job in (document.get("jobs") or {}).items():
@@ -746,6 +766,34 @@ def main() -> None:
         f"workflows: {len(paths)} files, {tools} tools, "
         f"{pins} pinned actions, no problems"
     )
+
+
+class Grouped(unittest.TestCase):
+    """Where a `concurrency` group is allowed to live."""
+
+    def test_at_the_workflow(self) -> None:
+        self.assertTrue(has_concurrency({"concurrency": {}, "jobs": {"a": {}}}))
+
+    def test_on_every_job(self) -> None:
+        # What a matrix needs: the group is keyed on `matrix.*`, so it cannot
+        # be at the workflow without serialising every leg.
+        self.assertTrue(
+            has_concurrency(
+                {"jobs": {"a": {"concurrency": {}}, "b": {"concurrency": {}}}}
+            )
+        )
+
+    def test_one_job_short_is_not_enough(self) -> None:
+        self.assertFalse(has_concurrency({"jobs": {"a": {"concurrency": {}}, "b": {}}}))
+
+    def test_nowhere_at_all(self) -> None:
+        self.assertFalse(has_concurrency({"jobs": {"a": {}}}))
+
+    def test_no_jobs_is_not_a_pass(self) -> None:
+        # A file with no jobs cannot satisfy "every job has one" vacuously;
+        # `check_yaml` is what reports a workflow this broken, and this must
+        # not quietly call it fine.
+        self.assertFalse(has_concurrency({"jobs": {}}))
 
 
 class Tested(unittest.TestCase):
