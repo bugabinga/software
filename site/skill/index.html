@@ -368,6 +368,9 @@
     <p>The zip is built in your browser and goes nowhere else — this page is a
     static file with no server behind it. The token is written into the zip
     though, so anyone holding it can file notes. Treat it as a credential.</p>
+    <p>Rotating it is three steps in order: change <code>NOTES_INTAKE_TOKEN</code>,
+    run <em>Worker deploy</em> so Cloudflare gets the new one, then come back
+    here for a new zip. Nothing runs that middle step for you.</p>
   </details>
 
   <p class="small"><a href="../">← the book</a></p>

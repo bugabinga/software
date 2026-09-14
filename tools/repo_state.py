@@ -104,8 +104,37 @@ def fetch(path: str) -> Any | None:
         return None
 
 
+# The eight fields GitHub removes from the repository object it hands a
+# `contents: read` workflow token, rather than reporting them. Measured, on
+# run 103821744889: arming this check in CI turned these eight from matching
+# into disagreeing, because an absent key and a null one look identical
+# through `.get()`.
+#
+# Named rather than inferred from absence, and that is the point. "Any key
+# the document does not carry is unread" would also swallow `has_wikis` for
+# `has_wiki` -- a hand-written file's most likely fault, silently unchecked
+# under every credential. A key missing from this list is a difference, so a
+# typo fails and a trim GitHub adds later fails too, which is the direction
+# to fail in.
+TRIMMED_BY_PERMISSION = frozenset(
+    {
+        "allow_auto_merge",
+        "allow_merge_commit",
+        "allow_rebase_merge",
+        "allow_squash_merge",
+        "allow_update_branch",
+        "delete_branch_on_merge",
+        "squash_merge_commit_message",
+        "squash_merge_commit_title",
+    }
+)
+
+
 def compare(
-    declared: dict[str, Any], actual: dict[str, Any], where: str
+    declared: dict[str, Any],
+    actual: dict[str, Any],
+    where: str,
+    may_be_hidden: frozenset[str] = frozenset(),
 ) -> tuple[list[str], list[str]]:
     """Declared keys the API answers differently, and ones it does not answer.
 
@@ -113,13 +142,10 @@ def compare(
     a mirror of the API, so a key GitHub adds next year is not this file's
     business until somebody decides it is.
 
-    **A key absent from the document is unread, not a difference.** The two
-    look identical through `.get()` and they are not the same fact: the
-    repository object GitHub hands a `contents: read` workflow token omits
-    every merge setting rather than reporting it, so arming this in CI turned
-    eight settings that match into eight that disagree. GitHub declining to
-    say is the third outcome this file is built around; `.get()` was quietly
-    collapsing it into the second.
+    A key absent from the document is unread *if the caller says that key can
+    be hidden by permission* -- see `TRIMMED_BY_PERMISSION`. Otherwise absence
+    is a difference, because the likeliest reason a hand-written file names a
+    field the API does not carry is that the field is misspelled.
     """
     findings: list[str] = []
     unread: list[str] = []
@@ -127,7 +153,10 @@ def compare(
         if isinstance(want, dict):
             continue  # a nested table; its own section handles it
         if key not in actual:
-            unread.append(f"{where}.{key}: the token cannot see this field")
+            if key in may_be_hidden:
+                unread.append(f"{where}.{key}: the token cannot see this field")
+            else:
+                findings.append(f"{where}.{key}: declared {want!r}, found nothing")
             continue
         have = actual[key]
         # Lists are compared as sets where order is GitHub's to choose.
@@ -146,7 +175,7 @@ def check_repository(declared: dict[str, Any], repo: str) -> tuple[str, list[str
     if actual is None:
         return UNREAD, ["repository: could not be read"]
     fields = {k: v for k, v in declared.items() if k != "topics"}
-    findings, unread = compare(fields, actual, "repository")
+    findings, unread = compare(fields, actual, "repository", TRIMMED_BY_PERMISSION)
 
     if "topics" in declared:
         topics = fetch(f"repos/{repo}/topics")
@@ -307,9 +336,11 @@ def _compare_rule_parameters(
             "contexts": contexts,
             "strict": have.get("strict_required_status_checks_policy"),
         }
-    # A ruleset's own document is not trimmed by permission the way the
-    # repository object is, so a parameter missing here is a real difference
-    # and belongs with the findings.
+    # No `may_be_hidden`: a ruleset's own document is not trimmed by
+    # permission the way the repository object is, so a parameter missing
+    # here is real drift and reads as one -- "declared X, found nothing"
+    # rather than a message about a token, which would send whoever is
+    # holding the red run to the App's grant instead of to the ruleset.
     findings, unread = compare(want, have, where)
     return findings + unread
 
@@ -539,13 +570,25 @@ def self_test() -> int:
     assert compare({"a": 1}, {"a": 2}, "x") == (["x.a: declared 1, found 2"], [])
     # Undeclared keys are not this file's business.
     assert compare({"a": 1}, {"a": 1, "b": 9}, "x") == ([], [])
-    # A key the API does not return at all is unread, not a difference. This
-    # is the whole point: the repository object a `contents: read` workflow
-    # token receives has no merge settings in it, and calling that eight
-    # disagreements turned the gate red on a repository that matched.
-    findings, unread = compare({"a": 1}, {}, "x")
+    # A key the caller says can be hidden by permission is unread when it is
+    # absent. This is what arming the check in CI needed: the repository
+    # object a `contents: read` token receives has no merge settings in it,
+    # and calling that eight disagreements turned the gate red on a
+    # repository that matched.
+    findings, unread = compare({"a": 1}, {}, "x", frozenset({"a"}))
     assert findings == []
     assert unread == ["x.a: the token cannot see this field"]
+    # A key that is absent and *not* on that list is a difference, because
+    # the likeliest cause is a misspelling in a hand-written file. Without
+    # this, `has_wikis` for `has_wiki` would pass under every credential.
+    assert compare({"has_wikis": True}, {"has_wiki": True}, "repository") == (
+        ["repository.has_wikis: declared True, found nothing"],
+        [],
+    )
+    # And every trimmed field is one this file actually declares, so the list
+    # cannot rot into permission for a key nobody asserts.
+    declared_repo = tomllib.loads(DECLARED.read_text(encoding="utf-8"))["repository"]
+    assert set(declared_repo) >= TRIMMED_BY_PERMISSION
     # A key present and null is an answer, and answers are compared.
     assert compare({"a": 1}, {"a": None}, "x") == (
         ["x.a: declared 1, found None"],

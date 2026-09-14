@@ -539,9 +539,11 @@ label a pull request `hold`.
 
 `main` carries a ruleset and `repo.toml` is what it says, so nothing here
 restates it -- read the file. `mise run check-settings` reads it back and fails
-on a difference, and `mise run check` runs it. `actions/permissions/workflow`
-needs administration, so that one section reads unread everywhere except the
-apply. `settings.yml` makes GitHub agree.
+on a difference, and `mise run check` runs it -- but not all of it everywhere.
+`actions/permissions/workflow` needs administration, and the repository object a
+CI token receives omits the eight merge settings, so both read unread short of a
+wide credential and a green run is evidence about neither. `settings.yml` makes
+GitHub agree.
 
 Three things the file cannot say, because they are measurements rather than
 settings:

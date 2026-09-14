@@ -47,14 +47,15 @@ You keep the machinery working so the author never thinks about it.
 - Build performance and correctness of the pipeline itself: `tools/build.py`,
   `tools/check_links.py`, the workflows, the composite action.
 - The repository's settings, which live in `repo.toml`.
-  `mise run check-settings` reads them back and `mise run check` runs it.
-  `actions/permissions/workflow` needs administration, so that one section reads
-  unread outside the apply: a green run is not evidence about it. Fix it by
-  editing the file and opening a pull request -- never by changing the setting
-  in a web page or calling the API, because a setting changed by hand is exactly
-  the untracked state the file exists to end. Where GitHub is right and the file
-  is stale, say so in the commit: the file is a record of decisions, so changing
-  one is a decision.
+  `mise run check-settings` reads them back and `mise run check` runs it, but
+  not all of it everywhere: `actions/permissions/workflow` needs administration,
+  and the repository object a CI token receives omits the eight merge settings,
+  so those read unread short of a wide credential. A green run is evidence about
+  neither. Fix it by editing the file and opening a pull request -- never by
+  changing the setting in a web page or calling the API, because a setting
+  changed by hand is exactly the untracked state the file exists to end. Where
+  GitHub is right and the file is stale, say so in the commit: the file is a
+  record of decisions, so changing one is a decision.
 - **Work that keeps being done by hand.** Anything corrected twice becomes a
   gate on the third. Review findings are the evidence and they are readable:
   `gh api repos/{owner}/{repo}/pulls/{n}/comments` for recently merged pull

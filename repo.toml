@@ -1,9 +1,11 @@
 # What this repository is configured to be.
 #
 # Every value here is a claim about `bugabinga/software` that
-# `mise run check-settings` reads back from GitHub's API and fails on. Not yet
-# in `mise run check`, and blind in CI -- `mise.toml` says why, and the line
-# that ends both is one `env:` in `ci.yml` after the first apply.
+# `mise run check-settings` reads back from GitHub's API and fails on, and
+# `mise run check` runs it. Two parts read unread rather than compared short
+# of a wide credential: `actions/permissions/workflow`, which needs
+# administration, and the eight merge settings below, which GitHub omits
+# from the repository object it hands a CI token.
 # Before this file, the same claims lived in prose -- and prose about a
 # setting cannot be checked, so `docs/FLEET.md` spent months asserting a
 # ruleset that had changed under it. A pull request is now how a setting
