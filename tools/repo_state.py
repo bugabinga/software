@@ -39,10 +39,12 @@ import os
 import shutil
 import subprocess
 import sys
+import unittest
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import tomllib
+from fleetlib import run_tests
 
 ROOT = Path(__file__).resolve().parent.parent
 DECLARED = ROOT / "repo.toml"
@@ -743,85 +745,95 @@ def check(repo: str, declared_path: Path = DECLARED) -> int:
     return 0
 
 
-def self_test() -> int:
-    """The comparison rules, without a network.
+class Compare(unittest.TestCase):
+    """Declared keys are compared, undeclared ones are not this file's
+    business, and an unreadable one is neither."""
 
-    What is worth pinning is the shape of the answers rather than any live
-    value: a declared key that GitHub answers differently is a finding, an
-    undeclared key is not, and an unreadable section is neither.
-    """
-    assert compare({"a": 1}, {"a": 1}, "x") == ([], [])
-    assert compare({"a": 1}, {"a": 2}, "x") == (["x.a: declared 1, found 2"], [])
-    # Undeclared keys are not this file's business.
-    assert compare({"a": 1}, {"a": 1, "b": 9}, "x") == ([], [])
-    # A key the caller says can be hidden by permission is unread when it is
-    # absent. This is what arming the check in CI needed: the repository
-    # object a `contents: read` token receives has no merge settings in it,
-    # and calling that eight disagreements turned the gate red on a
-    # repository that matched.
-    findings, unread = compare({"a": 1}, {}, "x", frozenset({"a"}))
-    assert findings == []
-    assert unread == ["x.a: the token cannot see this field"]
-    # A key that is absent and *not* on that list is a difference, because
-    # the likeliest cause is a misspelling in a hand-written file. Without
-    # this, `has_wikis` for `has_wiki` would pass under every credential.
-    assert compare({"has_wikis": True}, {"has_wiki": True}, "repository") == (
-        ["repository.has_wikis: declared True, found nothing"],
-        [],
-    )
-    # And every trimmed field is one this file actually declares, so the list
-    # cannot rot into permission for a key nobody asserts.
-    declared_repo = tomllib.loads(DECLARED.read_text(encoding="utf-8"))["repository"]
-    assert set(declared_repo) >= TRIMMED_BY_PERMISSION
-    # A key present and null is an answer, and answers are compared.
-    assert compare({"a": 1}, {"a": None}, "x") == (
-        ["x.a: declared 1, found None"],
-        [],
-    )
-    # Order is GitHub's to choose for lists.
-    assert compare({"t": ["b", "a"]}, {"t": ["a", "b"]}, "x") == ([], [])
-    assert compare({"t": ["a"]}, {"t": ["a", "b"]}, "x")[0] != []
-    # Nested tables belong to their own section.
-    assert compare({"n": {"deep": 1}}, {}, "x") == ([], [])
+    def test_agreement_and_difference(self) -> None:
+        self.assertEqual(compare({"a": 1}, {"a": 1}, "x"), ([], []))
+        self.assertEqual(
+            compare({"a": 1}, {"a": 2}, "x"), (["x.a: declared 1, found 2"], [])
+        )
 
-    # The gate that decides whether comparing means anything. Same bytes as
-    # the last successful apply: compare. Anything else: say why not, and
-    # compare nothing. Pinned here because it is the one branch that can turn
-    # the whole check into a no-op, so a change to it should have to be
-    # deliberate.
-    assert unapplied_reason(b"x", b"x", "6aa0507", "34791533048") is None
-    edited = unapplied_reason(b"y", b"x", "6aa0507", "34791533048")
-    assert edited is not None and "not yet applied" in edited
-    # The case that made the gate a no-op on #82 for nine commits: the same
-    # settings, different prose. Bytes said "not applied"; values say applied.
-    same = b"[repository]\nhas_wiki = false\n"
-    commented = b"# why\n[repository]\nhas_wiki = false  # still why\n"
-    assert unapplied_reason(commented, same, "6aa0507", "1") is None
-    changed = b"[repository]\nhas_wiki = true\n"
-    assert unapplied_reason(changed, same, "6aa0507", "1") is not None
-    # Unparsable falls back to bytes, which can then only differ.
-    assert unapplied_reason(b"{{{", b"[a]\n", "6aa0507", "1") is not None
+    def test_an_undeclared_key_is_ignored(self) -> None:
+        self.assertEqual(compare({"a": 1}, {"a": 1, "b": 9}, "x"), ([], []))
 
-    blind = unapplied_reason(b"x", None, None, None)
-    assert blind is not None and "could not be read" in blind
-    # A run whose head SHA is known but whose file would not decode is the
-    # same answer as no run at all: unknown, not applied.
-    assert unapplied_reason(b"x", None, "6aa0507", "1") is not None
+    def test_a_key_permission_hides_is_unread(self) -> None:
+        # What arming the check in CI needed: the repository object a
+        # `contents: read` token receives has no merge settings, and calling
+        # that eight disagreements turned the gate red on a repository that
+        # matched.
+        findings, unread = compare({"a": 1}, {}, "x", frozenset({"a"}))
+        self.assertEqual(findings, [])
+        self.assertEqual(unread, ["x.a: the token cannot see this field"])
 
-    checks = {
+    def test_an_absent_key_not_on_that_list_is_a_difference(self) -> None:
+        # The likeliest cause is a misspelling. Without this, `has_wikis`
+        # for `has_wiki` would pass under every credential.
+        self.assertEqual(
+            compare({"has_wikis": True}, {"has_wiki": True}, "repository"),
+            (["repository.has_wikis: declared True, found nothing"], []),
+        )
+
+    def test_the_trim_list_cannot_rot(self) -> None:
+        # Every trimmed field is one this file declares, so the list cannot
+        # become permission for a key nobody asserts.
+        declared = tomllib.loads(DECLARED.read_text(encoding="utf-8"))["repository"]
+        self.assertGreaterEqual(set(declared), TRIMMED_BY_PERMISSION)
+
+    def test_null_is_an_answer(self) -> None:
+        self.assertEqual(
+            compare({"a": 1}, {"a": None}, "x"), (["x.a: declared 1, found None"], [])
+        )
+
+    def test_list_order_is_githubs(self) -> None:
+        self.assertEqual(compare({"t": ["b", "a"]}, {"t": ["a", "b"]}, "x"), ([], []))
+        self.assertNotEqual(compare({"t": ["a"]}, {"t": ["a", "b"]}, "x")[0], [])
+
+    def test_a_nested_table_belongs_to_its_own_section(self) -> None:
+        self.assertEqual(compare({"n": {"deep": 1}}, {}, "x"), ([], []))
+
+
+class WhetherComparingMeansAnything(unittest.TestCase):
+    """The one branch that can turn the whole check into a no-op."""
+
+    def test_the_same_declaration_compares(self) -> None:
+        self.assertIsNone(unapplied_reason(b"x", b"x", "6aa0507", "34791533048"))
+
+    def test_an_edited_one_does_not(self) -> None:
+        edited = unapplied_reason(b"y", b"x", "6aa0507", "34791533048")
+        self.assertIsNotNone(edited)
+        self.assertIn("not yet applied", str(edited))
+
+    def test_prose_is_not_a_settings_change(self) -> None:
+        # The case that made the gate a no-op on #82 for nine commits: the
+        # same settings, different comments. Bytes said "not applied".
+        same = b"[repository]\nhas_wiki = false\n"
+        commented = b"# why\n[repository]\nhas_wiki = false  # still why\n"
+        self.assertIsNone(unapplied_reason(commented, same, "6aa0507", "1"))
+        changed = b"[repository]\nhas_wiki = true\n"
+        self.assertIsNotNone(unapplied_reason(changed, same, "6aa0507", "1"))
+
+    def test_unparsable_falls_back_to_bytes(self) -> None:
+        self.assertIsNotNone(unapplied_reason(b"{{{", b"[a]\n", "6aa0507", "1"))
+
+    def test_unknown_is_not_applied(self) -> None:
+        blind = unapplied_reason(b"x", None, None, None)
+        self.assertIsNotNone(blind)
+        self.assertIn("could not be read", str(blind))
+        # A run whose head SHA is known but whose file would not decode is
+        # the same answer: unknown.
+        self.assertIsNotNone(unapplied_reason(b"x", None, "6aa0507", "1"))
+
+
+class Rulesets(unittest.TestCase):
+    """The declaration is the whole ruleset, not a subset of its rules."""
+
+    CHECKS: ClassVar[dict[str, object]] = {
         "required_status_checks": [{"context": "CI", "integration_id": 15368}],
         "strict_required_status_checks_policy": True,
     }
-    assert (
-        _compare_rule_parameters("r", {"contexts": ["CI"], "strict": True}, checks)
-        == []
-    )
-    assert (
-        _compare_rule_parameters("r", {"contexts": ["CI", "Fleet review"]}, checks)
-        != []
-    )
-
-    actual = {
+    ACTUAL: ClassVar[dict[str, object]] = {
         "enforcement": "active",
         "bypass_actors": [],
         "conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"]}},
@@ -833,67 +845,104 @@ def self_test() -> int:
             },
         ],
     }
-    assert _compare_ruleset(
-        "Main",
-        {
-            "enforcement": "active",
-            "include": ["~DEFAULT_BRANCH"],
-            "rules": ["deletion"],
-            "pull_request": {"required_approving_review_count": 0},
-        },
-        actual,
-    ) == ([], [])
-    assert _compare_ruleset("Main", {"rules": ["required_signatures"]}, actual)[0] != []
-    assert (
-        _compare_ruleset(
-            "Main", {"pull_request": {"required_approving_review_count": 1}}, actual
-        )[0]
-        != []
-    )
-    # A rule nobody declared is drift too, because the declaration is the
-    # whole ruleset. Without `pull_request` declared, `actual` has one.
-    assert "not declared" in " ".join(
-        _compare_ruleset("Main", {"rules": ["deletion"]}, actual)[0]
-    )
-    # An actor swapped for another keeps the count and changes the ruleset.
-    swapped = {**actual, "bypass_actors": [{"actor_id": 2, "actor_type": "Team"}]}
-    assert (
-        _compare_ruleset(
-            "Main", {"bypass_actors": [{"actor_id": 1, "actor_type": "Team"}]}, swapped
-        )[0]
-        != []
-    )
-    # The field the token cannot see is unread, not "nobody may bypass". This
-    # is the case that read as agreement before: a declared actor, a response
-    # without the key, and no finding either way.
-    hidden = {key: value for key, value in actual.items() if key != "bypass_actors"}
-    drift, blind = _compare_ruleset(
-        "Main",
-        {
-            "rules": ["deletion"],
-            "pull_request": {"required_approving_review_count": 0},
-            "bypass_actors": [{"actor_id": 5, "actor_type": "RepositoryRole"}],
-        },
-        hidden,
-    )
-    assert drift == [] and len(blind) == 1, (drift, blind)
-    assert "cannot see" in blind[0]
+    DECLARED_MAIN: ClassVar[dict[str, object]] = {
+        "enforcement": "active",
+        "include": ["~DEFAULT_BRANCH"],
+        "rules": ["deletion"],
+        "pull_request": {"required_approving_review_count": 0},
+    }
 
-    # Unread is neither agreement nor a difference, and a difference wins.
-    assert _verdict([], []) == (MATCH, [])
-    assert _verdict([], ["x: could not be read"])[0] == UNREAD
-    assert _verdict(["x.a: declared 1, found 2"], ["y: could not be read"])[0] == DIFFER
+    def test_required_contexts(self) -> None:
+        self.assertEqual(
+            _compare_rule_parameters(
+                "r", {"contexts": ["CI"], "strict": True}, self.CHECKS
+            ),
+            [],
+        )
+        self.assertNotEqual(
+            _compare_rule_parameters(
+                "r", {"contexts": ["CI", "Fleet review"]}, self.CHECKS
+            ),
+            [],
+        )
 
-    # The declared file must parse and must not be empty, or the gate is a
-    # gate over nothing.
-    declared = tomllib.loads(DECLARED.read_text(encoding="utf-8"))
-    assert declared["repository"]["default_branch"] == "main"
-    assert declared["ruleset"]["Main"]["enforcement"] == "active"
+    def test_a_matching_ruleset(self) -> None:
+        self.assertEqual(
+            _compare_ruleset("Main", self.DECLARED_MAIN, self.ACTUAL), ([], [])
+        )
 
-    print(
-        "repo_state: declared keys compared, undeclared keys ignored, unread is neither"
-    )
-    return 0
+    def test_a_rule_declared_and_absent(self) -> None:
+        self.assertNotEqual(
+            _compare_ruleset("Main", {"rules": ["required_signatures"]}, self.ACTUAL)[
+                0
+            ],
+            [],
+        )
+
+    def test_a_parameter_that_differs(self) -> None:
+        self.assertNotEqual(
+            _compare_ruleset(
+                "Main",
+                {"pull_request": {"required_approving_review_count": 1}},
+                self.ACTUAL,
+            )[0],
+            [],
+        )
+
+    def test_a_rule_nobody_declared_is_drift_too(self) -> None:
+        self.assertIn(
+            "not declared",
+            " ".join(_compare_ruleset("Main", {"rules": ["deletion"]}, self.ACTUAL)[0]),
+        )
+
+    def test_an_actor_swapped_keeps_the_count(self) -> None:
+        swapped = {
+            **self.ACTUAL,
+            "bypass_actors": [{"actor_id": 2, "actor_type": "Team"}],
+        }
+        self.assertNotEqual(
+            _compare_ruleset(
+                "Main",
+                {"bypass_actors": [{"actor_id": 1, "actor_type": "Team"}]},
+                swapped,
+            )[0],
+            [],
+        )
+
+    def test_a_hidden_bypass_list_is_unread_not_empty(self) -> None:
+        # The case that read as agreement: a declared actor, a response
+        # without the key, and no finding either way -- on the one field
+        # whose job is to override every other rule.
+        hidden = {k: v for k, v in self.ACTUAL.items() if k != "bypass_actors"}
+        drift, blind = _compare_ruleset(
+            "Main",
+            {
+                **self.DECLARED_MAIN,
+                "bypass_actors": [{"actor_id": 5, "actor_type": "RepositoryRole"}],
+            },
+            hidden,
+        )
+        self.assertEqual(drift, [])
+        self.assertEqual(len(blind), 1)
+        self.assertIn("cannot see", blind[0])
+
+
+class Verdicts(unittest.TestCase):
+    def test_unread_is_neither_and_a_difference_wins(self) -> None:
+        self.assertEqual(_verdict([], []), (MATCH, []))
+        self.assertEqual(_verdict([], ["x: could not be read"])[0], UNREAD)
+        self.assertEqual(
+            _verdict(["x.a: declared 1, found 2"], ["y: could not be read"])[0], DIFFER
+        )
+
+
+class TheDeclaration(unittest.TestCase):
+    """A gate over an empty file is a gate over nothing."""
+
+    def test_it_parses_and_says_something(self) -> None:
+        declared = tomllib.loads(DECLARED.read_text(encoding="utf-8"))
+        self.assertEqual(declared["repository"]["default_branch"], "main")
+        self.assertEqual(declared["ruleset"]["Main"]["enforcement"], "active")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -911,7 +960,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.self_test:
-        return self_test()
+        return run_tests()
     if args.apply:
         return apply_state(args.repo)
     if args.check:
