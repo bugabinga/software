@@ -21,18 +21,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
-import shutil
-import subprocess
 import sys
 import time
 from dataclasses import dataclass, field, replace
-from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parent.parent
+from fleetlib import api, gh, notice
 
 # The one thing the fleet does not merge for itself. A change under these
 # prefixes is the automation deciding its own future, and an agent that can
@@ -132,28 +128,6 @@ def decide(branch: Branch) -> Decision:
     return Decision("merge", f"#{branch.pull} is green and touches nothing protected")
 
 
-def gh(*args: str, check: bool = True) -> str:
-    binary = shutil.which("gh") or str(ROOT / ".tools" / "gh" / "gh")
-    done = subprocess.run(  # noqa: PLW1510 - returncode is read below
-        [binary, *args], capture_output=True, text=True, timeout=120
-    )
-    if done.returncode != 0:
-        if check:
-            sys.exit(f"gh {' '.join(args)}: {done.stderr.strip()}")
-        return ""
-    return done.stdout
-
-
-def api(path: str, *args: str, check: bool = True) -> Any:
-    out = gh("api", path, *args, check=check).strip()
-    if not out:
-        return None
-    try:
-        return json.loads(out)
-    except json.JSONDecodeError:
-        return out
-
-
 def observe(repo: str, branch: str, sha: str, attempts: int = 12) -> Branch:
     """Ask GitHub the questions `decide` answers from.
 
@@ -224,7 +198,7 @@ def issue_body(
 
 
 def act(repo: str, branch: Branch, decision: Decision, sha: str, server: str) -> int:
-    print(f"::notice::{branch.name}: {decision.action} -- {decision.why}")
+    notice(f"{branch.name}: {decision.action} -- {decision.why}")
     if decision.action in {"leave", "wait"}:
         return 0
 
@@ -245,7 +219,7 @@ def act(repo: str, branch: Branch, decision: Decision, sha: str, server: str) ->
                 f"body={body}",
                 check=False,
             )
-            print(f"::notice::updated issue #{existing}")
+            notice(f"updated issue #{existing}")
         else:
             made = (
                 api(
@@ -259,7 +233,7 @@ def act(repo: str, branch: Branch, decision: Decision, sha: str, server: str) ->
                 )
                 or {}
             )
-            print(f"::notice::opened issue #{made.get('number')}")
+            notice(f"opened issue #{made.get('number')}")
         return 0
 
     merged = gh(
@@ -274,9 +248,9 @@ def act(repo: str, branch: Branch, decision: Decision, sha: str, server: str) ->
         check=False,
     )
     if not merged:
-        print(f"::notice::#{branch.pull} could not be merged; leaving it")
+        notice(f"#{branch.pull} could not be merged; leaving it")
         return 0
-    print(f"::notice::merged #{branch.pull}")
+    notice(f"merged #{branch.pull}")
     gh("api", "-X", "DELETE", f"repos/{repo}/git/refs/heads/{branch.name}", check=False)
     return 0
 

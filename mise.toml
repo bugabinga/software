@@ -249,8 +249,11 @@ run = [
 ]
 
 [tasks.check-branches]
-description = "What a green agent branch has earned"
-run = "python3 tools/agent_branch.py --self-test"
+description = "What a green agent branch has earned, and the shared workflow floor"
+run = [
+  "python3 tools/fleetlib.py --self-test",
+  "python3 tools/agent_branch.py --self-test",
+]
 
 [tasks.check-review]
 description = "The review builder's line arithmetic"
