@@ -2,7 +2,9 @@
 """Check the GitHub Actions definitions before they are pushed.
 
 A broken workflow does not fail loudly -- it fails at 06:17 on a Monday, in a
-run nobody is watching. Six classes of mistake are worth catching locally:
+run nobody is watching. These classes of mistake are worth catching locally
+-- counted by reading the list, not by a number here that the list can
+outgrow, which is how it came to say six while catching seven:
 
 * invalid YAML (checked when PyYAML happens to be importable);
 * a program under `tools/` that no longer parses as Python;
@@ -17,9 +19,12 @@ run nobody is watching. Six classes of mistake are worth catching locally:
   delimited by end-of-file"). One at column 0 in the file is not a shell
   problem at all -- it ends the YAML block early, which the syntax check
   catches. Both are easy to write and neither is visible by eye.
+* `gh api --paginate` with a jq filter that aggregates, which answers once
+  per page. See `paginate_findings`; `--self-test` is its fixture table.
 
 Usage:
     tools/check_workflows.py
+    tools/check_workflows.py --self-test
 """
 
 from __future__ import annotations

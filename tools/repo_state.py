@@ -11,8 +11,10 @@ by a gate.
 So the settings become a file, and this reads them back.
 
 **Three outcomes per claim, not two.** Matches, differs, or could not be read.
-The third is not a detail: this runs both in CI, where the token sees
-everything, and in a session behind a proxy that refuses whole API paths. A
+The third is not a detail, and it is not only the proxy's doing: in CI the
+workflow token is refused whole sections and has fields trimmed out of others
+(`TRIMMED_BY_PERMISSION`), and a session behind a proxy loses whole API paths
+on top of that. A
 checker that called an unreadable section a difference would fail every local
 run and teach everyone to ignore it; one that called it agreement would lie.
 So unread is reported, loudly, and does not fail.
