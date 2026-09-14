@@ -98,7 +98,13 @@ shipping the token in one would publish it. That matters more than the token's
 own value, because a note files itself -- `agent-branches.yml` merges a green
 `notes/` branch without a human reading it, and `notes/` is never edited
 afterwards. Rotating means changing `NOTES_INTAKE_TOKEN`, redeploying, and
-generating a new skill.
+generating a new skill -- in that order, and the middle step is the one that is
+easy to miss. Changing the repository secret reaches Cloudflare only when
+`worker-deploy.yml` runs, and that fires on a push to `main` touching
+`worker/**` or the workflow itself. Nothing else notices, so a rotation with no
+Worker change is a `workflow_dispatch` on that workflow, by hand. Until it runs
+the old token is still the live one; after it runs, every skill zip holding the
+old token gets a 401.
 
 The zip holds a live token either way. Treat it as a credential.
 
