@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prelude reference — A Book Written in Types</title>
+<meta name="description" content="Everything a chapter can use after #import &quot;/book/lib/prelude.typ&quot;: *, with its output shown inline. The source of this chapter is the copy-paste source for each helper.">
+<link rel="canonical" href="https://bugabinga.github.io/software/prelude-reference/">
+<meta property="og:url" content="https://bugabinga.github.io/software/prelude-reference/">
+<meta property="og:title" content="Prelude reference">
+<meta property="og:site_name" content="A Book Written in Types">
+<meta property="og:description" content="Everything a chapter can use after #import &quot;/book/lib/prelude.typ&quot;: *, with its output shown inline. The source of this chapter is the copy-paste source for each helper.">
+<meta property="og:type" content="article">
+<link rel="icon" href="../assets/favicon.svg">
+<link rel="stylesheet" href="../assets/book.css">
+<!-- Whatever Typst needs in <head>; currently the MathML stylesheet. -->
+
+<script>
+  // Apply the saved theme before first paint, so the page never flashes.
+  try {
+    var saved = localStorage.getItem("book-theme");
+    if (saved) document.documentElement.dataset.theme = saved;
+  } catch (_e) {}
+</script>
+</head>
+<body data-prefix="../">
+<a class="skip-link" href="#content">Skip to content</a>
+
+<header class="topbar">
+  <button type="button" class="icon-button sidebar-toggle" aria-label="Contents" aria-expanded="false">☰</button>
+  <a class="topbar-title" href="../">A Book Written in Types</a>
+  <div class="topbar-actions">
+    <button type="button" class="search-open" aria-label="Search (press /)">Search <kbd>/</kbd></button>
+    <a class="pdf-link" href="../book.pdf">PDF</a>
+    <button type="button" class="icon-button theme-toggle" aria-label="Switch theme">◐</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="sidebar" id="sidebar">
+    <nav class="toc" aria-label="Contents">
+<a class="toc-home" href="../">A Book Written in Types</a>
+<ul>
+<li class=""><a href="../preface/">Preface</a>
+</li>
+</ul>
+<p class="toc-part">Part I: Foundations</p>
+<ul>
+<li class=""><a href="../machine-and-program/"><span class="num">1</span> Machine and program</a>
+</li>
+<li class=""><a href="../information-and-entropy/"><span class="num">2</span> Information and entropy</a>
+</li>
+<li class=""><a href="../knowledge/"><span class="num">3</span> Knowledge</a>
+</li>
+<li class=""><a href="../software-and-its-forms/"><span class="num">4</span> Software and its forms</a>
+</li>
+<li class=""><a href="../operating-systems/"><span class="num">5</span> Operating systems</a>
+</li>
+</ul>
+<p class="toc-part">Part II: Craft</p>
+<ul>
+<li class=""><a href="../learning-the-craft/"><span class="num">6</span> Learning the craft</a>
+</li>
+<li class=""><a href="../beauty-and-mechanical-sympathy/"><span class="num">7</span> Beauty and mechanical sympathy</a>
+</li>
+<li class=""><a href="../the-cycle-and-its-costs/"><span class="num">8</span> The cycle and its costs</a>
+</li>
+<li class=""><a href="../the-practices/"><span class="num">9</span> The practices</a>
+</li>
+<li class=""><a href="../intent-and-product-engineering/"><span class="num">10</span> Intent and product engineering</a>
+</li>
+</ul>
+<p class="toc-part">Appendices</p>
+<ul>
+<li class=""><a href="../open-questions/">Open questions</a>
+</li>
+<li class=""><a href="../agents/">Agents</a>
+</li>
+<li class=""><a href="../citations/">Citations</a>
+</li>
+<li class=""><a href="../glossary/">Glossary</a>
+</li>
+<li class="current"><a href="../prelude-reference/" aria-current="page">Prelude reference</a>
+<ul class="toc-sections">
+<li class="level-2"><a href="#callouts">Callouts</a></li>
+<li class="level-2"><a href="#defined-terms">Defined terms</a></li>
+<li class="level-2"><a href="#output-specific-content">Output-specific content</a></li>
+<li class="level-2"><a href="#code-from-real-files">Code from real files</a></li>
+<li class="level-2"><a href="#everything-else">Everything else</a></li>
+</ul>
+</li>
+</ul>
+</nav>
+  </div>
+
+  <main class="content" id="content">
+    <article class="chapter">
+      <p class="eyebrow">Appendices</p>
+      <h1>Prelude reference</h1>
+      <aside class="page-toc" aria-label="On this page"><p>On this page</p><ul><li class="level-2"><a href="#callouts">Callouts</a></li>
+<li class="level-2"><a href="#defined-terms">Defined terms</a></li>
+<li class="level-2"><a href="#output-specific-content">Output-specific content</a></li>
+<li class="level-2"><a href="#code-from-real-files">Code from real files</a></li>
+<li class="level-2"><a href="#everything-else">Everything else</a></li></ul></aside>
+      <p>Everything a chapter can use after <code>#import "/book/lib/prelude.typ": *</code>, with its output shown inline. The source of this chapter is the copy-paste source for each helper.</p>
+    <h2 id="callouts">Callouts<a class="permalink" href="#callouts" aria-label="Permalink to this section">#</a></h2>
+    <p><code>#note[...]</code>, <code>#tip[...]</code>, <code>#warning[...]</code> and <code>#caution[...]</code> take an optional <code>title:</code>; pass <code>title: ""</code> to drop the heading entirely.</p>
+    <aside class="callout callout-note">
+      <p class="callout-title">Note</p>
+      The default heading is the callout’s name.
+    </aside>
+    <aside class="callout callout-tip">
+      <p class="callout-title">Custom heading</p>
+      Any string works as a title.
+    </aside>
+    <aside class="callout callout-warning">A callout with no heading.</aside>
+    <aside class="callout callout-caution">
+      <p class="callout-title">Caution</p>
+      For anything that loses data or money.
+    </aside>
+    <h2 id="defined-terms">Defined terms<a class="permalink" href="#defined-terms" aria-label="Permalink to this section">#</a></h2>
+    <p><code>#term[...]</code> marks the place where the book defines a word: a <dfn>functor</dfn> becomes a <code>&lt;dfn></code> on the web and bold italic in print, so a glossary can be generated from the same markup later.</p>
+    <h2 id="output-specific-content">Output-specific content<a class="permalink" href="#output-specific-content" aria-label="Permalink to this section">#</a></h2>
+    <p><code>#web-only[...]</code> and <code>#print-only[...]</code> include content in one output only.</p>
+    <p>This sentence only exists on the website.</p>
+    <h2 id="code-from-real-files">Code from real files<a class="permalink" href="#code-from-real-files" aria-label="Permalink to this section">#</a></h2>
+    <p><code>#snippet(path, tag: none, lang: none)</code> reads a file under <code>code/</code> and quotes one marked region of it. Regions are delimited by <code>[name]</code> and <code>[/name]</code> inside comments, are dedented, and must exist:</p>
+    <pre><code data-lang="typst"><span style="color: #4b69c6">#</span><span style="color: #4b69c6">snippet</span>(<span style="color: #198810">"/code/examples/types.rs"</span>, tag: <span style="color: #198810">"newtype"</span>)</code></pre>
+    <h2 id="everything-else">Everything else<a class="permalink" href="#everything-else" aria-label="Permalink to this section">#</a></h2>
+    <p>The rest is plain Typst: headings, lists, <code>#figure</code>, <code>#table</code>, <code>#image</code>, <code>#link</code>, <code>@labels</code>, <code>#footnote</code>, and math. The <a href="https://typst.app/docs/reference/">Typst reference</a> applies unchanged.</p>
+    </article>
+    <nav class="pager" aria-label="Chapter navigation"><a class="prev" href="../glossary/" rel="prev"><span>Previous</span>Glossary</a></nav>
+    <footer class="chapter-footer">
+      <a class="edit" href="https://github.com/bugabinga/software/edit/main/book/chapters/99-prelude-reference.typ">Edit this page</a>
+      <span class="edition">draft</span>
+    </footer>
+  </main>
+</div>
+
+<dialog class="search-dialog">
+  <form class="search-form" method="dialog">
+    <input class="search-input" type="search" placeholder="Search the book" aria-label="Search the book" autocomplete="off">
+    <button type="button" class="search-close" aria-label="Close">esc</button>
+  </form>
+  <div class="search-results" role="listbox" aria-label="Search results"></div>
+</dialog>
+
+<script src="../assets/book.js"></script>
+
+</body>
+</html>

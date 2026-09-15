@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Fleet report — 2026-09-14</title>
+<style>
+  :root { color-scheme: light dark;
+           --line: color-mix(in srgb, currentColor 18%, transparent); }
+  body { font: 15px/1.55 ui-monospace, "DejaVu Sans Mono", monospace;
+         max-width: 62rem; margin: 0 auto; padding: 2rem 1rem 6rem; }
+  h1 { font-size: 1.3rem; margin: 0 0 .2rem; }
+  h2 { font-size: 1rem; margin: 2.4rem 0 .6rem; text-transform: uppercase;
+        letter-spacing: .08em; opacity: .65; }
+  p.sub { margin: 0 0 2rem; opacity: .6; }
+  ul.findings { padding-left: 1.1rem; margin: 0 0 1rem; }
+  ul.findings li { margin: .35rem 0; }
+  table { border-collapse: collapse; width: 100%; margin: 0 0 1rem; }
+  th, td { text-align: left; padding: .3rem .6rem .3rem 0;
+            border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-weight: 600; opacity: .6; font-size: .82rem; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums;
+                padding-right: 0; }
+  code { font-size: .92em; }
+  a { color: inherit; }
+  .wrap { overflow-x: auto; }
+</style>
+
+<h1>Fleet report</h1>
+<p class="sub">7 days to
+2026-09-14 15:31 UTC ·
+  <a href="../">the book</a></p>
+
+<ul class="findings"><li>37 of 41 agent runs failed.</li></ul>
+
+<h2>Agents</h2>
+<div class="wrap"><table>
+  <tr><th>agent</th><th>served by</th><th class=n>runs</th><th class=n>failed</th>
+      <th class=n>median</th><th class=n>turns</th><th class=n>tokens</th>
+      <th class=n>cost</th></tr>
+  <tr><td>pipeline-gardener</td><td><code>claude-haiku-4-5-20251001</code></td><td class=n>1</td><td class=n>0</td><td class=n>2m 47s</td><td class=n>18</td><td class=n>9,591</td><td class=n>$0.58</td></tr><tr><td>pr-reviewer</td><td><code>claude-haiku-4-5-20251001</code></td><td class=n>7</td><td class=n>4</td><td class=n>10m 41s</td><td class=n>51</td><td class=n>221,584</td><td class=n>$26.54</td></tr><tr><td>review-responder</td><td><code>—</code></td><td class=n>33</td><td class=n>33</td><td class=n>1s</td><td class=n>—</td><td class=n>—</td><td class=n>—</td></tr>
+</table></div>
+
+<h2>Failures</h2>
+<div class="wrap"><table>
+  <tr><th>workflow</th><th>branch</th><th>conclusion</th><th class=n>when</th></tr>
+  <tr><td><a href="https://github.com/bugabinga/software/actions/runs/34840543326">Fleet respond</a></td><td>main</td><td>failure</td><td class=n>2026-09-14 11:54</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34839457464">Fleet respond</a></td><td>main</td><td>failure</td><td class=n>2026-09-14 11:41</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34838552786">Fleet review</a></td><td>claude/book-publishing-pipeline-7odidd</td><td>failure</td><td class=n>2026-09-14 11:30</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34838332183">Fleet respond</a></td><td>main</td><td>failure</td><td class=n>2026-09-14 11:27</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34837054222">Fleet respond</a></td><td>main</td><td>failure</td><td class=n>2026-09-14 11:12</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34836239072">Fleet review</a></td><td>claude/book-publishing-pipeline-7odidd</td><td>failure</td><td class=n>2026-09-14 11:03</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34835780746">Fleet respond</a></td><td>main</td><td>failure</td><td class=n>2026-09-14 10:58</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34835484131">Fleet respond</a></td><td>main</td><td>failure</td><td class=n>2026-09-14 10:54</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34834205194">Fleet review</a></td><td>claude/book-publishing-pipeline-7odidd</td><td>failure</td><td class=n>2026-09-14 10:38</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34834045823">Fleet respond</a></td><td>main</td><td>failure</td><td class=n>2026-09-14 10:36</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34833044863">Fleet review</a></td><td>claude/book-publishing-pipeline-7odidd</td><td>failure</td><td class=n>2026-09-14 10:24</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34832979510">Fleet respond</a></td><td>main</td><td>failure</td><td class=n>2026-09-14 10:24</td></tr><tr><td><a href="https://github.com/bugabinga/software/actions/runs/34845038244">Maintenance</a></td><td>main</td><td>failure</td><td class=n>2026-09-14 12:44</td></tr>
+</table></div>
+
+<h2>Branches</h2>
+<div class="wrap"><table>
+  <tr><th>branch</th><th>fate</th><th class=n>pr</th></tr>
+  <tr><td><code>agent/fix-stale-detection</code></td><td>merged</td><td class=n>#16</td></tr><tr><td><code>agent/fleet-triggers</code></td><td>merged</td><td class=n>#18</td></tr><tr><td><code>agent/fleet-under-rules</code></td><td>merged</td><td class=n>#24</td></tr><tr><td><code>agent/operator-memory-and-delegation</code></td><td>merged</td><td class=n>#20</td></tr><tr><td><code>agent/pages-bootstrap</code></td><td>merged</td><td class=n>#7</td></tr><tr><td><code>agent/publish-without-privilege</code></td><td>merged</td><td class=n>#8</td></tr><tr><td><code>agent/refresh-content-note</code></td><td>merged</td><td class=n>#22</td></tr><tr><td><code>agent/single-file-build</code></td><td>merged</td><td class=n>#11</td></tr><tr><td><code>agent/skip-stale-branches</code></td><td>merged</td><td class=n>#13</td></tr><tr><td><code>agent/structure-from-session-01</code></td><td>merged</td><td class=n>#14</td></tr>
+</table></div>
+
+<h2>Roster</h2>
+<div class="wrap"><table>
+  <tr><th>agent</th><th>brief</th></tr>
+  <tr><td><code>chapter-drafter</code></td><td>Drafts chapter prose from notes, on demand and against a named target. Invoked deliberately, never on a schedule.</td></tr><tr><td><code>notes-cartographer</code></td><td>Reads new material in notes/ and decides where it belongs in the book -- outline changes, chapter stubs, reordering, restructuring. Owns the book&#x27;s shape; does not write prose.</td></tr><tr><td><code>pipeline-gardener</code></td><td>Keeps the build alive. Typst upgrades, dependency bumps, CI failures, link rot, build performance. Has no opinions about the book&#x27;s content and never edits prose.</td></tr><tr><td><code>pr-reviewer</code></td><td>Reviews a pull request against the book&#x27;s standards and returns the verdict a human reads before merging. Reads only; never pushes, never merges, never fixes what it finds.</td></tr><tr><td><code>prose-editor</code></td><td>Copyedits and checks consistency across chapters -- terminology drift, terms used before they are defined, headings that do not match their content, stale cross-references. Edits mechanics of prose, never its argument.</td></tr><tr><td><code>review-responder</code></td><td>Answers review feedback on an open pull request -- the author&#x27;s or another agent&#x27;s. Fixes what is right, replies to what is not, and pushes to the same branch. Never opens a new one.</td></tr>
+</table></div>
+<p class="sub">9 occasions routed by
+  <code>tools/fleet_brief.py</code>.
+  Generated by <code>tools/fleet_report.py</code>; not part of the book.</p>
+</html>
