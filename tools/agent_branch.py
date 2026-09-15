@@ -28,6 +28,7 @@ import unittest
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+import ask_checks
 from fleetlib import api, gh, notice, paged, warn
 
 # The one thing the fleet does not merge for itself. A change under these
@@ -127,6 +128,15 @@ def decide(branch: Branch) -> Decision:
         )
     if branch.mergeable_state == "dirty":
         return Decision("leave", f"#{branch.pull} conflicts with main")
+    if branch.mergeable_state == "behind":
+        # `strict = true` on the Main ruleset: a branch behind `main` cannot
+        # land until it is updated. `repo.toml` turns on `allow_update_branch`
+        # and calls it "the button that does it" -- and nothing pressed it.
+        # `main` moves several times an hour while the fleet is being built,
+        # so every branch the fleet pushes is behind within minutes, and the
+        # merge was refused by the ruleset with `act` reporting only "could
+        # not be merged; leaving it". Every delivery would have stalled there.
+        return Decision("update", f"#{branch.pull} is behind main")
     return Decision("merge", f"#{branch.pull} is green and touches nothing protected")
 
 
@@ -236,6 +246,26 @@ def act(repo: str, branch: Branch, decision: Decision, sha: str, server: str) ->
                 or {}
             )
             notice(f"opened issue #{made.get('number')}")
+        return 0
+
+    if decision.action == "update":
+        if (
+            gh(
+                "api",
+                "-X",
+                "PUT",
+                f"repos/{repo}/pulls/{branch.pull}/update-branch",
+                check=False,
+            )
+            is None
+        ):
+            notice(f"#{branch.pull} could not be updated; leaving it")
+            return 0
+        # The update is a push by the workflow token, so it starts nothing.
+        # Without this the branch is up to date and stuck: the new head has
+        # no CI, and `decide` waits for a check that cannot arrive.
+        ask_checks.ask(branch.name, [ask_checks.Ask("ci.yml")])
+        notice(f"updated #{branch.pull} from main; CI asked for on the new head")
         return 0
 
     merged = gh(
@@ -433,6 +463,49 @@ def close_finished(repo: str) -> int:
         closed += 1
     notice(f"closed {closed} finished tracking issue(s)")
     return 0
+
+
+class Behind(unittest.TestCase):
+    """A branch behind `main` is updated, not abandoned."""
+
+    def branch(self, state: str) -> Branch:
+        return Branch(
+            name="agent/x",
+            ahead_by=1,
+            files=("book/chapters/01-x.typ",),
+            subject="a change",
+            checks=GREEN_CI,
+            pull=7,
+            mergeable_state=state,
+        )
+
+    def test_behind_asks_for_an_update(self) -> None:
+        # The Main ruleset is `strict = true`, so this merge is refused by
+        # GitHub. `repo.toml` turns on `allow_update_branch` for exactly this
+        # and nothing pressed it: every fleet delivery would have stalled
+        # with "could not be merged; leaving it".
+        self.assertEqual(decide(self.branch("behind")).action, "update")
+
+    def test_clean_still_merges(self) -> None:
+        self.assertEqual(decide(self.branch("clean")).action, "merge")
+
+    def test_a_conflict_is_still_left_alone(self) -> None:
+        # Updating a branch that conflicts would leave conflict markers in
+        # the tree. That one is the author's.
+        self.assertEqual(decide(self.branch("dirty")).action, "leave")
+
+    def test_ungreen_wins_over_behind(self) -> None:
+        # Order matters: updating a red branch spends a CI run to rediscover
+        # that it is red.
+        behind = Branch(
+            name="agent/x",
+            ahead_by=1,
+            files=("book/chapters/01-x.typ",),
+            checks=(*GREEN_CI, ("Lint", "completed", "failure")),
+            pull=7,
+            mergeable_state="behind",
+        )
+        self.assertEqual(decide(behind).action, "leave")
 
 
 class Pruning(unittest.TestCase):
