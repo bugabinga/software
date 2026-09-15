@@ -285,8 +285,7 @@ jobs:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$ISSUE/labels" \
-            -f "labels[]=fleet:running" > /dev/null 2>&1 || true
+          python3 tools/triage.py --mark running --issue "$ISSUE"
 
           # Written to a file rather than passed inline: the comment ends in a
           # horizontal rule, and a `---` at the start of a line inside a YAML
@@ -321,3 +320,22 @@ jobs:
           # changes -- CI runs, its completion fires agent-branches.yml, and
           # the merge decision is still made by rules in the repository.
           python3 tools/ask_checks.py --ref "$BRANCH" ci.yml
+
+      # `fleet:running` was applied and never removed -- not on success, not
+      # on failure, not on merge. The one label that says "something is
+      # happening here" meant nothing, and a run that died left an issue
+      # that looked in flight for ever. `fleet:blocked` was in the roster
+      # and applied by nothing at all; this is the edge it exists for.
+      #
+      # Last, and `always()`. Last because `job.status` reads the steps
+      # before it, so anywhere earlier it would report success on a run that
+      # was about to fail; `always()` because a run that died is exactly the
+      # one whose issue must stop claiming to be running.
+      - name: Say how it ended on the issue
+        if: always() && steps.occasion.outputs.issue != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE: ${{ steps.occasion.outputs.issue }}
+          STATE: ${{ job.status == 'success' && 'done' || 'blocked' }}
+        run: python3 tools/triage.py --mark "$STATE" --issue "$ISSUE"

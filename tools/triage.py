@@ -35,15 +35,37 @@ import sys
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest import mock
 
-from fleetlib import api, gh, notice, output, paged, warn
+from fleetlib import api, captured, gh, notice, output, paged, warn
+
+ROOT = Path(__file__).resolve().parent.parent
 
 # The labels that route. `fleet.yml`'s occasion router maps exactly these two
 # to a trigger; anything else it prints a notice about and exits 0.
 ROUTING = {"fleet:material", "fleet:task"}
 
-# Applied by the fleet, not by a human, and not a route on their own.
+# Applied by the fleet, not by a human, and not a route on their own. They
+# are a state machine with three edges and `mark` is all of them:
+#
+#     picked up  ->  fleet:running
+#     finished   ->  (neither)
+#     died       ->  fleet:blocked
+#
+# `fleet.yml` used to write the first edge inline and neither of the others.
+# An issue the fleet picked up kept `fleet:running` for ever -- through a
+# failed run, through a merge, through everything -- so the one label that
+# says "something is happening here" meant nothing at all, and a run that
+# died left an issue that looked in flight. `fleet:blocked` was in the
+# roster and in this set and no line of the tree ever applied it.
 FLEET_STATE = {"fleet:running", "fleet:blocked"}
+
+# What each outcome leaves behind. Absent from the list means removed.
+MARKS = {
+    "running": {"fleet:running"},
+    "done": set(),
+    "blocked": {"fleet:blocked"},
+}
 
 # What a verdict may ask for. Anything else is a malformed verdict, which is
 # treated as "leave it for a human" rather than guessed at.
@@ -82,6 +104,42 @@ def untriaged(issues: list[dict[str, Any]]) -> list[int]:
         )
     ]
     return sorted(numbers)[:SWEEP_CAP]
+
+
+def mark(repo: str, issue: int, state: str) -> int:
+    """Move an issue to one of the three fleet states.
+
+    Removing first, then adding, and removing everything that is not wanted:
+    a run that ends blocked must not keep `fleet:running` beside it, and the
+    two together are how an issue comes to say two contradictory things.
+
+    A label that is not on the issue removes with a 404, which is the answer
+    rather than a fault -- so nothing here is checked, and the notice says
+    what was intended rather than what the API thought of it.
+    """
+    wanted = MARKS[state]
+    for label in sorted(FLEET_STATE - wanted):
+        gh(
+            "api",
+            "-X",
+            "DELETE",
+            f"repos/{repo}/issues/{issue}/labels/{label}",
+            check=False,
+        )
+    for label in sorted(wanted):
+        gh(
+            "api",
+            "-X",
+            "POST",
+            f"repos/{repo}/issues/{issue}/labels",
+            "-f",
+            f"labels[]={label}",
+            check=False,
+        )
+    notice(
+        f"#{issue} is {state}" + (f" ({', '.join(sorted(wanted))})" if wanted else "")
+    )
+    return 0
 
 
 def verdict_route(verdict: dict[str, Any]) -> tuple[str, str]:
@@ -189,6 +247,57 @@ class NeedsTriage(unittest.TestCase):
         self.assertEqual(FLEET_STATE & ROUTING, set())
 
 
+class Marking(unittest.TestCase):
+    """The three states, and that they cannot overlap."""
+
+    def calls(self, state: str) -> list[tuple[str, str]]:
+        """`(verb, label)` for each API call `mark` would make."""
+        seen = []
+
+        def fake(*args: str, **_: object) -> str:
+            verb = args[args.index("-X") + 1]
+            target = args[args.index("-X") + 2]
+            label = target.rsplit("/", 1)[-1] if verb == "DELETE" else args[-1]
+            return seen.append((verb, label.removeprefix("labels[]="))) or ""
+
+        with mock.patch(f"{__name__}.gh", side_effect=fake), captured():
+            mark("o/r", 7, state)
+        return seen
+
+    def test_running_removes_blocked(self) -> None:
+        # The pair is the fault: an issue carrying both says two
+        # contradictory things and neither of them is checkable.
+        self.assertEqual(
+            self.calls("running"),
+            [("DELETE", "fleet:blocked"), ("POST", "fleet:running")],
+        )
+
+    def test_blocked_removes_running(self) -> None:
+        self.assertEqual(
+            self.calls("blocked"),
+            [("DELETE", "fleet:running"), ("POST", "fleet:blocked")],
+        )
+
+    def test_done_removes_both_and_adds_nothing(self) -> None:
+        self.assertEqual(
+            self.calls("done"),
+            [("DELETE", "fleet:blocked"), ("DELETE", "fleet:running")],
+        )
+
+    def test_every_state_is_a_subset_of_the_fleet_labels(self) -> None:
+        for state, labels in MARKS.items():
+            with self.subTest(state=state):
+                self.assertLessEqual(labels, FLEET_STATE)
+
+    def test_every_fleet_label_is_in_the_roster(self) -> None:
+        # Against `.github/labels.toml`, not a fixture: a label the fleet
+        # applies and the roster does not declare is one `labels.yml` will
+        # delete out from under it.
+        roster = (ROOT / ".github" / "labels.toml").read_text(encoding="utf-8")
+        for label in sorted(FLEET_STATE):
+            self.assertIn(f'"{label}"', roster)
+
+
 class Sweeping(unittest.TestCase):
     """What a scheduled sweep picks up, and what it leaves."""
 
@@ -268,6 +377,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--plan", action="store_true")
+    parser.add_argument(
+        "--mark",
+        choices=sorted(MARKS),
+        help="move an issue between the fleet's three states",
+    )
     parser.add_argument("--issue", type=int)
     parser.add_argument("--agent", default="")
     parser.add_argument("--verdict")
@@ -297,6 +411,9 @@ def main(argv: list[str] | None = None) -> int:
     if not arguments.issue:
         parser.error("--issue is required")
 
+    if arguments.mark:
+        return mark(arguments.repo, arguments.issue, arguments.mark)
+
     if arguments.check:
         issue = api(f"repos/{arguments.repo}/issues/{arguments.issue}") or {}
         labels = [str(label.get("name", "")) for label in issue.get("labels") or []]
@@ -321,7 +438,7 @@ def main(argv: list[str] | None = None) -> int:
                 arguments.repo, arguments.issue, json.load(handle), arguments.agent
             )
 
-    parser.error("one of --check, --apply or --plan")
+    parser.error("one of --check, --apply, --plan or --mark")
     return 2
 
 
