@@ -58,6 +58,23 @@ BRIEFS = ROOT / ".claude" / "fleet"
 AGENT_WORKFLOWS = {"Fleet", "Fleet review", "Fleet respond", "Triage"}
 PLUMBING_WORKFLOWS = {"Agent branches", "Maintenance"}
 
+# A step whose failure IS the workflow's answer, not a fault in it.
+# `fleet-review.yml`'s last step exits non-zero when the verdict is not
+# `pass`, because `Fleet review` is a required check and that exit code is
+# what stops the merge. So a reviewer that read the diff and asked for
+# changes finishes red -- and the report counted 147 of those as things that
+# broke, in the same figure as a run that died on a missing file. The two
+# need different answers from a reader, so they cannot be one number.
+#
+# Keyed by workflow, because the step name means nothing on its own.
+GATE_STEPS = {"Fleet review": {"Read the verdict"}}
+
+# Failed runs to ask the jobs API about. One call each. Past this the
+# classification stops and the rest stay counted as failures, which is the
+# safe direction: a report that under-reports breakage is the one that lies
+# in the direction nobody checks.
+GATE_CAP = 120
+
 # How many runs' execution records to download. One artifact each, so this is
 # the report's whole running time. It was unbounded, which was survivable
 # while the report could only see a hundred runs of anything; the week this
@@ -418,6 +435,36 @@ def agent_of(run: dict, usage: dict[int, dict] | None = None) -> str:
     }.get(run["workflow"], "dispatched")
 
 
+def gate_only(repo: str, run: dict) -> bool:
+    """Did this run fail at its gate, and nowhere else?
+
+    "And nowhere else" is the whole check. A review that asked for changes
+    fails exactly one step; a review that also fell over on the way there
+    fails two, and that one is broken however it ended.
+    """
+    names = GATE_STEPS.get(run["workflow"])
+    if not names:
+        return False
+    jobs = api_dict(f"repos/{repo}/actions/runs/{run['id']}/jobs").get("jobs") or []
+    failed = {
+        str(step.get("name", ""))
+        for job in jobs
+        for step in (job.get("steps") or [])
+        if step.get("conclusion") == "failure"
+    }
+    return bool(failed) and failed <= names
+
+
+def classify(repo: str, runs: list[dict]) -> None:
+    """Mark the failures that are verdicts, in place."""
+    red = [
+        r for r in runs if r["conclusion"] == "failure" and r["workflow"] in GATE_STEPS
+    ]
+    for run in sorted(red, key=lambda r: r["started"], reverse=True)[:GATE_CAP]:
+        if gate_only(repo, run):
+            run["verdict_no"] = True
+
+
 def judge(runs: list[dict], usage: dict[int, dict]) -> dict:
     agent_runs = [r for r in runs if r["workflow"] in AGENT_WORKFLOWS]
     plumbing = [r for r in runs if r["workflow"] in PLUMBING_WORKFLOWS]
@@ -429,6 +476,7 @@ def judge(runs: list[dict], usage: dict[int, dict]) -> dict:
     def tally(group: list[dict]) -> dict:
         done = [r for r in group if r["conclusion"]]
         good = [r for r in done if r["conclusion"] == "success"]
+        asked = [r for r in done if r.get("verdict_no")]
         seconds = [r["seconds"] for r in done if r["seconds"] is not None]
         costs = [
             usage[r["id"]]["cost_usd"]
@@ -458,7 +506,8 @@ def judge(runs: list[dict], usage: dict[int, dict]) -> dict:
             "runs": len(group),
             "finished": len(done),
             "succeeded": len(good),
-            "failed": len(done) - len(good),
+            "asked_for_changes": len(asked),
+            "failed": len(done) - len(good) - len(asked),
             "median_seconds": round(statistics.median(seconds)) if seconds else None,
             "cost_usd": round(sum(costs), 4) if costs else None,
             "median_turns": round(statistics.median(turns)) if turns else None,
@@ -493,7 +542,13 @@ def findings(report: dict) -> list[str]:
     if overall["runs"] == 0:
         out.append("The fleet did not run at all this week.")
     elif overall["failed"]:
-        out.append(f"{overall['failed']} of {overall['finished']} agent runs failed.")
+        out.append(
+            f"{overall['failed']} of {overall['finished']} agent runs broke. "
+            f"({overall['asked_for_changes']} more finished red because the "
+            "reviewer asked for changes, which is the check working.)"
+            if overall["asked_for_changes"]
+            else f"{overall['failed']} of {overall['finished']} agent runs broke."
+        )
 
     if overall["runs"] and not overall["measured"]:
         out.append(
@@ -570,7 +625,8 @@ def as_text(report: dict) -> str:
     lines.append(
         f"  agent runs {overall['runs']}"
         f"  ok {overall['succeeded']}"
-        f"  failed {overall['failed']}"
+        f"  changes asked {overall['asked_for_changes']}"
+        f"  broke {overall['failed']}"
         f"  median {seconds(overall['median_seconds'])}"
         f"  cost {money(overall['cost_usd'])}"
     )
@@ -745,6 +801,7 @@ def build_report(days: int, cache: Path | None) -> dict:
         "issues": collect_issues(repo),
         "context": fleet_context(),
     }
+    classify(repo, runs)
     report["judgement"] = judge(runs, usage)
     report["findings"] = findings(report)
     return report
@@ -824,6 +881,61 @@ def append_history(report: dict, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(line, sort_keys=True) + "\n")
+
+
+class Verdicts(unittest.TestCase):
+    """A reviewer that said no is not a reviewer that broke."""
+
+    def runs(self) -> list[dict]:
+        return [
+            {
+                "id": 1,
+                "workflow": "Fleet review",
+                "conclusion": "success",
+                "seconds": 1,
+            },
+            {
+                "id": 2,
+                "workflow": "Fleet review",
+                "conclusion": "failure",
+                "seconds": 1,
+                "verdict_no": True,
+            },
+            {
+                "id": 3,
+                "workflow": "Fleet review",
+                "conclusion": "failure",
+                "seconds": 1,
+            },
+        ]
+
+    def test_the_three_outcomes_are_three_numbers(self) -> None:
+        overall = judge(self.runs(), {})["overall"]
+        self.assertEqual(overall["succeeded"], 1)
+        self.assertEqual(overall["asked_for_changes"], 1)
+        self.assertEqual(overall["failed"], 1)
+
+    def test_they_add_up(self) -> None:
+        # The invariant worth holding: nothing falls between the three.
+        overall = judge(self.runs(), {})["overall"]
+        self.assertEqual(
+            overall["succeeded"] + overall["asked_for_changes"] + overall["failed"],
+            overall["finished"],
+        )
+
+    def test_only_the_gate_step_counts(self) -> None:
+        # A review that asked for changes fails one step. One that also fell
+        # over on the way fails two, and that is broken however it ended.
+        self.assertEqual(GATE_STEPS["Fleet review"], {"Read the verdict"})
+
+    def test_the_gate_step_is_the_one_the_workflow_has(self) -> None:
+        # Against the workflow, not a fixture: renaming that step would
+        # silently put every changes-requested run back in the broken column.
+        text = (ROOT / ".github" / "workflows" / "fleet-review.yml").read_text(
+            encoding="utf-8"
+        )
+        for name in GATE_STEPS["Fleet review"]:
+            self.assertIn(f"- name: {name}", text)
 
 
 class Narrowing(unittest.TestCase):
