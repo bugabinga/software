@@ -417,22 +417,45 @@
   }
   @keyframes flash { 0% { opacity: .3; } 100% { opacity: 0; } }
 
-  /* Under the card, on a phone. Everything named here animates *behind* a
-     backdrop-filter, which is what makes each frame cost a re-blur of the
-     whole card. The look is unchanged in a screenshot: a 110px blur at rest
-     and a 110px blur mid-drift are the same wash of colour, and at this
-     width the card covers almost all of it anyway. `.unicorn` crosses in
-     42s and is the ornament the page is about, but it is also behind the
-     card, so it goes too rather than keeping one invalidation alive for the
-     sake of the rule's tidiness.
+  /* Nothing runs on its own clock on a phone.
+     ---------------------------------------------------------------------
+     The card is backdrop-filter: blur(24px), and a backdrop filter
+     re-samples and re-blurs its whole backdrop on every frame in which
+     anything under it moved -- and, in the engines that matter here, on
+     every frame in which anything *inside* it repainted. Six perpetual
+     animations were doing both. Behind it: four 70vmax circles at
+     blur(110px), a star field fading in and out, a unicorn crossing.
+     Inside it: the ring, which animates an @property angle through a
+     conic-gradient, and the title and button, which animate a
+     background-position through a gradient. Every one of those five is a
+     paint, not a composite.
 
-     The card's own entry, the button, the burst and every control
-     transition are untouched: those are above the filter or are events, and
-     an event that costs a few frames is a thing the reader asked for. */
+     The first pass cut only the three behind the card, on the argument
+     that a paint above the filter is free. It is not free here, and the
+     page still flickered on the phone it was cut for. So the rule is the
+     blunt one, because the blunt one is the one that can be believed:
+     below 46rem, nothing runs on its own clock.
+
+     What survives is everything the reader asked for -- the card's entry,
+     the field transitions, the burst on submit. An event may cost frames.
+     A decoration may not.
+
+     Above 46rem there is real sky around the card, a pointer, and a
+     machine with a fan. All six keep running there, unchanged. */
   @media (max-width: 45.999rem) {
-    .blob, .stars, .unicorn, main::before {
+    /* `.sky .blob`, not `.blob`: the drifts are declared on
+       `.blob:nth-child(N)`, which is (0,2,0), and a media query adds no
+       specificity -- so a bare `.blob` here loses and the four heaviest
+       layers on the page keep moving. That is exactly what happened on the
+       first attempt at this rule: it read as a complete fix, changed
+       nothing the phone could feel, and the flicker was reported again. */
+    .sky .blob, .stars, .unicorn, main::before, h1, button::after {
       animation: none;
     }
+    /* The title and the button are gradients that were being *moved*; with
+       the movement gone they need a position that looks deliberate rather
+       than wherever frame zero happened to be. */
+    h1 { background-position: 30% 0; }
   }
 
   @media (prefers-reduced-motion: reduce) {
