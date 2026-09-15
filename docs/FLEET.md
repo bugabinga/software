@@ -12,6 +12,9 @@ mechanism is the source of truth; this says where it is.
 | What an agent is told on a given occasion | `.claude/fleet/*.md`, routed by `tools/fleet_brief.py`                       |
 | Which occasion fires when                 | the `on:` block of each `.github/workflows/*.yml`                            |
 | How a label becomes a dispatch            | `fleet.yml`, the "Work out the occasion" step                                |
+| Why a push does not run an agent directly | `tools/occasion.py`, `repository_dispatch` -- and `fleet.yml`'s `relay` job  |
+| What happens to an issue nobody labelled  | `triage.yml`, on the event and on a daily sweep                              |
+| What the `fleet:` labels mean             | `MARKS` in `tools/triage.py`; the roster is `.github/labels.toml`            |
 | What merges itself, and what waits        | `agent-branches.yml`                                                         |
 | What the branch rules are                 | `repo.toml`, applied by `settings.yml`, checked by `mise run check-settings` |
 | Which model runs which agent              | the `model:` in each agent definition, resolved by `tools/fleet_brief.py`    |
@@ -28,6 +31,10 @@ Open an issue and label it `fleet:task` or `fleet:material`. `fleet.yml`
 dispatches on the label. `.github/ISSUE_TEMPLATE/` has the forms; blank issues
 are off, because a form that names the agent and the target dispatches by itself
 and free text needs somebody to interpret it.
+
+An issue with no label, or the wrong one, is `triage.yml`'s — on the event and
+again on a daily sweep, because the event alone stranded #84 for fifteen hours
+and would have stranded every issue that predated the workflow.
 
 ## The pull request cycle is the fleet's
 
@@ -53,6 +60,7 @@ is a rule that holds most of the time.
 gh workflow disable fleet.yml          # scheduled and label-driven agents
 gh workflow disable fleet-review.yml   # the reviewer (a required check: see repo.toml)
 gh workflow disable fleet-respond.yml  # the responder
+gh workflow disable triage.yml         # the issue triager
 gh workflow disable claude.yml         # the @claude bot
 git rm -r .claude/agents .claude/fleet # or remove the briefs entirely
 ```
