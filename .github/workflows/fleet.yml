@@ -315,24 +315,9 @@ jobs:
             exit 0
           fi
 
-          # The agent pushes with the workflow token, and a push made with
-          # GITHUB_TOKEN triggers nothing: "with the exception of
-          # workflow_dispatch and repository_dispatch, other GITHUB_TOKEN
-          # triggered events do not create workflow runs at all". So the
-          # fleet's own branches arrived with no CI on them, which meant
-          # agent-branches.yml -- which waits for CI to complete before
-          # deciding anything -- never woke up for them. The fleet's first
-          # real delivery sat unchecked and unmergeable for exactly this
-          # reason.
-          #
-          # workflow_dispatch is an exception the token may still raise, so
-          # asking for the run explicitly is the way through. Nothing else
-          # about the design changes: CI runs, its completion fires
-          # agent-branches.yml, and the merge decision is still made by rules
-          # in the repository.
-          if gh workflow run ci.yml --ref "$BRANCH" 2>/tmp/dispatch-error; then
-            echo "::notice::the agent pushed $BRANCH; CI dispatched, agent-branches.yml takes it from there"
-          else
-            cat /tmp/dispatch-error >&2
-            echo "::warning::$BRANCH is pushed but CI could not be started on it, so nothing downstream will pick it up. Start it by hand from the Actions tab, or re-run this step."
-          fi
+          # The agent pushes with the workflow token, which starts nothing.
+          # Why that is, what it broke, and why a dispatch is the way
+          # through: `tools/ask_checks.py`. Nothing else about the design
+          # changes -- CI runs, its completion fires agent-branches.yml, and
+          # the merge decision is still made by rules in the repository.
+          python3 tools/ask_checks.py --ref "$BRANCH" ci.yml

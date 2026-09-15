@@ -38,6 +38,7 @@ jobs:
         run: python3 tools/ingest_notes.py --reindex
 
       - name: Commit it if it moved
+        id: commit
         env:
           BRANCH: ${{ github.ref_name }}
         run: |
@@ -55,3 +56,16 @@ jobs:
           written by the Cloudflare inbox, which writes one file and stops."
           git push -q origin "HEAD:$BRANCH"
           echo "::notice::reindexed and pushed to $BRANCH"
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+
+      # The push above used the workflow token, so it started nothing. The
+      # inbox's own push did start CI -- on the commit before this one. Left
+      # here, every note filed through the inbox would sit on a head no check
+      # ever looked at, with `agent-branches.yml` waiting for a status that
+      # cannot arrive. This workflow had never run, so nothing said so.
+      - name: Ask for the checks that push will not start
+        if: steps.commit.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: python3 tools/ask_checks.py --ref "$BRANCH" ci.yml

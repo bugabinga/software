@@ -271,19 +271,8 @@ jobs:
             echo "::notice::the responder pushed nothing, which is a valid outcome"
             exit 0
           fi
-          # `ci.yml` takes no inputs and needs none: it checks a branch.
-          # `fleet-review.yml` reviews a pull request, which a dispatch has
-          # to name, because `workflow_dispatch` carries no pull request.
-          ask() {
-            if gh workflow run "$1" --ref "$BRANCH" "${@:2}" 2> /tmp/dispatch-error; then
-              echo "::notice::dispatched $1 on $BRANCH"
-            else
-              cat /tmp/dispatch-error >&2
-              echo "::warning::$BRANCH is pushed but $1 could not be started on it, so #$PR keeps the checks it already had. Start it by hand from the Actions tab."
-            fi
-          }
-          ask ci.yml
-          ask fleet-review.yml -f pr="$PR"
+          python3 tools/ask_checks.py --ref "$BRANCH" \
+            ci.yml "fleet-review.yml=pr:$PR"
 
       # What this run was for, next to what it cost. The execution output
       # says turns and dollars; without this the report cannot say which
