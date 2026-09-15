@@ -207,7 +207,7 @@ def act(repo: str, branch: Branch, decision: Decision, sha: str, server: str) ->
     if decision.action == "raise":
         title = f"Ready to review: {branch.name}"
         body = issue_body(repo, branch.name, server, branch.subject, branch.files)
-        open_issues = api(f"repos/{repo}/issues?state=open&per_page=100") or []
+        open_issues = paged(f"repos/{repo}/issues?state=open")
         existing = next(
             (i["number"] for i in open_issues if i.get("title") == title), None
         )

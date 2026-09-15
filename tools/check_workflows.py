@@ -736,6 +736,63 @@ def check_agent_events(paths: list[Path]) -> list[str]:
     return problems
 
 
+# The API helpers that fetch one response. `paged` is the one that does not.
+ONE_SHOT = {"api", "api_list", "api_dict"}
+
+
+def unpaged_calls(tree: ast.Module) -> list[tuple[int, str]]:
+    """Calls that ask for a page size and never ask for a second page.
+
+    `?per_page=100` in a path handed to a one-shot fetch is a program that
+    silently stops at a hundred. It is not a hypothetical: `close_finished`
+    read one page of issues and left the rest open, and `collect_runs` read
+    one page of a repository doing 2845 runs a week and reported that the
+    fleet had not run at all. Five instances by the time anyone counted.
+
+    A literal `page=` in the same path is the exemption, because that is what
+    a paging loop looks like from here.
+    """
+    found = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+        if name not in ONE_SHOT or not node.args:
+            continue
+        # The path, whether it is a plain string or an f-string: only the
+        # literal halves matter, and `per_page` is never interpolated.
+        first = node.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str):
+            text = first.value
+        elif isinstance(first, ast.JoinedStr):
+            text = "".join(
+                part.value
+                for part in first.values
+                if isinstance(part, ast.Constant) and isinstance(part.value, str)
+            )
+        else:
+            continue
+        if "per_page=" in text and "page=" not in text.replace("per_page=", ""):
+            found.append((getattr(node, "lineno", 0), text))
+    return found
+
+
+def check_paging() -> list[str]:
+    """No tool asks for one page of a list and calls it the answer."""
+    problems = []
+    for path in sorted((ROOT / "tools").glob("*.py")):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
+        except SyntaxError:
+            continue  # check_tools reports this one
+        problems += [
+            f"{path.relative_to(ROOT)}:{line}: `{text}` fetches one page and "
+            "stops. Use `paged`, or add `page=` and loop"
+            for line, text in unpaged_calls(tree)
+        ]
+    return problems
+
+
 def check_job_hygiene(paths: list[Path]) -> list[str]:
     """`timeout-minutes` on every job, `concurrency` on every workflow.
 
@@ -842,6 +899,7 @@ def main() -> None:
         + check_pins(paths)
         + check_job_hygiene(paths)
         + check_agent_events(paths)
+        + check_paging()
         + check_no_interpolation(paths)
     )
 
@@ -874,6 +932,42 @@ def main() -> None:
         f"workflows: {len(paths)} files, {tools} tools, "
         f"{pins} pinned actions, no problems"
     )
+
+
+class Paging(unittest.TestCase):
+    """One page of a list is not the answer."""
+
+    def calls(self, source: str) -> list[str]:
+        return [text for _, text in unpaged_calls(ast.parse(textwrap.dedent(source)))]
+
+    def test_a_plain_string(self) -> None:
+        self.assertEqual(
+            self.calls('api("repos/o/r/issues?per_page=100")'),
+            ["repos/o/r/issues?per_page=100"],
+        )
+
+    def test_an_f_string(self) -> None:
+        # How every one of them was actually written.
+        self.assertEqual(
+            len(self.calls('api_list(f"repos/{repo}/branches?per_page=100")')), 1
+        )
+
+    def test_a_paging_loop_is_the_exemption(self) -> None:
+        self.assertEqual(
+            self.calls('api(f"repos/{r}/runs?per_page=100&page={page}")'), []
+        )
+
+    def test_paged_is_not_a_one_shot(self) -> None:
+        self.assertEqual(self.calls('paged(f"repos/{r}/issues?per_page=100")'), [])
+
+    def test_no_page_size_is_not_the_fault(self) -> None:
+        # This gate is about a size asked for and a second page never
+        # requested. A call with no size at all is a different question and
+        # not this one's to answer.
+        self.assertEqual(self.calls('api("repos/o/r/issues")'), [])
+
+    def test_the_tree_passes_its_own_gate(self) -> None:
+        self.assertEqual(check_paging(), [])
 
 
 class AgentEvents(unittest.TestCase):

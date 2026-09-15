@@ -127,6 +127,27 @@ def api_list(path: str, *jq: str) -> list:
     return value if isinstance(value, list) else []
 
 
+def api_pages(path: str, *jq: str, pages: int = 10) -> list:
+    """Every page of a list endpoint, as one list.
+
+    The fault this exists to stop has happened four times in this file and
+    its neighbours: `?per_page=100` handed to a one-shot fetch, which answers
+    for a hundred items and says nothing about the rest. `check_paging` in
+    `tools/check_workflows.py` is the gate; this is the thing to reach for
+    when it fires.
+    """
+    joiner = "&" if "?" in path else "?"
+    items: list = []
+    for page in range(1, pages + 1):
+        got = api_list(f"{path}{joiner}per_page=100&page={page}", *jq)
+        if not got:
+            break
+        items += got
+        if len(got) < 100:
+            break
+    return items
+
+
 def api(path: str, *jq: str) -> object:
     args = ["api", path]
     for expression in jq:
@@ -211,10 +232,7 @@ def collect_runs(repo: str, days: int) -> list[dict]:
     wanted = AGENT_WORKFLOWS | PLUMBING_WORKFLOWS
     known = {
         str(w.get("name", "")): w.get("id")
-        for w in api_dict(f"repos/{repo}/actions/workflows?per_page=100").get(
-            "workflows"
-        )
-        or []
+        for w in api_pages(f"repos/{repo}/actions/workflows", ".workflows")
     }
     runs = []
     for name in sorted(wanted):
@@ -347,7 +365,7 @@ def summarise_execution(payload: object) -> dict | None:
 
 def collect_branches(repo: str) -> list[dict]:
     """Every `agent/**` branch and what became of it."""
-    names = api_list(f"repos/{repo}/branches?per_page=100", "[.[].name]")
+    names = api_pages(f"repos/{repo}/branches", "[.[].name]")
     out = []
     for name in names:
         if not name.startswith("agent/"):
@@ -370,8 +388,8 @@ def collect_branches(repo: str) -> list[dict]:
 
 
 def collect_issues(repo: str) -> dict:
-    issues = api_list(
-        f"repos/{repo}/issues?state=open&per_page=100",
+    issues = api_pages(
+        f"repos/{repo}/issues?state=open",
         "[.[] | select(.pull_request == null) | "
         "{number, title, labels: [.labels[].name], created_at}]",
     )
