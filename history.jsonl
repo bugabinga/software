@@ -1,1 +1,2 @@
 {"branches": {"merged": 10, "open": 0, "stranded": 0}, "cost_usd": 27.1235, "failed": 37, "generated": "2026-09-14T15:31:48+00:00", "open_issues": 2, "runs": 41, "succeeded": 4, "tokens": 231175, "window_days": 7}
+{"branches": {"merged": 0, "open": 0, "stranded": 0}, "cost_usd": 2.8934, "failed": 8, "generated": "2026-09-21T15:32:24+00:00", "open_issues": 1, "runs": 14, "succeeded": 5, "tokens": 41786, "window_days": 7}
