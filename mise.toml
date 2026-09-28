@@ -261,6 +261,10 @@ run = "python3 tools/check_skill_page.py"
 description = "The mechanical faults in the chapters a program can decide"
 run = "python3 tools/prose_scan.py"
 
+[tasks.check-counts]
+description = "A number word before a colon, against the length of the list under it"
+run = "python3 tools/check_counts.py"
+
 [tasks.check-settings]
 description = "The repository's settings, against what repo.toml declares"
 # Reads GitHub and compares; it never writes. A section the token cannot see
@@ -304,6 +308,7 @@ depends = [
   "check-spelling",
   "check-skill",
   "check-prose",
+  "check-counts",
   "check-lint",
   "check-types",
   "check-settings",
