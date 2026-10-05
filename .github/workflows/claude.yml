@@ -53,7 +53,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+      - uses: jdx/mise-action@7a4e45a543138629540c9a1616d08632b893e492 # v5.0.1
       - name: Check that the key is present
         id: key
         env:
@@ -68,7 +68,7 @@ jobs:
 
       - name: Run Claude
         if: steps.key.outputs.present == 'true'
-        uses: anthropics/claude-code-action@56cf60fde42f7b19c3abfd5c9c48b69a1288461f # v1
+        uses: anthropics/claude-code-action@ed670b4cf9de2a5a570d130d2f6197b9e543cd64 # v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # CLAUDE.md carries the repository's invariants; .claude/agents and
