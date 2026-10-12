@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Book Written in Types</title>
+<meta name="description" content="A book whose source is Typst, built to a website and a PDF by one pipeline.">
+<link rel="canonical" href="https://bugabinga.github.io/software/">
+<meta property="og:url" content="https://bugabinga.github.io/software/">
+<meta property="og:title" content="A Book Written in Types">
+<meta property="og:site_name" content="A Book Written in Types">
+<meta property="og:description" content="A book whose source is Typst, built to a website and a PDF by one pipeline.">
+<meta property="og:type" content="article">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/book.css">
+<script>
+  try {
+    var saved = localStorage.getItem("book-theme");
+    if (saved) document.documentElement.dataset.theme = saved;
+  } catch (_e) {}
+</script>
+</head>
+<body class="landing" data-prefix="">
+<a class="skip-link" href="#content">Skip to content</a>
+
+<header class="topbar">
+  <a class="topbar-title" href="">A Book Written in Types</a>
+  <div class="topbar-actions">
+    <button type="button" class="search-open" aria-label="Search (press /)">Search <kbd>/</kbd></button>
+    <a class="pdf-link" href="book.pdf">PDF</a>
+    <button type="button" class="icon-button theme-toggle" aria-label="Switch theme">◐</button>
+  </div>
+</header>
+
+<main class="content" id="content">
+  <div class="cover">
+    <h1>A Book Written in Types</h1>
+    <p class="subtitle">Working title</p>
+    <p class="authors">bugabinga</p>
+    <p class="blurb">A book whose source is Typst, built to a website and a PDF by one pipeline.</p>
+    <p class="cover-actions">
+      <a class="button" href="preface/">Start reading</a>
+      <a class="button secondary" href="book.pdf">Download the PDF</a>
+      <a class="button secondary" href="book.epub">EPUB</a>
+    </p>
+  </div>
+
+  <section class="contents-wrap" aria-label="Contents">
+    <h2 class="contents-heading">Contents</h2>
+    <ol class="contents">
+<li><a class="contents-chapter" href="preface/">Preface</a></li>
+</ol>
+<h2 class="contents-part">Part I: Foundations</h2>
+<ol class="contents">
+<li><a class="contents-chapter" href="machine-and-program/"><span class="num">1</span> Machine and program</a></li>
+<li><a class="contents-chapter" href="information-and-entropy/"><span class="num">2</span> Information and entropy</a></li>
+<li><a class="contents-chapter" href="knowledge/"><span class="num">3</span> Knowledge</a></li>
+<li><a class="contents-chapter" href="software-and-its-forms/"><span class="num">4</span> Software and its forms</a></li>
+<li><a class="contents-chapter" href="operating-systems/"><span class="num">5</span> Operating systems</a></li>
+</ol>
+<h2 class="contents-part">Part II: Craft</h2>
+<ol class="contents">
+<li><a class="contents-chapter" href="learning-the-craft/"><span class="num">6</span> Learning the craft</a></li>
+<li><a class="contents-chapter" href="beauty-and-mechanical-sympathy/"><span class="num">7</span> Beauty and mechanical sympathy</a></li>
+<li><a class="contents-chapter" href="the-cycle-and-its-costs/"><span class="num">8</span> The cycle and its costs</a></li>
+<li><a class="contents-chapter" href="the-practices/"><span class="num">9</span> The practices</a></li>
+<li><a class="contents-chapter" href="intent-and-product-engineering/"><span class="num">10</span> Intent and product engineering</a></li>
+</ol>
+<h2 class="contents-part">Appendices</h2>
+<ol class="contents">
+<li><a class="contents-chapter" href="open-questions/">Open questions</a></li>
+<li><a class="contents-chapter" href="agents/">Agents</a></li>
+<li><a class="contents-chapter" href="citations/">Citations</a></li>
+<li><a class="contents-chapter" href="glossary/">Glossary</a></li>
+<li><a class="contents-chapter" href="prelude-reference/">Prelude reference</a><ul class="contents-sections"><li><a href="prelude-reference/#callouts">Callouts</a></li><li><a href="prelude-reference/#defined-terms">Defined terms</a></li><li><a href="prelude-reference/#output-specific-content">Output-specific content</a></li><li><a href="prelude-reference/#code-from-real-files">Code from real files</a></li><li><a href="prelude-reference/#everything-else">Everything else</a></li></ul></li>
+</ol>
+  </section>
+
+  <nav class="aside-pages" aria-label="Not part of the book"><h2>Also here</h2><ul><li><a href="skill/">Skill generator</a><span class="aside-blurb">Builds the note-taker&#x27;s Claude skill as a zip, in the browser.</span></li><li><a href="fleet/">Fleet report</a> <span class="aside-when">written on Mondays</span><span class="aside-blurb">What the agents did last week: runs, failures, cost, what merged.</span></li></ul></nav>
+
+  <footer class="chapter-footer">
+    <span class="edition">draft</span>
+  </footer>
+</main>
+
+<dialog class="search-dialog">
+  <form class="search-form" method="dialog">
+    <input class="search-input" type="search" placeholder="Search the book" aria-label="Search the book" autocomplete="off">
+    <button type="button" class="search-close" aria-label="Close">esc</button>
+  </form>
+  <div class="search-results" role="listbox" aria-label="Search results"></div>
+</dialog>
+
+<script src="assets/book.js"></script>
+
+</body>
+</html>
