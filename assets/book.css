@@ -1,0 +1,962 @@
+/* Stylesheet for the book website.
+ *
+ * The markup it styles comes from two places: the page shell in
+ * `site/templates/`, and Typst's HTML export for the chapter body (semantic
+ * elements plus `<aside class="callout">` from the prelude). The PDF has its
+ * own tokens in `book/lib/theme.typ`.
+ */
+
+/* ---------------------------------------------------------------- tokens -- */
+
+:root {
+	--page: #ffffff;
+	--page-alt: #f6f7f9;
+	--ink: #1a1c21;
+	--ink-soft: #565d69;
+	--line: #e0e3e8;
+	--accent: #24479c;
+	--accent-soft: #eef2fb;
+	--code-bg: #f5f6f8;
+	--shadow: 0 1px 2px rgb(16 18 24 / 6%), 0 8px 24px rgb(16 18 24 / 8%);
+
+	--note: #24479c;
+	--note-bg: #eef2fb;
+	--tip: #1c7a45;
+	--tip-bg: #ecf6f0;
+	--warning: #8a6100;
+	--warning-bg: #fbf3e3;
+	--caution: #a02b2b;
+	--caution-bg: #fbeeee;
+
+	--serif:
+		"Iowan Old Style", "Palatino Linotype", Palatino, Georgia, ui-serif, serif;
+	--sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	--mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+	--measure: 34rem;
+	--sidebar: 19rem;
+	--topbar-height: 3.25rem;
+
+	color-scheme: light;
+}
+
+/* Dark palette: applied when the reader's system asks for it, unless the
+ * toggle has pinned light, and always when the toggle has pinned dark. */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--page: #14161a;
+		--page-alt: #1a1d23;
+		--ink: #e6e8ec;
+		--ink-soft: #a2a9b6;
+		--line: #2b2f38;
+		--accent: #90b4ff;
+		--accent-soft: #1b2333;
+		--code-bg: #1b1e24;
+		--shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 45%);
+		--note: #90b4ff;
+		--note-bg: #1a2233;
+		--tip: #74d39a;
+		--tip-bg: #16241c;
+		--warning: #e0b25e;
+		--warning-bg: #262015;
+		--caution: #f09292;
+		--caution-bg: #2a1a1a;
+		color-scheme: dark;
+	}
+}
+
+:root[data-theme="dark"] {
+	--page: #14161a;
+	--page-alt: #1a1d23;
+	--ink: #e6e8ec;
+	--ink-soft: #a2a9b6;
+	--line: #2b2f38;
+	--accent: #90b4ff;
+	--accent-soft: #1b2333;
+	--code-bg: #1b1e24;
+	--shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 45%);
+	--note: #90b4ff;
+	--note-bg: #1a2233;
+	--tip: #74d39a;
+	--tip-bg: #16241c;
+	--warning: #e0b25e;
+	--warning-bg: #262015;
+	--caution: #f09292;
+	--caution-bg: #2a1a1a;
+	color-scheme: dark;
+}
+
+/* ------------------------------------------------------------------ base -- */
+
+* {
+	box-sizing: border-box;
+}
+
+html {
+	scroll-behavior: smooth;
+	scroll-padding-top: calc(var(--topbar-height) + 1rem);
+}
+
+body {
+	margin: 0;
+	background: var(--page);
+	color: var(--ink);
+	font-family: var(--serif);
+	font-size: 1.0625rem;
+	line-height: 1.65;
+	-webkit-text-size-adjust: 100%;
+}
+
+a {
+	color: var(--accent);
+	text-decoration-thickness: 1px;
+	text-underline-offset: 2px;
+}
+a:hover {
+	text-decoration-thickness: 2px;
+}
+
+.skip-link {
+	position: absolute;
+	left: -9999px;
+	top: 0;
+	z-index: 10;
+	background: var(--page);
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--line);
+}
+.skip-link:focus {
+	left: 0.5rem;
+	top: 0.5rem;
+}
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- topbar -- */
+
+.topbar {
+	position: sticky;
+	top: 0;
+	z-index: 5;
+	height: var(--topbar-height);
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	padding: 0 1rem;
+	background: color-mix(in srgb, var(--page) 88%, transparent);
+	backdrop-filter: blur(8px);
+	border-bottom: 1px solid var(--line);
+	font-family: var(--sans);
+}
+
+.topbar-title {
+	font-weight: 600;
+	font-size: 0.95rem;
+	color: var(--ink);
+	text-decoration: none;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.topbar-actions {
+	margin-left: auto;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.icon-button,
+.search-open,
+.pdf-link {
+	font-family: var(--sans);
+	font-size: 0.8125rem;
+	color: var(--ink-soft);
+	background: none;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	padding: 0.3rem 0.55rem;
+	cursor: pointer;
+	text-decoration: none;
+	line-height: 1.4;
+}
+.icon-button:hover,
+.search-open:hover,
+.pdf-link:hover {
+	color: var(--ink);
+	border-color: var(--ink-soft);
+}
+.search-open kbd {
+	font-family: var(--mono);
+	font-size: 0.7rem;
+	border: 1px solid var(--line);
+	border-radius: 3px;
+	padding: 0 0.25rem;
+	margin-left: 0.35rem;
+}
+.sidebar-toggle {
+	display: none;
+}
+
+/* ---------------------------------------------------------------- layout -- */
+
+.layout {
+	display: grid;
+	grid-template-columns: var(--sidebar) minmax(0, 1fr);
+	align-items: start;
+}
+
+.sidebar {
+	position: sticky;
+	top: var(--topbar-height);
+	max-height: calc(100vh - var(--topbar-height));
+	overflow-y: auto;
+	padding: 1.5rem 1rem 3rem;
+	border-right: 1px solid var(--line);
+	font-family: var(--sans);
+	font-size: 0.875rem;
+}
+
+.content {
+	padding: 2.5rem clamp(1rem, 4vw, 3.5rem) 6rem;
+	min-width: 0;
+}
+
+.chapter,
+.pager,
+.chapter-footer,
+.cover,
+.contents-wrap {
+	max-width: var(--measure);
+	margin-inline: auto;
+}
+
+/* ------------------------------------------------------------------- toc -- */
+
+.toc-home {
+	display: block;
+	font-weight: 600;
+	color: var(--ink);
+	text-decoration: none;
+	margin-bottom: 1.25rem;
+	line-height: 1.35;
+}
+.toc-part {
+	margin: 1.5rem 0 0.5rem;
+	font-size: 0.75rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ink-soft);
+}
+.toc ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.toc li {
+	margin: 0;
+}
+.toc a {
+	display: block;
+	padding: 0.3rem 0.5rem;
+	border-radius: 5px;
+	color: var(--ink-soft);
+	text-decoration: none;
+}
+.toc a:hover {
+	background: var(--page-alt);
+	color: var(--ink);
+}
+.toc a[aria-current="page"] {
+	background: var(--accent-soft);
+	color: var(--accent);
+	font-weight: 600;
+}
+.toc .num {
+	color: var(--ink-soft);
+	font-variant-numeric: tabular-nums;
+	margin-right: 0.3rem;
+}
+.toc a[aria-current="page"] .num {
+	color: inherit;
+}
+.toc-sections {
+	margin: 0.15rem 0 0.5rem 0.75rem;
+	border-left: 1px solid var(--line);
+}
+.toc-sections a {
+	font-size: 0.825rem;
+	padding: 0.2rem 0.5rem;
+}
+.toc-sections .level-3 a {
+	padding-left: 1.25rem;
+}
+
+/* --------------------------------------------------------------- chapter -- */
+
+.eyebrow {
+	font-family: var(--sans);
+	font-size: 0.8125rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ink-soft);
+	margin: 0 0 0.4rem;
+}
+.eyebrow:empty {
+	display: none;
+}
+
+.chapter h1 {
+	font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.5rem);
+	line-height: 1.15;
+	margin: 0 0 1.5rem;
+	letter-spacing: -0.01em;
+}
+.chapter h2 {
+	font-size: 1.4rem;
+	line-height: 1.25;
+	margin: 2.75rem 0 0.75rem;
+}
+.chapter h3 {
+	font-size: 1.15rem;
+	margin: 2rem 0 0.5rem;
+}
+.chapter h4 {
+	font-size: 1rem;
+	margin: 1.5rem 0 0.5rem;
+}
+.chapter h2,
+.chapter h3,
+.chapter h4 {
+	scroll-margin-top: calc(var(--topbar-height) + 1rem);
+}
+
+.permalink {
+	margin-left: 0.4rem;
+	color: var(--line);
+	text-decoration: none;
+	font-family: var(--sans);
+	font-weight: 400;
+	opacity: 0;
+	transition: opacity 0.1s ease-in;
+}
+h2:hover .permalink,
+h3:hover .permalink,
+.permalink:focus {
+	opacity: 1;
+	color: var(--ink-soft);
+}
+
+.chapter p {
+	margin: 0 0 1.1rem;
+}
+.chapter ul,
+.chapter ol {
+	margin: 0 0 1.1rem;
+	padding-left: 1.5rem;
+}
+.chapter li {
+	margin: 0.3rem 0;
+}
+.chapter blockquote {
+	margin: 1.5rem 0;
+	padding-left: 1rem;
+	border-left: 2px solid var(--line);
+	color: var(--ink-soft);
+}
+.chapter hr {
+	border: none;
+	border-top: 1px solid var(--line);
+	margin: 2.5rem 0;
+}
+
+dfn {
+	font-style: italic;
+	font-weight: 600;
+}
+
+/* Footnotes, as Typst's export marks them up. */
+sup[role="doc-noteref"] a {
+	text-decoration: none;
+	padding: 0 0.1rem;
+}
+section[role="doc-endnotes"] {
+	margin-top: 3rem;
+	padding-top: 1rem;
+	border-top: 1px solid var(--line);
+	font-size: 0.9375rem;
+	color: var(--ink-soft);
+}
+section[role="doc-endnotes"] ol {
+	padding-left: 1.25rem;
+}
+
+/* ------------------------------------------------------------------ code -- */
+
+pre {
+	background: var(--code-bg);
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	padding: 0.85rem 1rem;
+	margin: 0 0 1.25rem;
+	overflow-x: auto;
+	position: relative;
+}
+pre code {
+	font-family: var(--mono);
+	font-size: 0.875rem;
+	line-height: 1.55;
+}
+:not(pre) > code {
+	font-family: var(--mono);
+	font-size: 0.9em;
+	background: var(--code-bg);
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	padding: 0.05em 0.3em;
+}
+
+/* Typst inlines syntax colours chosen for paper. Lift them for dark mode
+ * rather than shipping a second highlighting theme; see docs/AUTHORING.md. */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) pre code span {
+		filter: brightness(1.75) saturate(0.85);
+	}
+}
+:root[data-theme="dark"] pre code span {
+	filter: brightness(1.75) saturate(0.85);
+}
+
+.copy-button {
+	position: absolute;
+	top: 0.4rem;
+	right: 0.4rem;
+	font-family: var(--sans);
+	font-size: 0.7rem;
+	color: var(--ink-soft);
+	background: var(--page);
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	padding: 0.15rem 0.4rem;
+	cursor: pointer;
+	opacity: 0;
+	transition: opacity 0.1s;
+}
+pre:hover .copy-button,
+.copy-button:focus {
+	opacity: 1;
+}
+
+/* -------------------------------------------------- figures and tables -- */
+
+figure {
+	margin: 1.75rem 0;
+	text-align: center;
+}
+figure img {
+	max-width: 100%;
+	height: auto;
+}
+figcaption {
+	font-family: var(--sans);
+	font-size: 0.8125rem;
+	color: var(--ink-soft);
+	margin-top: 0.5rem;
+	text-align: center;
+}
+
+table {
+	border-collapse: collapse;
+	width: 100%;
+	font-size: 0.9375rem;
+	text-align: left;
+	margin-inline: auto;
+}
+figure table {
+	margin-bottom: 0.25rem;
+}
+th,
+td {
+	padding: 0.45rem 0.6rem;
+	border-bottom: 1px solid var(--line);
+}
+/* Only a real header row is styled as one: a `tr:first-child` rule would also
+ * catch the first body row, since Typst emits <thead> and <tbody>. Header
+ * rows come from `table.header(..)` in the chapter. */
+thead th {
+	border-bottom: 1.5px solid var(--ink-soft);
+	font-weight: 600;
+}
+thead th strong {
+	font-weight: inherit;
+}
+
+/* Wide content scrolls inside itself instead of stretching the page; the
+ * wrappers come from tools/build.py. */
+figure {
+	max-width: 100%;
+}
+.table-scroll {
+	overflow-x: auto;
+	margin-bottom: 1.25rem;
+}
+figure .table-scroll {
+	margin-bottom: 0.25rem;
+}
+
+math {
+	font-size: 1.05em;
+}
+/* Do not set `display` on <math>: its intrinsic `display: math` is what makes
+ * the browser lay the expression out, and overriding it stacks every atom
+ * vertically. Wide equations get their scroll container from the wrapper the
+ * shell adds instead. */
+math[display="block"] {
+	margin: 1.4rem auto;
+}
+.math-scroll {
+	overflow-x: auto;
+	overflow-y: hidden;
+	margin: 1.4rem 0;
+}
+.math-scroll math[display="block"] {
+	margin: 0 auto;
+}
+
+/* -------------------------------------------------------------- callouts -- */
+
+.callout {
+	margin: 1.5rem 0;
+	padding: 0.85rem 1rem;
+	border-left: 3px solid var(--note);
+	border-radius: 0 5px 5px 0;
+	background: var(--note-bg);
+	font-size: 0.9688rem;
+}
+.callout > :last-child {
+	margin-bottom: 0;
+}
+.callout-title {
+	font-family: var(--sans);
+	font-weight: 700;
+	font-size: 0.8125rem;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: var(--note);
+	margin: 0 0 0.35rem;
+}
+.callout-tip {
+	border-color: var(--tip);
+	background: var(--tip-bg);
+}
+.callout-tip .callout-title {
+	color: var(--tip);
+}
+.callout-warning {
+	border-color: var(--warning);
+	background: var(--warning-bg);
+}
+.callout-warning .callout-title {
+	color: var(--warning);
+}
+.callout-caution {
+	border-color: var(--caution);
+	background: var(--caution-bg);
+}
+.callout-caution .callout-title {
+	color: var(--caution);
+}
+
+/* -------------------------------------------------------- in-page toc -- */
+
+/* Only for narrow screens: above the breakpoint the sidebar already lists the
+ * current chapter's sections, and two copies of the same outline is noise. */
+.page-toc {
+	display: none;
+	margin: 0 0 1.5rem;
+	padding: 0.75rem 0.9rem;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	background: var(--page-alt);
+	font-family: var(--sans);
+	font-size: 0.8125rem;
+}
+.page-toc p {
+	margin: 0 0 0.35rem;
+	font-weight: 600;
+	color: var(--ink-soft);
+}
+.page-toc ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+.page-toc a {
+	display: block;
+	padding: 0.15rem 0;
+	color: var(--ink-soft);
+	text-decoration: none;
+}
+.page-toc a:hover {
+	color: var(--accent);
+}
+.page-toc .level-3 {
+	padding-left: 0.8rem;
+}
+@media (max-width: 56rem) {
+	.page-toc {
+		display: block;
+	}
+}
+
+/* ----------------------------------------------------- pager and footer -- */
+
+.pager {
+	display: flex;
+	gap: 1rem;
+	margin-top: 4rem;
+	border-top: 1px solid var(--line);
+	padding-top: 1.5rem;
+	font-family: var(--sans);
+}
+.pager a {
+	flex: 1;
+	padding: 0.75rem 0.9rem;
+	border: 1px solid var(--line);
+	border-radius: 6px;
+	text-decoration: none;
+	color: var(--ink);
+	font-size: 0.9375rem;
+}
+.pager a:hover {
+	border-color: var(--accent);
+}
+.pager .next {
+	text-align: right;
+}
+.pager span {
+	display: block;
+	font-size: 0.75rem;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--ink-soft);
+	margin-bottom: 0.2rem;
+}
+
+.chapter-footer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 1rem;
+	margin-top: 2rem;
+	font-family: var(--sans);
+	font-size: 0.8125rem;
+	color: var(--ink-soft);
+}
+.chapter-footer a {
+	color: var(--ink-soft);
+}
+
+/* --------------------------------------------------------------- landing -- */
+
+.landing .content {
+	padding-top: 4rem;
+}
+.cover {
+	text-align: center;
+	margin-bottom: 4rem;
+}
+.cover h1 {
+	font-size: clamp(2.2rem, 1.6rem + 2.4vw, 3.2rem);
+	line-height: 1.1;
+	margin: 0 0 0.75rem;
+	letter-spacing: -0.015em;
+}
+.cover .subtitle {
+	font-size: 1.15rem;
+	color: var(--ink-soft);
+	margin: 0 0 1.25rem;
+}
+.cover .subtitle:empty,
+.cover .authors:empty,
+.cover .blurb:empty {
+	display: none;
+}
+.cover .authors {
+	font-family: var(--sans);
+	font-size: 0.9375rem;
+	margin: 0 0 1.5rem;
+}
+.cover .blurb {
+	margin: 0 auto 2rem;
+	max-width: 30rem;
+	color: var(--ink-soft);
+}
+.cover-actions {
+	display: flex;
+	gap: 0.75rem;
+	justify-content: center;
+	flex-wrap: wrap;
+}
+
+.button {
+	font-family: var(--sans);
+	font-size: 0.9375rem;
+	font-weight: 600;
+	padding: 0.55rem 1.1rem;
+	border-radius: 6px;
+	text-decoration: none;
+	background: var(--accent);
+	color: var(--page);
+	border: 1px solid var(--accent);
+}
+.button.secondary {
+	background: none;
+	color: var(--accent);
+}
+.button:hover {
+	opacity: 0.9;
+}
+
+.contents-heading {
+	font-size: 0.8125rem;
+	font-family: var(--sans);
+	font-weight: 600;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--ink-soft);
+	border-bottom: 1px solid var(--line);
+	padding-bottom: 0.5rem;
+	margin-bottom: 1rem;
+}
+.contents-part {
+	font-size: 0.9375rem;
+	font-family: var(--sans);
+	margin: 2rem 0 0.5rem;
+	color: var(--ink-soft);
+}
+ol.contents {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+ol.contents > li {
+	margin: 0 0 0.75rem;
+}
+.contents-chapter {
+	font-weight: 600;
+	font-size: 1.05rem;
+	text-decoration: none;
+}
+.contents-chapter:hover {
+	text-decoration: underline;
+}
+.contents-chapter .num {
+	color: var(--ink-soft);
+	font-variant-numeric: tabular-nums;
+	margin-right: 0.5rem;
+}
+.contents-sections {
+	list-style: none;
+	margin: 0.25rem 0 0;
+	padding-left: 1.75rem;
+}
+.contents-sections a {
+	font-family: var(--sans);
+	font-size: 0.875rem;
+	color: var(--ink-soft);
+	text-decoration: none;
+}
+.contents-sections a:hover {
+	color: var(--accent);
+}
+
+/* ---------------------------------------------------------------- search -- */
+
+.search-dialog {
+	width: min(40rem, 92vw);
+	max-height: 70vh;
+	margin-top: 8vh;
+	padding: 0;
+	border: 1px solid var(--line);
+	border-radius: 10px;
+	background: var(--page);
+	color: var(--ink);
+	box-shadow: var(--shadow);
+	overflow: hidden;
+}
+.search-dialog::backdrop {
+	background: rgb(0 0 0 / 35%);
+	backdrop-filter: blur(2px);
+}
+.search-form {
+	display: flex;
+	align-items: center;
+	border-bottom: 1px solid var(--line);
+}
+.search-input {
+	flex: 1;
+	border: none;
+	background: none;
+	color: inherit;
+	font-family: var(--sans);
+	font-size: 1rem;
+	padding: 0.9rem 1rem;
+}
+.search-input:focus {
+	outline: none;
+}
+.search-close {
+	font-family: var(--mono);
+	font-size: 0.7rem;
+	color: var(--ink-soft);
+	background: none;
+	border: 1px solid var(--line);
+	border-radius: 4px;
+	margin-right: 0.75rem;
+	padding: 0.15rem 0.35rem;
+	cursor: pointer;
+}
+.search-results {
+	overflow-y: auto;
+	max-height: calc(70vh - 3.5rem);
+}
+.search-result {
+	display: block;
+	padding: 0.7rem 1rem;
+	text-decoration: none;
+	color: var(--ink);
+	border-bottom: 1px solid var(--line);
+}
+.search-result:last-child {
+	border-bottom: none;
+}
+.search-result[aria-selected="true"],
+.search-result:hover {
+	background: var(--accent-soft);
+}
+.search-result strong {
+	font-family: var(--sans);
+	font-size: 0.9375rem;
+	display: block;
+}
+.search-result em {
+	font-size: 0.8125rem;
+	color: var(--ink-soft);
+	font-style: normal;
+	display: block;
+	margin-top: 0.15rem;
+}
+.search-result mark {
+	background: color-mix(in srgb, var(--accent) 25%, transparent);
+	color: inherit;
+}
+.search-empty {
+	padding: 1rem;
+	color: var(--ink-soft);
+	font-family: var(--sans);
+	font-size: 0.875rem;
+}
+
+/* ------------------------------------------------------------ responsive -- */
+
+@media (max-width: 56rem) {
+	.layout {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.sidebar-toggle {
+		display: block;
+	}
+	.sidebar {
+		display: none;
+		position: fixed;
+		inset: var(--topbar-height) 0 0 0;
+		max-height: none;
+		width: 100%;
+		z-index: 4;
+		background: var(--page);
+		border-right: none;
+	}
+	.sidebar.open {
+		display: block;
+	}
+	.content {
+		padding: 2rem 1.25rem 5rem;
+	}
+	.pdf-link {
+		display: none;
+	}
+}
+
+@media print {
+	.topbar,
+	.sidebar,
+	.pager,
+	.page-toc,
+	.chapter-footer,
+	.search-dialog {
+		display: none;
+	}
+	.content {
+		padding: 0;
+	}
+	body {
+		font-size: 11pt;
+	}
+}
+
+/* Section highlighted by the scrollspy. */
+.toc-sections a.active,
+.page-toc a.active {
+	color: var(--accent);
+	font-weight: 600;
+}
+
+/* The pages that are on the site and are not the book. Deliberately quiet:
+   below the contents, smaller than it, and not in the book's navigation.
+   Somebody looking for them finds them; somebody reading the book does not
+   trip. */
+.aside-pages {
+	margin: 3rem auto 0;
+	max-width: var(--measure);
+	padding: 1.25rem 0 0;
+	border-top: 1px solid var(--line);
+}
+
+.aside-pages h2 {
+	margin: 0 0 0.75rem;
+	font-size: 0.8rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--ink-soft);
+}
+
+.aside-pages ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	gap: 0.75rem;
+}
+
+.aside-pages a {
+	font-weight: 600;
+}
+
+.aside-when {
+	margin-left: 0.4rem;
+	font-size: 0.8rem;
+	color: var(--ink-soft);
+}
+
+.aside-blurb {
+	display: block;
+	font-size: 0.875rem;
+	color: var(--ink-soft);
+}
