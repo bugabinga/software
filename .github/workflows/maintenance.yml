@@ -35,7 +35,7 @@ jobs:
 
       # For `mise latest`. Nothing else in the sweep needs it, and no tools
       # are installed here -- only asked about.
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           install: false
 
@@ -75,7 +75,7 @@ jobs:
 
       - name: Open or update the upgrade pull request
         if: steps.versions.outputs.behind == 'true'
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8
         with:
           branch: maintenance/typst-${{ steps.versions.outputs.latest }}
           delete-branch: true
